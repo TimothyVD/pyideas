@@ -42,6 +42,9 @@ Measurable_States = collections.OrderedDict(sorted(Measurable_States.items(), ke
 
 ## Automatic conversion of variables to symbols
 def Analytic_local_sensitivities(System):
+	'''
+	Analytic derivation of the local sensitivities
+	'''
     symbol_list = []
     for i in range(len(System.keys())):
         ## Deleting all spaces
