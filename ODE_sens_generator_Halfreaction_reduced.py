@@ -13,24 +13,25 @@ inic = [5.,0.,1.,0.,0.,0.,0.,0.]
 
 t = np.linspace(0, 20, 10000)
 
-Modelname = 'MODEL_Halfreact'
+Modelname = 'MODEL_Halfreaction'
 
-Parameters = {'e0':1,'kfcat':1,'krcat':1,'lambd':1,'gamma':1,'keq':1,'kaphM':1,
-              'kpeaSi':1,'kipaSi':1,'kipaM':1,'kaphSi':5,'kaceSi':1,'kpeaM':1,
-              'kaceSe':1,'kaceM':1,'kipai':2,'kpeai':6}
+Parameters = {'k1':1/10,'k1m':1/20,
+              'k2':1/20,'k2m':1/20,
+              'k3':1/200,'k3m':1/175,
+              'k4':1/200,'k4m':1/165}
               
 Parameters = collections.OrderedDict(sorted(Parameters.items(), key=lambda t: t[0]))
 Parameters.names = Parameters.keys()
 Parameters.vals = Parameters.values()
               
-System =    {'dIPA':'(e0*kfcat*krcat*( lambd*IPA*APH - gamma*(ACE*PEA)/keq))/(\
-        (krcat*kaphM*lambd*IPA*(1 + gamma*PEA/kpeaSi + IPA/kipaSi)) +\
-        (krcat*kipaM*APH*lambd*(1 + APH/kaphSi + gamma*ACE/kaceSi)) +\
-        (kfcat*kpeaM*ACE/keq*gamma*(1 + APH/kaphSi + lambd*ACE/kaceSe)) +\
-        (kfcat*kaceM*PEA/keq*gamma*(1 + PEA/kpeaSi + lambd*IPA/kipaSi)) +\
-        (krcat*lambd*IPA*APH) + (kfcat*kpeaM*lambd*gamma*IPA*ACE/(keq*kipai)) +\
-        (kfcat*gamma*ACE*PEA/keq) + (krcat*kipaM*lambd*gamma*APH*PEA/kpeai)\
-        )'}
+System =    {'dE':'k1m*Es*P + k4*EP + k2*Es*B - k1*E*A - k4*E*P - k2m*E*Q',
+             'dEs':'- k1m*Es*P + k3*EsQ - k2*Es*B + k1*E*A - k3*Es + k2m*E*Q',
+             'dA':'- k1*E*A + k1m*Es*P',
+             'dB':'- k2*Es*B + k2m*E*Q',
+             'dP':'k1*E*A - k1m*Es*P - k4*E*P + k4m*EP',
+             'dQ':'k2*E*B - k2m*E*Q - k3*Es*Q + k3m*EsQ',
+             'dEsQ':'k3*Es*Q - k3m*EsQ',
+             'dEP':'k4*E*P - k4m*EP'}
              
 System = collections.OrderedDict(sorted(System.items(), key=lambda t: t[0]))
 System.names = System.keys()
@@ -212,8 +213,13 @@ r = MakeModel(Modelname,System,Parameters,Out,symbol_list)
 sys.path.append('/media/DATA/Dropbox/Transaminase')
 import MODEL_Halfreaction
 
+<<<<<<< HEAD
 #extra def solve_ode
 res = spin.odeint(MODEL_Halfreaction.system,inic,t,args=(Parameters,), full_output=1,hmax=0.0001)
+=======
+#res = spin.odeint(MODEL_Halfreaction.system,inic,t,args=(Parameters,), full_output=1,hmax=0.0001)
+res = spin.odeint(MODEL_Halfreaction.system,inic,t,args=(Parameters,), full_output=1)
+>>>>>>> upstream/master
 
 #extra def plot... ->reform to matplotlib
 pl.plot(t,res[0])
@@ -251,4 +257,8 @@ for h in range(len(System.keys())):
         k = pl.plot(t,sens)
         pl.legend((k),(symbol_list[i],))
         #pl.legend(r[8*i:7+8*i])
+<<<<<<< HEAD
 #    pl.savefig('/media/DATA/Dropbox/Transaminase/Sensitivity/Sensitivity_'+System.keys()[h]+'.pdf')
+=======
+    #pl.savefig('/media/DATA/Dropbox/Transaminase/Sensitivity/Sensitivity_'+System.keys()[h]+'.pdf')
+>>>>>>> upstream/master
