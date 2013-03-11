@@ -15,23 +15,22 @@ t = np.linspace(0, 20, 10000)
 
 Modelname = 'MODEL_Halfreact'
 
-Parameters = {'k1':1/10,'k1m':1/20,
-              'k2':1/20,'k2m':1/20,
-              'k3':1/200,'k3m':1/175,
-              'k4':1/200,'k4m':1/165}
+Parameters = {'e0':1,'kfcat':1,'krcat':1,'lambd':1,'gamma':1,'keq':1,'kaphM':1,
+              'kpeaSi':1,'kipaSi':1,'kipaM':1,'kaphSi':5,'kaceSi':1,'kpeaM':1,
+              'kaceSe':1,'kaceM':1,'kipai':2,'kpeai':6}
               
 Parameters = collections.OrderedDict(sorted(Parameters.items(), key=lambda t: t[0]))
 Parameters.names = Parameters.keys()
 Parameters.vals = Parameters.values()
               
-System =    {'dE':'k1m*Es*P + k4*EP + k2*Es*B - k1*E*A - k4*E*P - k2m*E*Q',
-             'dEs':'- k1m*Es*P + k3*EsQ - k2*Es*B + k1*E*A - k3*Es + k2m*E*Q',
-             'dA':'- k1*E*A + k1m*Es*P',
-             'dB':'- k2*Es*B + k2m*E*Q',
-             'dP':'k1*E*A - k1m*Es*P - k4*E*P + k4m*EP',
-             'dQ':'k2*E*B - k2m*E*Q - k3*Es*Q + k3m*EsQ',
-             'dEsQ':'k3*Es*Q - k3m*EsQ',
-             'dEP':'k4*E*P - k4m*EP'}
+System =    {'dIPA':'(e0*kfcat*krcat*( lambd*IPA*APH - gamma*(ACE*PEA)/keq))/(\
+        (krcat*kaphM*lambd*IPA*(1 + gamma*PEA/kpeaSi + IPA/kipaSi)) +\
+        (krcat*kipaM*APH*lambd*(1 + APH/kaphSi + gamma*ACE/kaceSi)) +\
+        (kfcat*kpeaM*ACE/keq*gamma*(1 + APH/kaphSi + lambd*ACE/kaceSe)) +\
+        (kfcat*kaceM*PEA/keq*gamma*(1 + PEA/kpeaSi + lambd*IPA/kipaSi)) +\
+        (krcat*lambd*IPA*APH) + (kfcat*kpeaM*lambd*gamma*IPA*ACE/(keq*kipai)) +\
+        (kfcat*gamma*ACE*PEA/keq) + (krcat*kipaM*lambd*gamma*APH*PEA/kpeai)\
+        )'}
              
 System = collections.OrderedDict(sorted(System.items(), key=lambda t: t[0]))
 System.names = System.keys()
@@ -62,20 +61,22 @@ def Analytic_local_sensitivities(System):
             print system_intern
             print j_start
             if system_intern[j:j+2]=='**':
-                print system_intern[j_start:j]                
-                addto = "= sympy.symbols('"+system_intern[j_start:j]+"')"
-                #print addto
-                exec(system_intern[j_start:j] + addto)
-                symbol_list.append(system_intern[j_start:j])
+                print system_intern[j_start:j]
+                if not system_intern[j_start:j].isdigit():
+                    addto = "= sympy.symbols('"+system_intern[j_start:j]+"')"
+                    #print addto
+                    exec(system_intern[j_start:j] + addto)
+                    symbol_list.append(system_intern[j_start:j])
                 j_start = j+2
                 j +=2
                 continue
             elif system_intern[j] == '*' or system_intern[j] == '+' or system_intern[j] == '-' or system_intern[j] == '/' or system_intern[j]==';':
-                print system_intern[j_start:j]                
-                addto = "= sympy.symbols('"+system_intern[j_start:j]+"')"
-                #print addto
-                exec(system_intern[j_start:j] + addto)
-                symbol_list.append(system_intern[j_start:j])
+                print system_intern[j_start:j]
+                if not system_intern[j_start:j].isdigit():
+                    addto = "= sympy.symbols('"+system_intern[j_start:j]+"')"
+                    #print addto
+                    exec(system_intern[j_start:j] + addto)
+                    symbol_list.append(system_intern[j_start:j])
                 j_start = j+1
             j+=1
         del system_intern
@@ -131,12 +132,12 @@ def MakeCanonical(System,Parameters,Measurable_States):
     D = np.zeros([U_len,U_len])
     return A,B,C,D
     
-A,B,C,D = MakeCanonical(System,Parameters,Measurable_States)
-
-print A
-print B
-print C
-print D
+#A,B,C,D = MakeCanonical(System,Parameters,Measurable_States)
+#
+#print A
+#print B
+#print C
+#print D
 
 
 
@@ -197,7 +198,6 @@ def MakeModel(Modelname,System,Parameters,Out,symbol_list):
     file.close()
     print 'Execution completed.'
     
-    os.path.dirname(os.path.realpath(__file__))
     return r
 
 r = MakeModel(Modelname,System,Parameters,Out,symbol_list)
