@@ -205,11 +205,17 @@ def MakeModel(Modelname,System,Parameters,Out,symbol_list):
 
 r = MakeModel(Modelname,System,Parameters,Out,symbol_list)
 
+
+
+
+
 sys.path.append('/media/DATA/Dropbox/Transaminase')
 import MODEL_Halfreaction
 
+#extra def solve_ode
 res = spin.odeint(MODEL_Halfreaction.system,inic,t,args=(Parameters,), full_output=1,hmax=0.0001)
 
+#extra def plot... ->reform to matplotlib
 pl.plot(t,res[0])
 #pl.ylim([-1,10])
 pl.legend(['E','Es','A','B','P','Q','EsQ','EP'])
@@ -228,12 +234,13 @@ for i in bereik:
 #pl.show()
 
 
+#berekenen van de 
 test=[]
 for i in range(len(t)):
     test.append(MODEL_Halfreaction.sensitivities(res[0][i,:],Parameters))
 
 for h in range(len(System.keys())):
-    pl.figure(h)
+    pl.figure(h) #->reform to matplotlib
     print System.keys()[h].replace("d","")
     pl.suptitle(System.keys()[h].replace("d",""))
     for i in range(len(symbol_list)):
@@ -244,4 +251,4 @@ for h in range(len(System.keys())):
         k = pl.plot(t,sens)
         pl.legend((k),(symbol_list[i],))
         #pl.legend(r[8*i:7+8*i])
-    pl.savefig('/media/DATA/Dropbox/Transaminase/Sensitivity/Sensitivity_'+System.keys()[h]+'.pdf')
+#    pl.savefig('/media/DATA/Dropbox/Transaminase/Sensitivity/Sensitivity_'+System.keys()[h]+'.pdf')
