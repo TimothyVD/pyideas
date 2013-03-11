@@ -213,13 +213,9 @@ r = MakeModel(Modelname,System,Parameters,Out,symbol_list)
 sys.path.append('/media/DATA/Dropbox/Transaminase')
 import MODEL_Halfreaction
 
-<<<<<<< HEAD
 #extra def solve_ode
-res = spin.odeint(MODEL_Halfreaction.system,inic,t,args=(Parameters,), full_output=1,hmax=0.0001)
-=======
 #res = spin.odeint(MODEL_Halfreaction.system,inic,t,args=(Parameters,), full_output=1,hmax=0.0001)
 res = spin.odeint(MODEL_Halfreaction.system,inic,t,args=(Parameters,), full_output=1)
->>>>>>> upstream/master
 
 #extra def plot... ->reform to matplotlib
 pl.plot(t,res[0])
