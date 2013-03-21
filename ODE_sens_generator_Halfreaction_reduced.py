@@ -100,105 +100,59 @@ def AnalyticLocalSens(System,Parameters):
 
 Sensitivity_symbols, Sensitivity_list = AnalyticLocalSens(System,Parameters)
 
-#def MakeCanonical(System,Parameters,Measurable_States,parameter_list,state_list):
-#    #for i in range(len(System.values())):
-#    for i in range(len(parameter_list)):
-#        addto = "= sympy.symbols('"+parameter_list[i]+"')"
-#        exec(parameter_list[i] + addto)
-##    for i in range(len(state_list)):
-###        addto = "= sympy.symbols('"+state_list[i]+"')"
-###        exec(state_list[i] + addto)
-##        addto = "= sympy.symbols('"+state_list[i]+"c')"
-##        exec(state_list[i] + addto)
-#    temp_path = os.path.dirname(os.path.realpath(__file__))+'/'+'Canonical_system'+'.py'
-#    print temp_path
-#    file = open(temp_path, 'w+')
-#    file.seek(0,0)
-#    file.write('# Canonical_system\n\n')
-#    file.write('import numpy as np\n')
-#    file.write('import sympy\n')
-#    file.write('def Linear_A(States_eq,Parameters):\n')
-#    file.write('\n')
-#    for i in range(len(state_list)):
-#        file.write('    '+state_list[i]+"_eq = sympy.symbols('"+state_list[i]+"_eq')\n")
-#    file.write('\n')
-#    for i in range(len(parameter_list)):
-#        file.write('    '+parameter_list[i]+" = sympy.symbols('"+Parameters.keys()[i]+"')\n")
-#    file.write('\n')
-#    
-#    for i in range(len(state_list)):
-#        for j in range(len(state_list)):
-#            if i is not j:
-#                addto = "= sympy.symbols('"+state_list[j]+"_eq')"
-#                exec(state_list[j] + addto)
-#            else:
-#                addto = "= sympy.symbols('"+state_list[j]+"')"
-#                exec(state_list[j] + addto)
-#        for j in range(len(System.values())):
-#            file.write('    '+System.keys()[j]+'d')
-#            file.write(state_list[i]+' = ')
-#            file.write(str(sympy.diff(eval(System.values()[j]),eval(state_list[i])))+'\n')
-#    Out_A = [0]*len(state_list)
-#    file.write('    '+'return np.matrix([')
-#    for i in range(len(state_list)):
-#        for j in range(len(state_list)):
-#            Out_A[j] = System.keys()[i]+'d'+state_list[j]
-#        file.write(str(Out_A).replace("'","")+',')
-#    file.seek(-1,2)
-#    file.write('])\n')
-#
-#            
-#    State_len = len(Measurable_States) 
-#    U_len = sum(Measurable_States.values())
-#    B = np.zeros([State_len,U_len])
-#    j=0
-#    for i in range(State_len):
-#        if Measurable_States.values()[i] == 1:
-#            B[i,j]=1
-#            j+=1
-#    file.write('\ndef Linear_B():\n   return np.')
-#    pprint.pprint(B,file)
-#    file.write('\ndef Linear_C():\n   return np.')
-#    C = np.transpose(B)
-#    pprint.pprint(C,file)
-#    file.write('\ndef Linear_D():\n   return np.')
-#    D = np.zeros([U_len,U_len])
-#    pprint.pprint(D,file)
-#    file.close()
-#    
-#MakeCanonical(System,Parameters,Measurable_States,symbol_list,state_list)
+def MakeCanonical(System,Parameters,Measurable_States,inic):
+    print System.keys()
+    # Symbolify parameters
+    for i in range(len(Parameters)):
+        exec(Parameters.keys()[i] + " = sympy.symbols('"+Parameters.keys()[i]+"')")
+    # Symbolify states
+    A = np.zeros([len(System),len(System)])
+    A_list = []
+    for i in range(len(System)):
+        for j in range(len(System)):
+            if i is not j:
+                exec(System.keys()[j][1:]+"= sympy.symbols('"+System.keys()[j][1:]+"_eq')")
+            else:
+                exec(System.keys()[j][1:] +" = sympy.symbols('"+System.keys()[j][1:]+"')")
+        for j in range(len(System)):
+           A_list.append(sympy.integrate(sympy.diff(eval(System.values()[j]),eval(System.keys()[i][1:])),eval(System.keys()[i][1:]))/eval(System.keys()[i][1:]))
+  
+    
+    for i in range(len(Parameters)):
+        exec(Parameters.keys()[i]+' = '+str(Parameters.values()[i]))
+    for i in range(len(System)):
+        exec(inic.keys()[i]+'_eq = '+str(inic.values()[i]))
+    
+    for i in range(len(System)):
+        for j in range(len(System)):
+            A[i,j] = eval(str(A_list[i*len(System)+j]))
 
-#sys.path.append('/media/DATA/Dropbox/Transaminase/biointense')
-#
-#temp_path = os.path.dirname(os.path.realpath(__file__))+'/'+'Test'+'.py'
-#print temp_path
-#file = open(temp_path, 'w+')
-#file.seek(0,0)
-#
-#def IdentifiabilityCheck(inic,Parameters):
-#    import Canonical_system
-#    A = Canonical_system.Linear_A(inic,Parameters)
-#    B = Canonical_system.Linear_B()
-#    C = Canonical_system.Linear_C()
-#    D = Canonical_system.Linear_D()
-#    
-#    s = sympy.symbols('s')
-#    
-#    pprint.pprint((s*sympy.eye(len(A))-A).adjugate(),file)
-#    
-##    H2 = (s*sympy.eye(len(A))-A).inv()
-##    H1 = C*H2*B+D
-##    return H1,H2
-#    
-##IdentifiabilityCheck(inic,Parameters)
-##print H1
-##print H2
-##
-##
-##pprint.pprint(H1,file)
-##pprint.pprint(H2,file)
-#
-#file.close()
+    B = np.zeros([len(Measurable_States) ,sum(Measurable_States.values())])
+    j=0
+    for i in range(len(Measurable_States)):
+        if Measurable_States.values()[i] == 1:
+            B[i,j]=1
+            j+=1
+    C = np.transpose(B)
+    D = np.zeros([sum(Measurable_States.values()),sum(Measurable_States.values())])
+    
+    return A,B,C,D
+    
+A,B,C,D = MakeCanonical(System,Parameters,Measurable_States,inic)
+
+
+def IdentifiabilityCheck(A,B,C,D):
+    s = sympy.symbols('s')
+   
+    H2 = C*((s*sympy.eye(len(A))-A).inv())
+    H1 = H2*B+D
+    return H1,H2
+    
+H1,H2 = IdentifiabilityCheck(A,B,C,D)
+
+#print H1
+#print H2
+
 
 iterations = 2
 
