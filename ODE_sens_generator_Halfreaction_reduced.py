@@ -5,7 +5,7 @@ from scipy import optimize
 import pylab as pl
 import sympy
 import sys
-import collections
+import ordereddict as collections
 import os
 import pprint
 
@@ -306,7 +306,7 @@ Out, symbol_list,state_list = Analytic_local_sensitivities(System)
 #
 #file.close()
 
-iterations = 4
+iterations = 2
 
 def TaylorSeriesApproach(System,state_list,parameter_list,Measurable_States,inic,iterations):
     '''
