@@ -49,27 +49,8 @@ Measurable_States = {'En':0,'Es':0,'SA':1,'SB':1,'PP':1,'PQ':1,'EsQ':0,'EP':0}
 #Measurable_States = {'X1':0,'X2':1}
 Measurable_States = collections.OrderedDict(sorted(Measurable_States.items(), key=lambda t: t[0]))
 
-#def Symbolify(dictionary):
-#    for i in range(len(dictionary.keys())):
-#        exec("global "+dictionary.keys()[i] /
-#        dictionary.keys()[i]+" = sympy.symbols('"+dictionary.keys()[i]+"')")
-#        print eval(dictionary.keys()[i])
-#    return dictionary.keys()
-#
-#Symbolify(Parameters)
-
-def Symbolify(Parameters,Measurable_states):
-    for i in range(len(Parameters.keys())):
-        exec(Parameters.keys()[i]+" = sympy.symbols('"+Parameters.keys()[i]+"')")
-    for i in range(len(Measurable_states.keys())):
-        exec(Measurable_states.keys()[i]+" = sympy.symbols('"+Measurable_states.keys()[i]+"')")        
-    return dictionary.keys()
-
-Symbolify(Parameters)
-    
-
 ## Automatic conversion of variables to symbols
-def Analytic_local_sensitivities(System,Parameters):
+def AnalyticLocalSens(System,Parameters):
     '''
     Analytic derivation of the local sensitivities
     '''
@@ -85,7 +66,7 @@ def Analytic_local_sensitivities(System,Parameters):
     # Make empty list for saving combined symbols corresponding with sensitivity
     Sensitivity_symbols = []
     
-    # 
+    # Calculate direct and indirect sensitivities
     for j in range(System.__len__()+1):
         for i in range(System.__len__()):
             for k in range(len(Parameters)):
@@ -93,83 +74,31 @@ def Analytic_local_sensitivities(System,Parameters):
                 Sensitivity_list.append(str(eval(System.values()[i])))
                 # Symbolic derivative of the system to a certain parameter
                 if j ==0:
+                    # Make symbol for pythonscript
                     Sensitivity_symbols.append(System.keys()[i]+'d'+Parameters.keys()[k])
+                    # Perform partial derivation to certian parameter
                     Sensitivity_list[-1] = sympy.diff(Sensitivity_list[-1],eval(Parameters.keys()[k]))
                 # First replace certain state by its derivative and then perform partial derivative to specific parameter
                 else:
+                    # Make symbol for pythonscript
                     Sensitivity_symbols.append(System.keys()[i]+System.keys()[j-1]+'X'+System.keys()[j-1]+'d'+Parameters.keys()[k])
+                    # Replace state by its derivative
                     exec(System.keys()[j-1][1:]+" = sympy.symbols('("+System.values()[j-1].replace(" ","")+")')")
+                    # Evaluate                    
                     Sensitivity_list[-1] = eval(str(Sensitivity_list[-1]))
                     #temp = sympy.diff(temp,eval(System.keys()[j-1].replace("d","")))*sympy.diff(eval(System[System.keys()[j-1]]),eval(parameter_list[k]))
+                    # Reset state to its original symbolic representation                    
                     exec(System.keys()[j-1][1:]+" = sympy.symbols('"+System.keys()[j-1][1:]+"')")
+                    # Perform partial derivation to certian parameter
                     Sensitivity_list[-1] = sympy.diff(Sensitivity_list[-1],eval(Parameters.keys()[k]))
                    
-                    print Sensitivity_list[-1]
+                # Multiply sensitivity with the value of the parameter
                 Sensitivity_list[-1] = Sensitivity_list[-1]*eval(Parameters.keys()[k])#/eval(symbol_list[i]+'+1e-6')
-                #F[System.keys()[i]][parameter_list[k]] = str(temp)
-#                Sensivitivity_list.append(temp)
-#    
-    file = open(os.getcwd()+'/Sensitivity_Out.py','w+')
-    file.seek(0,0)
-    file.write('def Sensitivity_direct(States,Parameters):\n')
-    temp = []
-    for i in range(len(System)):
-        file.write('    '+System.keys()[i][1:]+" = States['"+System.keys()[i][1:]+"']\n")
-    file.write('\n')
-    for i in range(len(Parameters)):
-        file.write('    '+Parameters.keys()[i]+" = Parameters['"+Parameters.keys()[i]+"']\n")
-    file.write('\n')
-    for i in range(len(System)*len(Parameters)):
-        file.write('    '+Sensitivity_symbols[i]+' = '+str(Sensitivity_list[i])+'\n')
-        exec(Sensitivity_symbols[i]+" = sympy.symbols('"+Sensitivity_symbols[i]+"')")
-        temp.append(eval(Sensitivity_symbols[i]))
-    file.write('    Output = {}\n')
-    for i in range(System.__len__()):
-        for j in range(len(Parameters)):
-            file.write("    Output['"+'d'+System.keys()[i][1:]+'d'+Parameters.keys()[j]+"'] = "+'d'+System.keys()[i][1:]+'d'+Parameters.keys()[j]+'\n')
-   
-    file.write('    return Output\n')
-#    pprint.pprint(temp,file)
-    file.write('\n')
-    temp = []
-    test = []
-    file.write('def Sensitivity_indirect(States,Parameters):\n')
-    for i in range(len(System)):
-        file.write('    '+System.keys()[i][1:]+" = States['"+System.keys()[i][1:]+"']\n")
-    file.write('\n')
-    for i in range(len(Parameters)):
-        file.write('    '+Parameters.keys()[i]+" = Parameters['"+Parameters.keys()[i]+"']\n")
-    file.write('\n')
-    for i in range(len(System)*len(Parameters),len(Sensitivity_symbols)):
-        file.write('    '+Sensitivity_symbols[i]+' = '+str(Sensitivity_list[i])+'\n')
-        temp.append(Sensitivity_symbols[i])
-    file.write('    Output = {}\n')
-    for i in range(System.__len__()):
-        for j in range(len(Parameters)):
-            file.write('    d'+System.keys()[i][1:]+'d'+Parameters.keys()[j]+' = ')
-            for k in range(System.__len__()):
-                file.write('d'+System.keys()[i][1:]+'d'+System.keys()[k][1:]+'Xd'+System.keys()[k][1:]+'d'+Parameters.keys()[j]+' + ') 
-            file.seek(-3,2)
-            file.write('\n')
-#            for k in range(System.__len__()):
-#                file.write("    Output['"+'d'+state_list[i]+'d'+state_list[k]+'Xd'+state_list[k]+'d'+parameter_list[j]+"'] = " + 'd'+state_list[i]+'d'+state_list[k]+'Xd'+state_list[k]+'d'+parameter_list[j]+'\n')
-                
     
-            exec('d'+System.keys()[i][1:]+'d'+Parameters.keys()[j]+" = sympy.symbols('"+'d'+System.keys()[i][1:]+'d'+Parameters.keys()[j]+"')")
-            test.append(eval('d'+System.keys()[i][1:]+'d'+Parameters.keys()[j]))
-    
-    for i in range(System.__len__()):
-        for j in range(len(Parameters)):
-            file.write("    Output['"+'d'+System.keys()[i][1:]+'d'+Parameters.keys()[j]+"'] = "+'d'+System.keys()[i][1:]+'d'+Parameters.keys()[j]+'\n')
-            
-    
-    file.write('    return Output\n')
-    file.close()
-            
-    return Sensitivity_list
+    return Sensitivity_symbols, Sensitivity_list
     
 
-Out = Analytic_local_sensitivities(System)
+Sensitivity_symbols, Sensitivity_list = AnalyticLocalSens(System,Parameters)
 
 #def MakeCanonical(System,Parameters,Measurable_States,parameter_list,state_list):
 #    #for i in range(len(System.values())):
@@ -273,17 +202,17 @@ Out = Analytic_local_sensitivities(System)
 
 iterations = 2
 
-def TaylorSeriesApproach(System,state_list,parameter_list,Measurable_States,inic,iterations):
+def TaylorSeriesApproach(System,Parameters,Measurable_States,inic,iterations):
     '''
     Identifiability: TaylorSeriesApproach
     '''
     intern_system = {}
     # Convert all parameters to symbols
-    for i in range(len(parameter_list)):
-        exec(parameter_list[i]+" = sympy.symbols('"+parameter_list[i]+"')")
+    for i in range(len(Parameters)):
+        exec(Parameters.keys()[i]+" = sympy.symbols('"+Parameters.keys()[i]+"')")
     # Add (t) to the different states in order to calculate the derivative to the time   
-    for i in range(len(state_list)):
-        exec(state_list[i]+" = sympy.symbols('"+state_list[i]+"(t)')")
+    for i in range(len(System)):
+        exec(System.keys()[i][1:]+" = sympy.symbols('"+System.keys()[i][1:]+"(t)')")
     # Replace states without time by states WITH time
     for i in range(len(System)):
         intern_system[System.keys()[i]] = str(eval(System.values()[i]))
@@ -292,10 +221,10 @@ def TaylorSeriesApproach(System,state_list,parameter_list,Measurable_States,inic
     # Symbolify t
     t = sympy.symbols('t')
     # Delete state symbols (only looking to time dependence)
-    for i in range(len(state_list)):
-        exec('del '+state_list[i])
+    for i in range(len(System)):
+        exec('del '+System.keys()[i][1:])
     # Construct empty identification matrix
-    Ident_matrix = np.zeros([sum(Measurable_States.values()),iterations,len(parameter_list),len(parameter_list)])+10
+    Ident_matrix = np.zeros([sum(Measurable_States.values()),iterations,len(Parameters),len(Parameters)])+10
     # For all measurable states run TaylorSeriesApproac
     for h in range(sum(Measurable_States.values())):
         # Only perform identifiability analysis for measurable outputs
@@ -307,99 +236,131 @@ def TaylorSeriesApproach(System,state_list,parameter_list,Measurable_States,inic
         for i in range(iterations):
             if len(Measurable_Output_Derivatives) == 0:
                 # Copy original system in dict
-                Measurable_Output_Derivatives.append(str(intern_system['d'+state_list[h_measurable]]))
+                Measurable_Output_Derivatives.append(str(intern_system['d'+System.keys()[h_measurable][1:]]))
             else:
                 # Take derivative of previous element fo list
                 Measurable_Output_Derivatives.append(str(sympy.diff(Measurable_Output_Derivatives[-1],t)))
-            for j in range(len(state_list)):
+            for j in range(len(System)):
                 # Replace 'Derivative(X(t),t)' by dX(t) from system
-                Measurable_Output_Derivatives[-1] = Measurable_Output_Derivatives[-1].replace("Derivative("+state_list[j]+"(t), t)",'('+intern_system['d'+state_list[j]]+')')
-            #Measurable_Output_Derivatives_numerical_values.append(Measurable_Output_Derivatives[-1])
-            for j in range(len(state_list)):
+                Measurable_Output_Derivatives[-1] = Measurable_Output_Derivatives[-1].replace("Derivative("+System.keys()[j][1:]+"(t), t)",'('+intern_system['d'+System.keys()[j][1:]]+')')
+            Measurable_Output_Derivatives_numerical_values.append(Measurable_Output_Derivatives[-1])
+            for j in range(len(System)):
                 # Replace symbols by the corresponding numerical values
-                Measurable_Output_Derivatives_numerical_values[-1] = Measurable_Output_Derivatives_numerical_values[-1].replace(state_list[j]+"(t)",str(inic[state_list[j]]))
+                Measurable_Output_Derivatives_numerical_values[-1] = Measurable_Output_Derivatives_numerical_values[-1].replace(System.keys()[j][1:]+"(t)",str(inic[System.keys()[j][1:]]))
                 # Keep the symbolic values (still testing mode)                
                 #AAA[-1] = AAA[-1].replace(state_list[j]+"(t)",str(state_list[j]))
             # Simplify sympy expression
             Measurable_Output_Derivatives[-1] = str(sympy.simplify(Measurable_Output_Derivatives[-1]))
-            for j in range(len(parameter_list)):
-                for k in range(j+1,len(parameter_list)):
+            for j in range(len(Parameters)):
+                for k in range(j+1,len(Parameters)):
                     # Exchange two symbols with each other
-                    exec(parameter_list[j]+" = sympy.symbols('"+parameter_list[k]+"')")
-                    exec(parameter_list[k]+" = sympy.symbols('"+parameter_list[j]+"')")
+                    exec(Parameters.keys()[j]+" = sympy.symbols('"+Parameters.keys()[k]+"')")
+                    exec(Parameters.keys()[k]+" = sympy.symbols('"+Parameters.keys()[j]+"')")
                     # Evaluate 'symbolic' expression
                     Measurable_Output_Derivatives_temp_plus = str(eval(Measurable_Output_Derivatives_numerical_values[i]))
                     # Reset symbols to their original values                    
-                    exec(parameter_list[k]+" = sympy.symbols('"+parameter_list[k]+"')")
-                    exec(parameter_list[j]+" = sympy.symbols('"+parameter_list[j]+"')")
+                    exec(Parameters.keys()[k]+" = sympy.symbols('"+Parameters.keys()[k]+"')")
+                    exec(Parameters.keys()[j]+" = sympy.symbols('"+Parameters.keys()[j]+"')")
                     # If answer is the same then these parameters are not identifiable
                     Ident_matrix[h,i,k,j] = eval(Measurable_Output_Derivatives_numerical_values[i]+' != '+Measurable_Output_Derivatives_temp_plus)      
     return Ident_matrix
 
-Ident_matrix = TaylorSeriesApproach(System,state_list,symbol_list,Measurable_States,inic,iterations)
+Ident_matrix = TaylorSeriesApproach(System,Parameters,Measurable_States,inic,iterations)
 
 print Ident_matrix
-#
-#def MakeModel(Modelname,System,Parameters,Out,symbol_list):
-#    """
-#    MakeFile(file_name): makes a file.
-#    """
-#    temp_path = os.path.dirname(os.path.realpath(__file__))+'/'+Modelname+'.py'
-#    print temp_path
-#    file = open(temp_path, 'w+')
-#    file.seek(0,0)
-#    
-#    file.write('#'+Modelname+'\n')
-#    
-##    file.write('\n#Parameters\n\n')
-#
-#    #for i in range(len(Parameters)):
-#        #file.write(str(Parameters.keys()[i]) + ' = ' + str(Parameters.values()[i])+'\n')
-#        
-#    #file.write('\nParameters = '+str(Parameters.keys()).replace("'","")+'\n')
-#        
-#    file.write('\n#System definition\n\n')
-#    
-##    file.write('States = '+str(System.keys()).replace("'d","").replace("'","")+'\n\n')
-#    
-#    file.write('def system(States,t,Parameters):\n')
-#    for i in range(len(Parameters)):
-#        #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
-#        file.write('    '+str(Parameters.keys()[i]) + " = Parameters['"+Parameters.keys()[i]+"']\n")
-#    file.write('\n')
-#    for i in range(len(System)):
-#        file.write('    '+str(System.keys()[i]).replace("d","") + ' = States['+str(i)+']\n')
-#    file.write('\n')    
-#    for i in range(len(System)):
-#        file.write('    '+str(System.keys()[i]) + ' = ' + str(System.values()[i])+'\n')
-#    file.write('    return '+str(System.keys()).replace("'","")+'\n')
-#    
-#    file.write('\n#Sensitivities\n\n')
-#    
-#    file.write('def sensitivities(States,Parameters):\n')
-#    file.write('\n')
-#    for i in range(len(System)):
-#        file.write('    '+str(System.keys()[i]).replace("d","") + ' = States['+str(i)+']\n')
-#    file.write('\n') 
-#    for i in range(len(Parameters)):
-#        file.write('    '+str(Parameters.keys()[i]) + " = Parameters['"+Parameters.keys()[i]+"']\n")
-#    file.write('\n') 
-#    r = []
-#    for i in range(len(System.keys())):
-#        for j in range(len(symbol_list)):
-#            r.append(System.keys()[i]+'d'+symbol_list[j])
-#            file.write('    '+ r[-1] +' = ')
-#            file.write(Out[System.keys()[i]][symbol_list[j]]+'\n')
-#            #file.write(Out[System.keys()[i]][symbol_list[j]]+'*'+symbol_list[j]+'/'+str(System.keys()[i]).replace("d","")+'\n')
-#    file.write('    return '+str(r).replace("'",""))
-#            
-#    
-#    file.close()
-#    print 'Execution completed.'
-#    
-#    return r
-#
-#r = MakeModel(Modelname,System,Parameters,Out,symbol_list)
+
+def MakeModel(Modelname,System,Parameters,Sensitivity_symbols,Sensitivity_list):
+    """
+    MakeFile(file_name): makes a file.
+    """
+    temp_path = os.getcwd()+'/'+Modelname+'.py'
+    print temp_path
+    file = open(temp_path, 'w+')
+    file.seek(0,0)
+    
+    file.write('#'+Modelname+'\n')
+    
+#    file.write('\n#Parameters\n\n')
+
+    #for i in range(len(Parameters)):
+        #file.write(str(Parameters.keys()[i]) + ' = ' + str(Parameters.values()[i])+'\n')
+        
+    #file.write('\nParameters = '+str(Parameters.keys()).replace("'","")+'\n')
+        
+    file.write('\n#System definition\n\n')
+    
+#    file.write('States = '+str(System.keys()).replace("'d","").replace("'","")+'\n\n')
+    
+    file.write('def system(States,t,Parameters):\n')
+    for i in range(len(Parameters)):
+        #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
+        file.write('    '+str(Parameters.keys()[i]) + " = Parameters['"+Parameters.keys()[i]+"']\n")
+    file.write('\n')
+    for i in range(len(System)):
+        file.write('    '+str(System.keys()[i]).replace("d","") + ' = States['+str(i)+']\n')
+    file.write('\n')    
+    for i in range(len(System)):
+        file.write('    '+str(System.keys()[i]) + ' = ' + str(System.values()[i])+'\n')
+    file.write('    return '+str(System.keys()).replace("'","")+'\n')
+    
+    file.write('\n#Sensitivities\n\n')
+
+    file.write('def Sensitivity_direct(States,Parameters):\n')
+    temp = []
+    for i in range(len(System)):
+        file.write('    '+System.keys()[i][1:]+" = States['"+System.keys()[i][1:]+"']\n")
+    file.write('\n')
+    for i in range(len(Parameters)):
+        file.write('    '+Parameters.keys()[i]+" = Parameters['"+Parameters.keys()[i]+"']\n")
+    file.write('\n')
+    for i in range(len(System)*len(Parameters)):
+        file.write('    '+Sensitivity_symbols[i]+' = '+str(Sensitivity_list[i])+'\n')
+        exec(Sensitivity_symbols[i]+" = sympy.symbols('"+Sensitivity_symbols[i]+"')")
+        temp.append(eval(Sensitivity_symbols[i]))
+    file.write('    Output = {}\n')
+    for i in range(System.__len__()):
+        for j in range(len(Parameters)):
+            file.write("    Output['"+'d'+System.keys()[i][1:]+'d'+Parameters.keys()[j]+"'] = "+'d'+System.keys()[i][1:]+'d'+Parameters.keys()[j]+'\n')
+   
+    file.write('    return Output\n')
+#    pprint.pprint(temp,file)
+    file.write('\n')
+    temp = []
+    test = []
+    file.write('def Sensitivity_indirect(States,Parameters):\n')
+    for i in range(len(System)):
+        file.write('    '+System.keys()[i][1:]+" = States['"+System.keys()[i][1:]+"']\n")
+    file.write('\n')
+    for i in range(len(Parameters)):
+        file.write('    '+Parameters.keys()[i]+" = Parameters['"+Parameters.keys()[i]+"']\n")
+    file.write('\n')
+    for i in range(len(System)*len(Parameters),len(Sensitivity_symbols)):
+        file.write('    '+Sensitivity_symbols[i]+' = '+str(Sensitivity_list[i])+'\n')
+        temp.append(Sensitivity_symbols[i])
+    file.write('    Output = {}\n')
+    for i in range(System.__len__()):
+        for j in range(len(Parameters)):
+            file.write('    d'+System.keys()[i][1:]+'d'+Parameters.keys()[j]+' = ')
+            for k in range(System.__len__()):
+                file.write('d'+System.keys()[i][1:]+'d'+System.keys()[k][1:]+'Xd'+System.keys()[k][1:]+'d'+Parameters.keys()[j]+' + ') 
+            file.seek(-3,2)
+            file.write('\n')
+#            for k in range(System.__len__()):
+#                file.write("    Output['"+'d'+state_list[i]+'d'+state_list[k]+'Xd'+state_list[k]+'d'+parameter_list[j]+"'] = " + 'd'+state_list[i]+'d'+state_list[k]+'Xd'+state_list[k]+'d'+parameter_list[j]+'\n')
+                
+    
+            exec('d'+System.keys()[i][1:]+'d'+Parameters.keys()[j]+" = sympy.symbols('"+'d'+System.keys()[i][1:]+'d'+Parameters.keys()[j]+"')")
+            test.append(eval('d'+System.keys()[i][1:]+'d'+Parameters.keys()[j]))
+    
+    for i in range(System.__len__()):
+        for j in range(len(Parameters)):
+            file.write("    Output['"+'d'+System.keys()[i][1:]+'d'+Parameters.keys()[j]+"'] = "+'d'+System.keys()[i][1:]+'d'+Parameters.keys()[j]+'\n')
+            
+    
+    file.write('    return Output\n')
+    file.close()
+
+MakeModel(Modelname,System,Parameters,Sensitivity_symbols,Sensitivity_list)
 #
 #
 #
