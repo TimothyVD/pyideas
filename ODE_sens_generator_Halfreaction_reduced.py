@@ -333,51 +333,46 @@ def TaylorSeriesApproach(System,state_list,parameter_list,Measurable_States,inic
     Ident_matrix = np.zeros([sum(Measurable_States.values()),iterations,len(parameter_list),len(parameter_list)])+10
     # For all measurable states run TaylorSeriesApproac
     for h in range(sum(Measurable_States.values())):
+        # Only perform identifiability analysis for measurable outputs
         h_measurable = np.where(np.array(Measurable_States.values())==1)[0][h]
+        # Make list for measurable output derivatives
+        Measurable_Output_Derivatives = []
+        Measurable_Output_Derivatives_numerical_values = []
         # Number of iterations = nth order-derivatives
-        AAA = []
-        AAA_ingevuld = []
         for i in range(iterations):
-            if len(AAA) == 0:
-                AAA.append(str(intern_system['d'+state_list[h_measurable]]))
+            if len(Measurable_Output_Derivatives) == 0:
+                # Copy original system in dict
+                Measurable_Output_Derivatives.append(str(intern_system['d'+state_list[h_measurable]]))
             else:
-                AAA.append(str(sympy.diff(AAA[-1],t)))
+                # Take derivative of previous element fo list
+                Measurable_Output_Derivatives.append(str(sympy.diff(Measurable_Output_Derivatives[-1],t)))
             for j in range(len(state_list)):
-                AAA[-1] = AAA[-1].replace("Derivative("+state_list[j]+"(t), t)",'('+intern_system['d'+state_list[j]]+')')
-            AAA_ingevuld.append(AAA[-1])
+                # Replace 'Derivative(X(t),t)' by dX(t) from system
+                Measurable_Output_Derivatives[-1] = Measurable_Output_Derivatives[-1].replace("Derivative("+state_list[j]+"(t), t)",'('+intern_system['d'+state_list[j]]+')')
+            #Measurable_Output_Derivatives_numerical_values.append(Measurable_Output_Derivatives[-1])
             for j in range(len(state_list)):
-                AAA_ingevuld[-1] = AAA_ingevuld[-1].replace(state_list[j]+"(t)",str(inic[state_list[j]]))
+                # Replace symbols by the corresponding numerical values
+                Measurable_Output_Derivatives_numerical_values[-1] = Measurable_Output_Derivatives_numerical_values[-1].replace(state_list[j]+"(t)",str(inic[state_list[j]]))
+                # Keep the symbolic values (still testing mode)                
                 #AAA[-1] = AAA[-1].replace(state_list[j]+"(t)",str(state_list[j]))
-            AAA[-1] = str(sympy.simplify(AAA[-1]))
-#    print AAA
-#        for i in range(len(AAA)):
+            # Simplify sympy expression
+            Measurable_Output_Derivatives[-1] = str(sympy.simplify(Measurable_Output_Derivatives[-1]))
             for j in range(len(parameter_list)):
                 for k in range(j+1,len(parameter_list)):
-                    A_temp = AAA_ingevuld[i]
-#                    print parameter_list[j]
-#                    print parameter_list[k]
-#                    A_temp = A_temp.replace(parameter_list[j],'__temp__')
-#                    A_temp = A_temp.replace(parameter_list[k],parameter_list[j])
-#                    A_temp = A_temp.replace('__temp__',parameter_list[k])
-#                    print parameter_list[j]+" = sympy.symbols('"+parameter_list[k]+"')"
-#                    print parameter_list[k]+" = sympy.symbols('"+parameter_list[j]+"')"
+                    # Exchange two symbols with each other
                     exec(parameter_list[j]+" = sympy.symbols('"+parameter_list[k]+"')")
                     exec(parameter_list[k]+" = sympy.symbols('"+parameter_list[j]+"')")
-#                    print parameter_list[j]         
-#                    print eval(parameter_list[j])
-#                    print AAA[i]
-                    A_temp = str(eval(AAA_ingevuld[i]))
-#                    print AAA[i]
-#                    print eval(A_temp)
+                    # Evaluate 'symbolic' expression
+                    Measurable_Output_Derivatives_temp_plus = str(eval(Measurable_Output_Derivatives_numerical_values[i]))
+                    # Reset symbols to their original values                    
                     exec(parameter_list[k]+" = sympy.symbols('"+parameter_list[k]+"')")
                     exec(parameter_list[j]+" = sympy.symbols('"+parameter_list[j]+"')")
-                    Ident_matrix[h,i,k,j] = eval(AAA_ingevuld[i]+' != '+A_temp)
-                    
-    return AAA, Ident_matrix
+                    # If answer is the same then these parameters are not identifiable
+                    Ident_matrix[h,i,k,j] = eval(Measurable_Output_Derivatives_numerical_values[i]+' != '+Measurable_Output_Derivatives_temp_plus)      
+    return Ident_matrix
 
-A,Ident_matrix = TaylorSeriesApproach(System,state_list,symbol_list,Measurable_States,inic,iterations)
+Ident_matrix = TaylorSeriesApproach(System,state_list,symbol_list,Measurable_States,inic,iterations)
 
-print A
 print Ident_matrix
 #
 #def MakeModel(Modelname,System,Parameters,Out,symbol_list):
