@@ -178,7 +178,8 @@ def TaylorSeriesApproach(System,Parameters,Measurable_States,inic,iterations):
     for i in range(len(System)):
         exec('del '+System.keys()[i][1:])
     # Construct empty identification matrix
-    Ident_matrix = np.zeros([sum(Measurable_States.values()),iterations,len(Parameters),len(Parameters)])+10
+    Identifiability_Pairwise = np.zeros([sum(Measurable_States.values()),iterations,len(Parameters),len(Parameters)])+10
+    Identifiability_Ghostparameter = np.zeros([sum(Measurable_States.values()),iterations,len(Parameters)])+10
     # For all measurable states run TaylorSeriesApproac
     for h in range(sum(Measurable_States.values())):
         # Only perform identifiability analysis for measurable outputs
@@ -186,6 +187,8 @@ def TaylorSeriesApproach(System,Parameters,Measurable_States,inic,iterations):
         # Make list for measurable output derivatives
         Measurable_Output_Derivatives = []
         Measurable_Output_Derivatives_numerical_values = []
+        # Make ghost parameter
+        P_P_ghost = sympy.symbols('P_P_ghost')
         # Number of iterations = nth order-derivatives
         for i in range(iterations):
             if len(Measurable_Output_Derivatives) == 0:
@@ -216,12 +219,22 @@ def TaylorSeriesApproach(System,Parameters,Measurable_States,inic,iterations):
                     exec(Parameters.keys()[k]+" = sympy.symbols('"+Parameters.keys()[k]+"')")
                     exec(Parameters.keys()[j]+" = sympy.symbols('"+Parameters.keys()[j]+"')")
                     # If answer is the same then these parameters are not identifiable
-                    Ident_matrix[h,i,k,j] = eval(Measurable_Output_Derivatives_numerical_values[i]+' != '+Measurable_Output_Derivatives_temp_plus)      
-    return Ident_matrix
+                    Identifiability_Pairwise[h,i,k,j] = eval(Measurable_Output_Derivatives_numerical_values[i]+' != '+Measurable_Output_Derivatives_temp_plus)
+            for j in range(len(Parameters)):
+                # Exchange two symbols with each other
+                exec(Parameters.keys()[j]+" = sympy.symbols('P_P_ghost')")
+                # Evaluate 'symbolic' expression
+                Measurable_Output_Derivatives_temp_plus = str(eval(Measurable_Output_Derivatives_numerical_values[i]))
+                # Reset symbols to their original values                    
+                exec(Parameters.keys()[j]+" = sympy.symbols('"+Parameters.keys()[j]+"')")
+                # If answer is the same then these parameters are not identifiable
+                Identifiability_Ghostparameter[h,i,j] = eval(Measurable_Output_Derivatives_numerical_values[i]+' != '+Measurable_Output_Derivatives_temp_plus)
+    return Identifiability_Pairwise, Identifiability_Ghostparameter
 
-Ident_matrix = TaylorSeriesApproach(System,Parameters,Measurable_States,inic,iterations)
+Identifiability_Pairwise, Identifiability_Ghostparameter = TaylorSeriesApproach(System,Parameters,Measurable_States,inic,iterations)
 
-print Ident_matrix
+print Identifiability_Pairwise
+print Identifiability_Ghostparameter
 
 def MakeModel(Modelname,System,Parameters,Sensitivity_symbols,Sensitivity_list):
     """
