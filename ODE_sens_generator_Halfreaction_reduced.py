@@ -221,13 +221,13 @@ def TaylorSeriesApproach(System,Parameters,Measurable_States,inic,iterations):
                     # If answer is the same then these parameters are not identifiable
                     Identifiability_Pairwise[h,i,k,j] = eval(Measurable_Output_Derivatives_numerical_values[i]+' != '+Measurable_Output_Derivatives_temp_plus)
             for j in range(len(Parameters)):
-                # Exchange two symbols with each other
+                # Replace parameter by ghostparameter
                 exec(Parameters.keys()[j]+" = sympy.symbols('P_P_ghost')")
                 # Evaluate 'symbolic' expression
                 Measurable_Output_Derivatives_temp_plus = str(eval(Measurable_Output_Derivatives_numerical_values[i]))
-                # Reset symbols to their original values                    
+                # Reset parameter to its original value                   
                 exec(Parameters.keys()[j]+" = sympy.symbols('"+Parameters.keys()[j]+"')")
-                # If answer is the same then these parameters are not identifiable
+                # If answer is the same then this parameter is not unique identifiable
                 Identifiability_Ghostparameter[h,i,j] = eval(Measurable_Output_Derivatives_numerical_values[i]+' != '+Measurable_Output_Derivatives_temp_plus)
     return Identifiability_Pairwise, Identifiability_Ghostparameter
 
