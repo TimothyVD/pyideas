@@ -1,3 +1,8 @@
+r"""
+ODE GENERATOR
+*************
+"""
+
 from __future__ import division
 import numpy as np
 import scipy.integrate as spin
@@ -51,9 +56,8 @@ Measurable_States = collections.OrderedDict(sorted(Measurable_States.items(), ke
 
 ## Automatic conversion of variables to symbols
 def AnalyticLocalSens(System,Parameters):
-    '''
-    Analytic derivation of the local sensitivities
-    '''
+    r"""Analytic derivation of the local sensitivities
+    """
     # Symbolify system states
     for i in range(len(System)):
         exec(System.keys()[i][1:]+" = sympy.symbols('"+System.keys()[i][1:]+"')")
@@ -154,12 +158,65 @@ H1,H2 = IdentifiabilityCheck(A,B,C,D)
 #print H2
 
 
-iterations = 2
+iterations = 4
 
 def TaylorSeriesApproach(System,Parameters,Measurable_States,inic,iterations):
-    '''
-    Identifiability: TaylorSeriesApproach
-    '''
+    r"""
+Identifiability: TaylorSeriesApproach
+=====================================
+
+Parameters
+----------
+System: OrderedDict
+    Ordered dict with the keys as the derivative of a state (written as 'd'+State),
+    the values of the dictionary is the ODE system written as a string
+Parameters: OrderedDict
+    Ordered dict with parameter names as keys, parameter values are the values
+    of the dictionary
+Measurable_States: OrderedDict
+    Contains all the states, with key 'State' for all states. Values of 
+    the orderedDict are 1 if output is measurable and 0 if output is not 
+    measurable.
+inic: OrderedDict
+    Contains initial conditions for all states
+iterations: int
+    Number of derivatives the algorithm has to calculate (TaylorSeries!)
+
+Returns
+-------
+Identifiability_Pairwise: array
+    Contains for every Measurable state and every iteration, an array
+    (number parameters x number parameters), values of 1 show that this
+    parameter pair is not interchangeable. Values of 0 shows that this pair is 
+    interchangeable. Values of 10 can be ignored.
+
+Identifiability_Ghostparameter: array
+    Contains for every Measurable state and every iteration, an array
+    (1 x number parameters), a value of 1 show that this parameter is unique. 
+    A value of 0 states that this parameter is not uniquely identifiable.
+    
+
+References
+----------
+.. [1] E. Walter and L. Pronzato, "Identification of parametric models from experimental data.", 1997.
+
+Examples
+--------
+These are written in doctest format, and should illustrate how to
+use the function.
+
+>>> inic = {'X1':0,'X2':1}
+>>> Parameters = {'p1':0,'p2':0,'p3':0}
+>>> System = {'dX1':'-(p1+p2)*X1+p3*X2','dX2':'p1*X1-p3*X2'}
+>>> Measurable_States = {'X1':0,'X2':1}
+>>> iterations = 2
+
+>>> Identifiability_Pairwise, Identifiability_Ghostparameter = 
+TaylorSeriesApproach(System,Parameters,Measurable_States,inic,iterations)
+>>> print Identifiability_Pairwise
+>>> print Identifiability_Ghostparameter
+ 
+"""
     intern_system = {}
     # Convert all parameters to symbols
     for i in range(len(Parameters)):
