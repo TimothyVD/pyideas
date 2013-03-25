@@ -14,6 +14,9 @@ import ordereddict as collections
 import os
 import pandas as pd
 
+from matplotlib import colors
+import matplotlib.pyplot as plt
+
 
 
 class odegenerator(object):
@@ -93,11 +96,11 @@ class odegenerator(object):
         '''
         print self._Variables
 
-    def get__measured_variables(self):
+    def get_measured_variables(self):
         '''
         Help function for getting the values one can measure in the lab
         '''
-        print self._MeasuredList
+        return self._MeasuredList
 
     def get__time(self):
         '''
@@ -307,6 +310,67 @@ class odegenerator(object):
         
         return self.Identifiability_Pairwise, self.Identifiability_Ghostparameter
 
+    def taylor_compare_methods_check(self):
+        '''
+        Check if the two methods are giving the same result
+        '''
+        pass
+
+    def _pairwise_to_ghoststyle(self):
+        '''
+        '''
+
+    def plot_taylor_ghost(self, ax1, order = 0, redgreen = False):
+        '''
+        Make an overview plot of the identifiable parameters, given
+        a certain order
+        
+        ax based in order to make order combinations possible
+        '''
+        mat_to_plot = self.Identifiability_Ghostparameter[:,order,:]
+              
+        xplaces=np.arange(0,mat_to_plot.shape[1],1)
+        yplaces=np.arange(0,mat_to_plot.shape[0],1)
+                
+        if redgreen == True:
+            cmap = colors.ListedColormap(['red','green'])
+        else:
+            cmap = colors.ListedColormap(['.5','1.'])
+            
+        bounds=[0,0.9,2.]
+        norm = colors.BoundaryNorm(bounds, cmap.N)
+        #plot tje colors for the frist tree parameters
+        ax1.matshow(mat_to_plot,cmap=cmap,norm=norm)
+        
+        #Plot the rankings in the matrix
+        for i in range(mat_to_plot.shape[1]):
+            for j in range(mat_to_plot.shape[0]):
+                if mat_to_plot[j,i]== 0.:
+                    ax1.text(xplaces[i], yplaces[j], '-', 
+                             fontsize=14, horizontalalignment='center', 
+                             verticalalignment='center')
+                else:
+                    ax1.text(xplaces[i], yplaces[j], '+', 
+                             fontsize=14, horizontalalignment='center', 
+                             verticalalignment='center')   
+                             
+        #place ticks and labels
+        ax1.set_xticks(xplaces)
+        ax1.set_xbound(-0.5,xplaces.size-0.5)
+        ax1.set_xticklabels(self.Parameters.keys(), rotation = 30, ha='left')
+        
+        ax1.set_yticks(yplaces)
+        ax1.set_ybound(yplaces.size-0.5,-0.5)
+        ax1.set_yticklabels(self.get_measured_variables())
+        
+        ax1.spines['bottom'].set_color('none')
+        ax1.spines['right'].set_color('none')
+        ax1.xaxis.set_ticks_position('top')
+        ax1.yaxis.set_ticks_position('left')
+        
+        return ax1
+       
+        
     def _make_canonical(self):
         '''
         '''
@@ -507,13 +571,25 @@ System =    {'dEn':'k1m*Es*PP + k4*EP + k2*Es*SB - k1*En*SA - k4*En*PP - k2m*En*
                         
 Modelname = 'MODEL_Halfreaction'
 
-#INITIATE MODEL
+##INITIATE MODEL
 M1 = odegenerator(System, Parameters, Modelname = Modelname)
 
 #M1.analytic_local_sensitivity()
 M1.set_measured_states(['SA', 'SB', 'PP', 'PQ'])
 M1.set_initial_conditions({'SA':5.,'SB':0.,'En':1.,'EP':0.,'Es':0.,'EsQ':0.,'PP':0.,'PQ':0.})
-#M1.taylor_series_approach(2)
+M1.taylor_series_approach(2)
 #H1,H2 = M1.identifiability_check_laplace_transform()
+
 M1.set_time({'start':1,'end':20,'nsteps':10000})
-modeloutput = M1.solve_ode(plotit=True)
+modeloutput = M1.solve_ode(plotit=False)
+#modeloutput.plot(subplots=True)
+
+#TODO put together in 1 figure option as function
+fig = plt.figure()
+fig.subplots_adjust(hspace=0.3)
+ax1 = fig.add_subplot(211)
+ax1 = M1.plot_taylor_ghost(ax1, order = 0, redgreen=False)
+ax1.set_title('First order derivative')
+ax2 = fig.add_subplot(212)
+ax2 = M1.plot_taylor_ghost(ax2, order = 1, redgreen=False)
+ax2.set_title('Second order derivative')
