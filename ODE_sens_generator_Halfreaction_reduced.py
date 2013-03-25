@@ -18,7 +18,7 @@ import pprint
 #inic = [0,1]
 inic = {'SA':5.,'SB':0.,'En':1.,'EP':0.,'Es':0.,'EsQ':0.,'PP':0.,'PQ':0.}
 
-t = np.linspace(0, 20, 10000)
+#t = np.linspace(0, 20, 10000)
 
 Modelname = 'MODEL_Halfreaction'
 
@@ -29,8 +29,8 @@ Parameters = {'k1':1/10,'k1m':1/20,
               'k4':1/200,'k4m':1/165}
               
 Parameters = collections.OrderedDict(sorted(Parameters.items(), key=lambda t: t[0]))
-Parameters.names = Parameters.keys()
-Parameters.vals = Parameters.values()
+#Parameters.names = Parameters.keys()
+#Parameters.vals = Parameters.values()
 
   
 #System = {'dX1':'-p1*X1-p2*(1-p3*X2)*X1',
@@ -47,8 +47,8 @@ System =    {'dEn':'k1m*Es*PP + k4*EP + k2*Es*SB - k1*En*SA - k4*En*PP - k2m*En*
              'dEP':'k4*En*PP - k4m*EP'}
              
 System = collections.OrderedDict(sorted(System.items(), key=lambda t: t[0]))
-System.names = System.keys()
-System.vals = System.values()
+#System.names = System.keys()
+#System.vals = System.values()
 
 Measurable_States = {'En':0,'Es':0,'SA':1,'SB':1,'PP':1,'PQ':1,'EsQ':0,'EP':0}
 #Measurable_States = {'X1':0,'X2':1}
@@ -102,7 +102,7 @@ def AnalyticLocalSens(System,Parameters):
     return Sensitivity_symbols, Sensitivity_list
     
 
-Sensitivity_symbols, Sensitivity_list = AnalyticLocalSens(System,Parameters)
+#Sensitivity_symbols, Sensitivity_list = AnalyticLocalSens(System,Parameters)
 
 def MakeCanonical(System,Parameters,Measurable_States,inic):
     print System.keys()
@@ -142,7 +142,7 @@ def MakeCanonical(System,Parameters,Measurable_States,inic):
     
     return A,B,C,D
     
-A,B,C,D = MakeCanonical(System,Parameters,Measurable_States,inic)
+#A,B,C,D = MakeCanonical(System,Parameters,Measurable_States,inic)
 
 
 def IdentifiabilityCheck(A,B,C,D):
@@ -152,71 +152,70 @@ def IdentifiabilityCheck(A,B,C,D):
     H1 = H2*B+D
     return H1,H2
     
-H1,H2 = IdentifiabilityCheck(A,B,C,D)
+#H1,H2 = IdentifiabilityCheck(A,B,C,D)
 
 #print H1
 #print H2
 
-
-iterations = 4
+#iterations = 2
 
 def TaylorSeriesApproach(System,Parameters,Measurable_States,inic,iterations):
-    r"""
-Identifiability: TaylorSeriesApproach
-=====================================
-
-Parameters
-----------
-System: OrderedDict
-    Ordered dict with the keys as the derivative of a state (written as 'd'+State),
-    the values of the dictionary is the ODE system written as a string
-Parameters: OrderedDict
-    Ordered dict with parameter names as keys, parameter values are the values
-    of the dictionary
-Measurable_States: OrderedDict
-    Contains all the states, with key 'State' for all states. Values of 
-    the orderedDict are 1 if output is measurable and 0 if output is not 
-    measurable.
-inic: OrderedDict
-    Contains initial conditions for all states
-iterations: int
-    Number of derivatives the algorithm has to calculate (TaylorSeries!)
-
-Returns
--------
-Identifiability_Pairwise: array
-    Contains for every Measurable state and every iteration, an array
-    (number parameters x number parameters), values of 1 show that this
-    parameter pair is not interchangeable. Values of 0 shows that this pair is 
-    interchangeable. Values of 10 can be ignored.
-
-Identifiability_Ghostparameter: array
-    Contains for every Measurable state and every iteration, an array
-    (1 x number parameters), a value of 1 show that this parameter is unique. 
-    A value of 0 states that this parameter is not uniquely identifiable.
+    ''''
+    Identifiability: TaylorSeriesApproach
     
-
-References
-----------
-.. [1] E. Walter and L. Pronzato, "Identification of parametric models from experimental data.", 1997.
-
-Examples
---------
-These are written in doctest format, and should illustrate how to
-use the function.
-
->>> inic = {'X1':0,'X2':1}
->>> Parameters = {'p1':0,'p2':0,'p3':0}
->>> System = {'dX1':'-(p1+p2)*X1+p3*X2','dX2':'p1*X1-p3*X2'}
->>> Measurable_States = {'X1':0,'X2':1}
->>> iterations = 2
-
->>> Identifiability_Pairwise, Identifiability_Ghostparameter = 
-TaylorSeriesApproach(System,Parameters,Measurable_States,inic,iterations)
->>> print Identifiability_Pairwise
->>> print Identifiability_Ghostparameter
- 
-"""
+    Parameters
+    -----------
+    System : OrderedDict
+        Ordered dict with the keys as the derivative of a state (written as 'd'+State),
+        the values of the dictionary is the ODE system written as a string
+    Parameters : OrderedDict
+        Ordered dict with parameter names as keys, parameter values are the values
+        of the dictionary
+    Measurable_States : OrderedDict
+        Contains all the states, with key 'State' for all states. Values of 
+        the orderedDict are 1 if output is measurable and 0 if output is not 
+        measurable.
+    inic : OrderedDict
+        Contains initial conditions for all states
+    iterations : int
+        Number of derivatives the algorithm has to calculate (TaylorSeries!)
+    
+    Returns
+    --------
+    Identifiability_Pairwise : array
+        Contains for every Measurable state and every iteration, an array
+        (number parameters x number parameters), values of 1 show that this
+        parameter pair is not interchangeable. Values of 0 shows that this pair is 
+        interchangeable. Values of 10 can be ignored.
+    
+    Identifiability_Ghostparameter : array
+        Contains for every Measurable state and every iteration, an array
+        (1 x number parameters), a value of 1 show that this parameter is unique. 
+        A value of 0 states that this parameter is not uniquely identifiable.
+        
+    
+    References
+    ----------
+    .. [1] E. Walter and L. Pronzato, "Identification of parametric models from experimental data.", 1997.
+    
+    Examples
+    --------
+    These are written in doctest format, and should illustrate how to
+    use the function.
+    
+    >>> inic = {'X1':0,'X2':1}
+    >>> Parameters = {'p1':0,'p2':0,'p3':0}
+    >>> System = {'dX1':'-(p1+p2)*X1+p3*X2','dX2':'p1*X1-p3*X2'}
+    >>> Measurable_States = {'X1':0,'X2':1}
+    >>> iterations = 2
+    
+    >>> Identifiability_Pairwise, Identifiability_Ghostparameter = 
+    TaylorSeriesApproach(System,Parameters,Measurable_States,inic,iterations)
+    >>> print Identifiability_Pairwise
+    >>> print Identifiability_Ghostparameter
+     
+    '''
+    
     intern_system = {}
     # Convert all parameters to symbols
     for i in range(len(Parameters)):
@@ -288,10 +287,10 @@ TaylorSeriesApproach(System,Parameters,Measurable_States,inic,iterations)
                 Identifiability_Ghostparameter[h,i,j] = eval(Measurable_Output_Derivatives_numerical_values[i]+' != '+Measurable_Output_Derivatives_temp_plus)
     return Identifiability_Pairwise, Identifiability_Ghostparameter
 
-Identifiability_Pairwise, Identifiability_Ghostparameter = TaylorSeriesApproach(System,Parameters,Measurable_States,inic,iterations)
+#Identifiability_Pairwise, Identifiability_Ghostparameter = TaylorSeriesApproach(System,Parameters,Measurable_States,inic,iterations)
 
-print Identifiability_Pairwise
-print Identifiability_Ghostparameter
+#print Identifiability_Pairwise
+#print Identifiability_Ghostparameter
 
 def MakeModel(Modelname,System,Parameters,Sensitivity_symbols,Sensitivity_list):
     """
@@ -384,17 +383,17 @@ def MakeModel(Modelname,System,Parameters,Sensitivity_symbols,Sensitivity_list):
     file.write('    return Output\n')
     file.close()
 
-MakeModel(Modelname,System,Parameters,Sensitivity_symbols,Sensitivity_list)
+#MakeModel(Modelname,System,Parameters,Sensitivity_symbols,Sensitivity_list)
 #
 #
 #
 #
 #
 #sys.path.append('/media/DATA/Dropbox/Transaminase')
-#import MODEL_Halfreaction
-#
-##extra def solve_ode
-##res = spin.odeint(MODEL_Halfreaction.system,inic,t,args=(Parameters,), full_output=1,hmax=0.0001)
+import MODEL_Halfreaction
+
+#extra def solve_ode
+res = spin.odeint(MODEL_Halfreaction.system,inic,t,args=(Parameters,), full_output=1,hmax=0.0001)
 #res = spin.odeint(MODEL_Halfreaction.system,inic,t,args=(Parameters,), full_output=1)
 #
 ##extra def plot... ->reform to matplotlib
