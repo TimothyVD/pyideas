@@ -42,7 +42,7 @@ class odegenerator(object):
         self.System = collections.OrderedDict(sorted(System.items(), key=lambda t: t[0]))    
         self.modelname = Modelname        
         
-        self._Variables = [i[1:] for i in M1.System.keys()] 
+        self._Variables = [i[1:] for i in self.System.keys()] 
 
 
     def set_time(self,timedict):
@@ -589,7 +589,7 @@ fig = plt.figure()
 fig.subplots_adjust(hspace=0.3)
 ax1 = fig.add_subplot(211)
 ax1 = M1.plot_taylor_ghost(ax1, order = 0, redgreen=False)
-ax1.set_title('First order derivative')
+#ax1.set_title('First order derivative')
 ax2 = fig.add_subplot(212)
 ax2 = M1.plot_taylor_ghost(ax2, order = 1, redgreen=False)
-ax2.set_title('Second order derivative')
+#ax2.set_title('Second order derivative')
