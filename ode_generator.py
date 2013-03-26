@@ -106,8 +106,8 @@ class odegenerator(object):
         Help function for getting the values one can measure in the lab
         '''
         return self._MeasuredList
-
-    def get__time(self):
+    
+    def get_time(self):
         '''
         '''
         print 'start timestep is ', self._TimeDict['start']
@@ -212,7 +212,7 @@ class odegenerator(object):
         Identifiability: TaylorSeriesApproach
         
         Parameters
-        -----------
+        ----------
         iterations : int
             Number of derivatives the algorithm has to calculate (TaylorSeries!)
         Measurable_States : list or False
@@ -223,7 +223,7 @@ class odegenerator(object):
             dict contains initial conditions for all states
 
         Returns
-        --------
+        -------
         Identifiability_Pairwise : array
             Contains for every Measurable state and every iteration, an array
             (number parameters x number parameters), values of 1 show that this
@@ -291,7 +291,7 @@ class odegenerator(object):
                     #AAA[-1] = AAA[-1].replace(state_list[j]+"(t)",str(state_list[j]))
                 # Simplify sympy expression
                 Measurable_Output_Derivatives[-1] = str(sympy.simplify(Measurable_Output_Derivatives[-1]))
-                for j in range(len(Parameters)):
+                for j in range(len(self.Parameters)):
                     for k in range(j+1,len(self.Parameters)):
                         # Exchange two symbols with each other
                         exec(self.Parameters.keys()[j]+" = sympy.symbols('"+self.Parameters.keys()[k]+"')")
@@ -498,7 +498,8 @@ class odegenerator(object):
             file.write('def Sensitivity_direct(States,Parameters):\n')
             temp = []
             for i in range(len(self.System)):
-                file.write('    '+self.System.keys()[i][1:]+" = States['"+self.System.keys()[i][1:]+"']\n")
+                #file.write('    '+self.System.keys()[i][1:]+" = States['"+self.System.keys()[i][1:]+"']\n")
+                file.write('    '+self.System.keys()[i][1:]+" = States['"+i+"']\n")
             file.write('\n')
             for i in range(len(self.Parameters)):
                 file.write('    '+self.Parameters.keys()[i]+" = Parameters['"+self.Parameters.keys()[i]+"']\n")
@@ -570,6 +571,48 @@ class odegenerator(object):
             df.plot(subplots = True)
                
         return df
+        
+    def collinearity_check(self,variable):
+        try:
+            exec('import ' + self.modelname)
+            eval(self.modelname).Sensitivity_direct(self.Initial_Conditions.values(),self.Parameters)
+        except:
+            raise Exception('First generate external sensitivity file (write_to_file(with_sens=True)')
+
+        output = (self.solve_ode(plotit=False)).values
+        var_place = np.where(np.core.defchararray.find(self._Variables,variable) == 0)[0][0]
+        
+        y = np.zeros([len(self._Time),len(self.Parameters)])
+        for i in range(len(self._Time)):
+            temp = eval(self.modelname).Sensitivity_direct(output[i,:],self.Parameters)
+            temp = collections.OrderedDict(sorted(temp.items(), key=lambda t: t[0]))
+            y[i,:] = temp.values()[len(self.Parameters)*var_place:len(self.Parameters)*(var_place+1)]
+        f = np.zeros([len(self.Parameters),len(self.Parameters)])
+        for i in range(len(self.Parameters)):
+            for j in range(i+1,len(self.Parameters)):
+                f[i,j] = np.sqrt(1/min(np.linalg.eigvals(np.array(np.matrix(np.vstack([y[:,i],y[:,j]]))*np.vstack([y[:,i],y[:,j]]).transpose()))))
+        return f
+                #self.x[i,:] = temp.values()[len(self.Parameters)*var_place:len(self.Parameters)*(var_place+1)]
+            #self.x[i,:] = temp.values()[len(self.Parameters)*var_place:len(self.Parameters)*(var_place+1)]
+            #self.x[i,:] = temp.values()[len(self.Parameters)*var_place:len(self.Parameters)*(var_place+1)]
+#        for i in range(len(self.Parameters)):
+#            norm = np.linalg.norm(self.x[:,i])
+#            if norm < 1e-8:
+#                continue
+#            else:
+#                self.x[:,i] = self.x[:,i]/norm
+#        return (np.linalg.eigvals(np.array(np.matrix(self.x.transpose())*(np.matrix(self.x)))))
+#        #return np.array(np.matrix(self.x.transpose())*(np.matrix(self.x)))
+
+X = np.zeros([8,8])
+for i in range(8):
+    F = M1.collinearity_check(M1._Variables[i])
+    for j in range(len(M1.Parameters)):
+        for k in range(i+1,len(M1.Parameters)):
+            if F[j,k] != float('Inf'):
+                X[i,j] = 1
+                X[i,k] = 1
+
 
 
 
@@ -595,7 +638,7 @@ M1 = odegenerator(System, Parameters, Modelname = Modelname)
 
 #M1.analytic_local_sensitivity()
 M1.set_measured_states(['SA', 'SB', 'PP', 'PQ'])
-M1.set_initial_conditions({'SA':5.,'SB':0.,'En':1.,'EP':0.,'Es':0.,'EsQ':0.,'PP':0.,'PQ':0.})
+M1.set_initial_conditions({'SA':5.,'SB':4.,'En':1.,'EP':6.,'Es':2.5,'EsQ':1.,'PP':1.5,'PQ':0.})
 M1.taylor_series_approach(2)
 #H1,H2 = M1.identifiability_check_laplace_transform()
 
@@ -611,4 +654,4 @@ ax1 = M1.plot_taylor_ghost(ax1, order = 0, redgreen=False)
 #ax1.set_title('First order derivative')
 ax2 = fig.add_subplot(212)
 ax2 = M1.plot_taylor_ghost(ax2, order = 1, redgreen=False)
-#ax2.set_title('Second order derivative')
+ax2.set_title('Second order derivative')
