@@ -10,8 +10,11 @@ from __future__ import division
 import numpy as np
 import scipy.integrate as spin
 import sympy
-#import ordereddict as collections
-import collections
+import sys
+if sys.hexversion > 0x02070000:
+    import collections
+else:
+    import ordereddict as collections
 import os
 import pandas as pd
 import pprint
