@@ -10,9 +10,11 @@ from __future__ import division
 import numpy as np
 import scipy.integrate as spin
 import sympy
-import ordereddict as collections
+#import ordereddict as collections
+import collections
 import os
 import pandas as pd
+import pprint
 
 from matplotlib import colors
 import matplotlib.pyplot as plt
@@ -307,18 +309,32 @@ class odegenerator(object):
                     exec(self.Parameters.keys()[j]+" = sympy.symbols('"+self.Parameters.keys()[j]+"')")
                     # If answer is the same then this parameter is not unique identifiable
                     self.Identifiability_Ghostparameter[h,i,j] = eval(Measurable_Output_Derivatives_numerical_values[i]+' != '+Measurable_Output_Derivatives_temp_plus)
-        
-        return self.Identifiability_Pairwise, self.Identifiability_Ghostparameter
+        self.Identifiability_Swapping = self._pairwise_to_ghoststyle(iterations)
+        return self.Identifiability_Pairwise, self.Identifiability_Ghostparameter, self.Identifiability_Swapping
 
     def taylor_compare_methods_check(self):
         '''
         Check if the two methods are giving the same result
         '''
-        pass
+        check = ((self.Identifiability_Ghostparameter==self.Identifiability_Swapping)==0).sum()
+        if check == 0:
+            print 'Both approaches yield the same solution!'
+        else:
+            print 'There is an inconsistency between the Ghost and Swapping approach'
+            print 'Ghostparameter'
+            pprint.pprint(self.Identifiability_Ghostparameter)
+            print 'Swapping'
+            pprint.pprint(self.Identifiability_Swapping)
 
-    def _pairwise_to_ghoststyle(self):
+    def _pairwise_to_ghoststyle(self,iterations):
         '''
         '''
+        self.Parameter_Identifiability = np.ones([sum(self.Measurable_States.values()),iterations,len(self.Parameters)])
+        for h in range(sum(self.Measurable_States.values())):
+            for i in range(iterations):
+                for j in range(len(self.Parameters)):
+                    self.Parameter_Identifiability[h,i,j] = min([min(self.Identifiability_Pairwise[h,i,j,:]),min(self.Identifiability_Pairwise[h,i,:,j])])
+        return self.Parameter_Identifiability
 
     def plot_taylor_ghost(self, ax1, order = 0, redgreen = False):
         '''
