@@ -352,7 +352,7 @@ class odegenerator(object):
         yplaces=np.arange(0,mat_to_plot.shape[0],1)
                 
         if redgreen == True:
-            cmap = colors.ListedColormap(['red','green'])
+            cmap = colors.ListedColormap(['FireBrick','YellowGreen'])
         else:
             cmap = colors.ListedColormap(['.5','1.'])
             
@@ -650,8 +650,9 @@ modeloutput = M1.solve_ode(plotit=False)
 fig = plt.figure()
 fig.subplots_adjust(hspace=0.3)
 ax1 = fig.add_subplot(211)
-ax1 = M1.plot_taylor_ghost(ax1, order = 0, redgreen=False)
+ax1 = M1.plot_taylor_ghost(ax1, order = 0, redgreen=True)
 #ax1.set_title('First order derivative')
 ax2 = fig.add_subplot(212)
 ax2 = M1.plot_taylor_ghost(ax2, order = 1, redgreen=False)
 ax2.set_title('Second order derivative')
+
