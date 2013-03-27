@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Mon Mar 25 12:04:03 2013
 
@@ -573,48 +572,120 @@ class odegenerator(object):
         return df
         
     def collinearity_check(self,variable):
+        '''
+        TODO
+        Change to total relative sensitivity instead of relative sensitivity to parameter
+        '''
         try:
+            # Import file where sensitivities are located
             exec('import ' + self.modelname)
+            # Check whether sensitivities are written to this file
             eval(self.modelname).Sensitivity_direct(self.Initial_Conditions.values(),self.Parameters)
         except:
             raise Exception('First generate external sensitivity file (write_to_file(with_sens=True)')
-
-        output = (self.solve_ode(plotit=False)).values
+        
+        # Run ode model
+        ode_output = (self.solve_ode(plotit=False)).values
+        # Find place in _Variable list equal to variable of interest
         var_place = np.where(np.core.defchararray.find(self._Variables,variable) == 0)[0][0]
         
-        y = np.zeros([len(self._Time),len(self.Parameters)])
+        # Make matrix which contains sensitivities of the specified variable to all parameters in time
+        Sens_var_all_par = np.zeros([len(self._Time),len(self.Parameters)])
+        # Calculate sensitivities for every timestep
         for i in range(len(self._Time)):
-            temp = eval(self.modelname).Sensitivity_direct(output[i,:],self.Parameters)
+            # Sensitivity_direct
+            temp = eval(self.modelname).Sensitivity_direct(ode_output[i,:],self.Parameters)
+            # Sort dictionary according keys
             temp = collections.OrderedDict(sorted(temp.items(), key=lambda t: t[0]))
-            y[i,:] = temp.values()[len(self.Parameters)*var_place:len(self.Parameters)*(var_place+1)]
-        f = np.zeros([len(self.Parameters),len(self.Parameters)])
+            # Only add sensitivities of variable we're interested in :)
+            Sens_var_all_par[i,:] = temp.values()[len(self.Parameters)*var_place:len(self.Parameters)*(var_place+1)]
+        # Make matrix for storing collinearities per two parameters
+        Collinearity_pairwise = np.zeros([len(self.Parameters),len(self.Parameters)])
         for i in range(len(self.Parameters)):
             for j in range(i+1,len(self.Parameters)):
-                f[i,j] = np.sqrt(1/min(np.linalg.eigvals(np.array(np.matrix(np.vstack([y[:,i],y[:,j]]))*np.vstack([y[:,i],y[:,j]]).transpose()))))
-        return f
-                #self.x[i,:] = temp.values()[len(self.Parameters)*var_place:len(self.Parameters)*(var_place+1)]
-            #self.x[i,:] = temp.values()[len(self.Parameters)*var_place:len(self.Parameters)*(var_place+1)]
-            #self.x[i,:] = temp.values()[len(self.Parameters)*var_place:len(self.Parameters)*(var_place+1)]
-#        for i in range(len(self.Parameters)):
-#            norm = np.linalg.norm(self.x[:,i])
-#            if norm < 1e-8:
-#                continue
-#            else:
-#                self.x[:,i] = self.x[:,i]/norm
-#        return (np.linalg.eigvals(np.array(np.matrix(self.x.transpose())*(np.matrix(self.x)))))
-#        #return np.array(np.matrix(self.x.transpose())*(np.matrix(self.x)))
+                # Transpose is performed on second array because by selecting only one column, python automatically converts the column to a row!
+                Collinearity_pairwise[i,j] = np.sqrt(1/min(np.linalg.eigvals(np.array(np.matrix(np.vstack([Sens_var_all_par[:,i],Sens_var_all_par[:,j]]))*np.vstack([Sens_var_all_par[:,i],Sens_var_all_par[:,j]]).transpose()))))
+        try:
+            self.Collinearity_Pairwise[variable] = Collinearity_pairwise
+        except:
+            self.Collinearity_Pairwise = {}
+            self.Collinearity_Pairwise[variable] = Collinearity_pairwise
 
-X = np.zeros([8,8])
-for i in range(8):
-    F = M1.collinearity_check(M1._Variables[i])
-    for j in range(len(M1.Parameters)):
-        for k in range(i+1,len(M1.Parameters)):
-            if F[j,k] != float('Inf'):
-                X[i,j] = 1
-                X[i,k] = 1
+        return Collinearity_pairwise
 
+    def plot_collinearity(self, ax1, redgreen = False):
+        '''
+        Make an overview plot of the collinearity
+        
+        ax based in order to make order combinations possible
+        '''
+        
+        mat_to_plot = np.zeros([len(self._Variables),len(self.Parameters),len(self.Parameters)])
+        for i in range(len(self._Variables)):
+            try:
+                mat_to_plot[i,:,:] = self.Collinearity_Pairwise[self._Variables[i]]
+            except:
+                print 'Collinearity check of variable '+self._Variables[i]+' is now performed!' 
+                mat_to_plot[i,:,:] = self.collinearity_check(self._Variables[i])
+            
+        textlist = {}
+        #Plot the rankings in the matrix
+        for i in range(len(self._Variables)):
+            F = (mat_to_plot[i] <400.)*(mat_to_plot[i] >0.)
+            print F
+            for j in range(len(self.Parameters)):
+                for k in range(len(self.Parameters)):
+                    if F[j,k] == True:
+                        print j,k
+                        print F[j,k]
+                        try:
+                            print textlist[(self._Variables[i],self.Parameters.keys()[j])]
+                            textlist[(self._Variables[i],self.Parameters.keys()[j])]=textlist[(self._Variables[i],self.Parameters.keys()[j])]+','+(self.Parameters.keys()[k])   
+                        except:
+                            textlist[(self._Variables[i],self.Parameters.keys()[j])]=self.Parameters.keys()[k]  
+                        try:
+                            print textlist[(self._Variables[i],self.Parameters.keys()[k])]
+                            textlist[(self._Variables[i],self.Parameters.keys()[k])]=textlist[(self._Variables[i],self.Parameters.keys()[k])]+','+(self.Parameters.keys()[j])   
+                        except:
+                            textlist[(self._Variables[i],self.Parameters.keys()[k])]=self.Parameters.keys()[j]  
 
-
+        print textlist
+        #sorted(textlist[('EsQ','k1')].split(), key=str.lower)
+        
+#        if redgreen == True:
+        cmap = colors.ListedColormap(['FireBrick','YellowGreen'])
+#        else:
+#            cmap = colors.ListedColormap(['.5','1.'])
+#            
+        bounds=[0,0.9,2.]
+        norm = colors.BoundaryNorm(bounds, cmap.N)
+#        #plot tje colors for the frist tree parameters
+        ax1.matshow(mat_to_plot[0],cmap = cmap, norm=norm)
+        ax1.set_aspect('auto')
+                
+        for i in range(len(textlist)):
+            yplace = np.where(np.core.defchararray.find(self._Variables,textlist.keys()[i][0])==0)[0][0]
+            xplace = np.where(np.core.defchararray.find(self.Parameters.keys(),textlist.keys()[i][1])==0)[0][0]
+            ax1.text(xplace, yplace, textlist.values()[i],fontsize=14, horizontalalignment='center', verticalalignment='center')   
+        
+        #place ticks and labels
+        ax1.set_xticks(np.arange(8))
+        ax1.set_xbound(-0.5,np.arange(8).size-0.5)
+        ax1.set_xticklabels(self.Parameters.keys(), rotation = 30, ha='left')
+        
+        for i in range(7):
+            ax1.hlines(i+0.5,-0.5,7.5)
+            ax1.vlines(i+0.5,-0.5,7.5)
+        
+        ax1.set_yticks(np.arange(8))
+        ax1.set_ybound(np.arange(8).size-0.5,-0.5)
+        ax1.set_yticklabels(self._Variables)
+        
+        ax1.spines['bottom'].set_color('none')
+        ax1.spines['right'].set_color('none')
+        ax1.xaxis.set_ticks_position('top')
+        ax1.yaxis.set_ticks_position('left')
+        return ax1
 
 #PREPARE MODEL
 Parameters = {'k1':1/10,'k1m':1/20,
@@ -639,12 +710,12 @@ M1 = odegenerator(System, Parameters, Modelname = Modelname)
 #M1.analytic_local_sensitivity()
 M1.set_measured_states(['SA', 'SB', 'PP', 'PQ'])
 M1.set_initial_conditions({'SA':5.,'SB':4.,'En':1.,'EP':6.,'Es':2.5,'EsQ':1.,'PP':1.5,'PQ':0.})
-M1.taylor_series_approach(2)
+#M1.taylor_series_approach(2)
 #H1,H2 = M1.identifiability_check_laplace_transform()
 
 M1.set_time({'start':1,'end':20,'nsteps':10000})
 modeloutput = M1.solve_ode(plotit=False)
-#modeloutput.plot(subplots=True)
+#modeloutput.plot(subplots=True)    
 
 #TODO put together in 1 figure option as function
 fig = plt.figure()
@@ -655,4 +726,9 @@ ax1 = M1.plot_taylor_ghost(ax1, order = 0, redgreen=True)
 ax2 = fig.add_subplot(212)
 ax2 = M1.plot_taylor_ghost(ax2, order = 1, redgreen=False)
 ax2.set_title('Second order derivative')
+
+fig = plt.figure()
+fig.subplots_adjust(hspace=0.0)
+ax1 = fig.add_subplot(111)
+ax1 = M1.plot_collinearity(ax1, redgreen=True)
 
