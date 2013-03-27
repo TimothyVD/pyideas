@@ -22,6 +22,8 @@ import pprint
 from matplotlib import colors
 import matplotlib.pyplot as plt
 
+from plotfunctions import *
+
 
 
 class odegenerator(object):
@@ -563,7 +565,6 @@ class odegenerator(object):
         
         #put output in pandas dataframe
         df = pd.DataFrame(res, columns = self._Variables)
-        print df
         
         #plotfunction
         if plotit == True:
@@ -571,6 +572,67 @@ class odegenerator(object):
                
         return df
 
+    def numeric_local_sensitivity(self, perturbation_factor = 0.0001, TimeStepsDict = False, Initial_Conditions = False):
+        '''
+        For every parameter calcluate the 
+        '''
+        self._check_for_time(TimeStepsDict)
+        self._check_for_init(Initial_Conditions) 
+        
+        #create a dictionary with everye key the variable and the values a dataframe
+        numerical_sens = {}        
+        for key in self._Variables:
+            #belangrijk dat deze dummy in loop wordt geschreven!
+            dummy = np.empty((self._Time.size,len(self.Parameters)))
+            numerical_sens[key] = pd.DataFrame(dummy, columns = self.Parameters.keys())
+        
+        for parameter in self.Parameters:
+            value2save = self.Parameters[parameter]
+            print 'sensitivity for parameter ', parameter
+            #run model with parameter value plus perturbation 
+            self.Parameters[parameter] = value2save + perturbation_factor*value2save
+            modout_plus = self.solve_ode(plotit = False)
+#            modout_plus = pd.DataFrame(modout, columns = self._Variables)
+            #run model with parameter value minus perturbation 
+            self.Parameters[parameter] = value2save - perturbation_factor*value2save
+            modout_min = self.solve_ode(plotit = False)        
+#            modout_min = pd.DataFrame(modout, columns = self._Variables)
+            
+            #calculate sensitivity for this parameter, all outputs    
+            #sensitivity indices:
+            CAS = (modout_plus-modout_min)/(2.*perturbation_factor*value2save) #dy/dp         
+            
+            #we use now CPRS, but later on we'll adapt to CTRS
+            CPRS = CAS*value2save    
+#            average_out = (modout_plus+modout_min)/2.
+#            CTRS = CAS*value2save/average_out
+            
+            #put on the rigth spot in the dictionary
+            for var in self._Variables:
+                numerical_sens[var][parameter] = CPRS[var][:].copy()
+#                numerical_sens[var][parameter] = CTRS[var][:].copy()
+                
+            #put back original value
+            self.Parameters[parameter] = value2save
+            
+        self.numerical_sensitivity = numerical_sens
+
+        return numerical_sens
+
+    def visual_check_collinearity(self, output):
+        '''
+        TODO: use both numerical AND anlytical
+        '''
+        try:
+            self.numerical_sensitivity
+        except:
+            self.numeric_local_sensitivity()
+
+        toanalyze = self.numerical_sensitivity[output].as_matrix().transpose()            
+        scatterplot_matrix(toanalyze, plottext=self.Parameters.keys(), 
+                           data2 = False, limin = False, 
+                             limax = False, plothist = False, 
+                             linestyle='none', marker='o', color='black', mfc='none')
 
 
 #PREPARE MODEL
@@ -595,7 +657,8 @@ M1 = odegenerator(System, Parameters, Modelname = Modelname)
 
 #M1.analytic_local_sensitivity()
 M1.set_measured_states(['SA', 'SB', 'PP', 'PQ'])
-M1.set_initial_conditions({'SA':5.,'SB':0.,'En':1.,'EP':0.,'Es':0.,'EsQ':0.,'PP':0.,'PQ':0.})
+#M1.set_initial_conditions({'SA':5.,'SB':0.,'En':1.,'EP':0.,'Es':0.,'EsQ':0.,'PP':0.,'PQ':0.})
+M1.set_initial_conditions({'SA':5.,'SB':4.,'En':1.,'EP':6.,'Es':2.5,'EsQ':1.,'PP':1.5,'PQ':0.})
 M1.taylor_series_approach(2)
 #H1,H2 = M1.identifiability_check_laplace_transform()
 
@@ -604,11 +667,71 @@ modeloutput = M1.solve_ode(plotit=False)
 #modeloutput.plot(subplots=True)
 
 #TODO put together in 1 figure option as function
-fig = plt.figure()
-fig.subplots_adjust(hspace=0.3)
-ax1 = fig.add_subplot(211)
-ax1 = M1.plot_taylor_ghost(ax1, order = 0, redgreen=True)
-#ax1.set_title('First order derivative')
-ax2 = fig.add_subplot(212)
-ax2 = M1.plot_taylor_ghost(ax2, order = 1, redgreen=True)
+#fig = plt.figure()
+#fig.subplots_adjust(hspace=0.3)
+#ax1 = fig.add_subplot(211)
+#ax1 = M1.plot_taylor_ghost(ax1, order = 0, redgreen=True)
+##ax1.set_title('First order derivative')
+#ax2 = fig.add_subplot(212)
+#ax2 = M1.plot_taylor_ghost(ax2, order = 1, redgreen=True)
 #ax2.set_title('Second order derivative')
+
+#DEN TEST VAN DE OPSLAGPROBLEMEN
+#numerical_sens = {}
+#dummy = np.empty((self._Time.size,len(self.Parameters)))
+#for key in self._Variables:
+#    numerical_sens[key] = pd.DataFrame(dummy, columns = self.Parameters.keys())
+#
+#for parameter in self.Parameters:
+#    print parameter
+#
+##for parameter in self.Parameters:
+#parameter='k1'
+#value2save = self.Parameters[parameter]
+#print 'sensitivity for parameter ', parameter
+##run model with parameter value plus perturbation 
+#self.Parameters[parameter] = value2save + perturbation_factor*value2save
+#modout_plus = self.solve_ode(plotit = False)
+##            modout_plus = pd.DataFrame(modout, columns = self._Variables)
+##run model with parameter value minus perturbation 
+#self.Parameters[parameter] = value2save - perturbation_factor*value2save
+#modout_min = self.solve_ode(plotit = False)        
+##            modout_min = pd.DataFrame(modout, columns = self._Variables)
+#
+##calculate sensitivity for this parameter, all outputs    
+##sensitivity indices:
+#CAS = (modout_plus-modout_min)/(2.*perturbation_factor*value2save) #dy/dp         
+#
+##we use now CPRS, but later on we'll adapt to CTRS
+#CPRS = CAS*value2save    
+##            average_out = (modout_plus+modout_min)/2.
+##            CTRS = CAS*value2save/average_out
+#
+##put on the rigth spot in the dictionary
+#for var in self._Variables:
+#    print var
+#    print parameter
+#    numerical_sens[var][parameter] = CPRS[var][:]
+#    numerical_sens[var].plot()
+#    
+##put back original value
+#self.Parameters[parameter] = value2save
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
