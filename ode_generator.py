@@ -621,7 +621,7 @@ class odegenerator(object):
         self._check_for_init(Initial_Conditions) 
         
         #create a dictionary with everye key the variable and the values a dataframe
-        numerical_sens = {}        
+        numerical_sens = {}
         for key in self._Variables:
             #belangrijk dat deze dummy in loop wordt geschreven!
             dummy = np.empty((self._Time.size,len(self.Parameters)))
@@ -663,6 +663,8 @@ class odegenerator(object):
     def visual_check_collinearity(self, output):
         '''
         TODO: use both numerical AND anlytical
+        
+        output: string with variable identifier
         '''
         try:
             self.numerical_sensitivity
@@ -774,11 +776,33 @@ M1.set_measured_states(['SA', 'SB', 'PP', 'PQ'])
 #M1.set_initial_conditions({'SA':5.,'SB':0.,'En':1.,'EP':0.,'Es':0.,'EsQ':0.,'PP':0.,'PQ':0.})
 M1.set_initial_conditions({'SA':5.,'SB':4.,'En':1.,'EP':6.,'Es':2.5,'EsQ':1.,'PP':1.5,'PQ':0.})
 
-#M1.taylor_series_approach(2)
-#H1,H2 = M1.identifiability_check_laplace_transform()
 
-M1.set_time({'start':1,'end':20,'nsteps':10000})
-modeloutput = M1.solve_ode(plotit=False)
+#FOR SEMINAR:
+##run the model
+#M1.set_time({'start':1,'end':20,'nsteps':10000})
+#
+#modeloutput = M1.solve_ode(plotit=False)
+#print modeloutput
+#
+##run the tatlor approach for identifiability
+M1.taylor_series_approach(2)
+
+fig = plt.figure()
+ax1 = fig.add_subplot(111)
+M1.plot_taylor_ghost(ax1)
+#
+#numerical local sensitivity analysis
+numsens = M1.numeric_local_sensitivity(perturbation_factor=0.0001)
+
+numsens['PP'].plot()
+#
+##visual check collinearity
+M1.visual_check_collinearity('SA')
+
+
+
+
+
 #modeloutput.plot(subplots=True)    
 
 #TODO put together in 1 figure option as function

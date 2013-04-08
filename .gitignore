@@ -1,0 +1,12 @@
+# extensions to ignore #
+#######################
+*.pyc
+*.hdf5
+*.png
+*.pdf
+*.exe
+*.py[cod]
+
+Makefile
+make.bat
+docs/build
