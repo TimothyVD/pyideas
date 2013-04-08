@@ -769,12 +769,12 @@ System =    {'dEn':'k1m*Es*PP + k4*EP + k2*Es*SB - k1*En*SA - k4*En*PP - k2m*En*
 Modelname = 'MODEL_Halfreaction'
 
 ##INITIATE MODEL
-M1 = odegenerator(System, Parameters, Modelname = Modelname)
+#M1 = odegenerator(System, Parameters, Modelname = Modelname)
 
 #M1.analytic_local_sensitivity()
-M1.set_measured_states(['SA', 'SB', 'PP', 'PQ'])
+#M1.set_measured_states(['SA', 'SB', 'PP', 'PQ'])
 #M1.set_initial_conditions({'SA':5.,'SB':0.,'En':1.,'EP':0.,'Es':0.,'EsQ':0.,'PP':0.,'PQ':0.})
-M1.set_initial_conditions({'SA':5.,'SB':4.,'En':1.,'EP':6.,'Es':2.5,'EsQ':1.,'PP':1.5,'PQ':0.})
+#M1.set_initial_conditions({'SA':5.,'SB':4.,'En':1.,'EP':6.,'Es':2.5,'EsQ':1.,'PP':1.5,'PQ':0.})
 
 
 #FOR SEMINAR:
@@ -785,19 +785,19 @@ M1.set_initial_conditions({'SA':5.,'SB':4.,'En':1.,'EP':6.,'Es':2.5,'EsQ':1.,'PP
 #print modeloutput
 #
 ##run the tatlor approach for identifiability
-M1.taylor_series_approach(2)
+#M1.taylor_series_approach(2)
 
-fig = plt.figure()
-ax1 = fig.add_subplot(111)
-M1.plot_taylor_ghost(ax1)
+#fig = plt.figure()
+#ax1 = fig.add_subplot(111)
+#M1.plot_taylor_ghost(ax1)
 #
 #numerical local sensitivity analysis
-numsens = M1.numeric_local_sensitivity(perturbation_factor=0.0001)
+#numsens = M1.numeric_local_sensitivity(perturbation_factor=0.0001)
 
-numsens['PP'].plot()
+#numsens['PP'].plot()
 #
 ##visual check collinearity
-M1.visual_check_collinearity('SA')
+#M1.visual_check_collinearity('SA')
 
 
 

@@ -10,7 +10,9 @@ Contents:
 
 .. toctree::
    :maxdepth: 2
-
+   
+.. autoclass:: ode_generator.odegenerator
+   :members: 
 
 
 Indices and tables
