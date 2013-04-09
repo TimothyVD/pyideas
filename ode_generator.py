@@ -867,18 +867,13 @@ class odegenerator(object):
         
         Notes
         ------
-        Collinearity check is implemented as described in [2]_ and [3]_, where
+        Collinearity check is implemented as described in [2]_, where
         a threshold is defined to identify the dependecne between parameters.
         
         References
         -----------
-        .. [2] Brun, Roland, Peter Reichert, and Hans R Kfinsch. Practical
-                Identifiability Analysis of Large Environmental Simulation
-                37, no. 4 (2001) 1015–1030.
-        .. [3] De Pauw, D J W, K Steppe, and B De Baets. Identifiability 
-                Analysis and Improvement of a Tree Water Flow and Storage 
-                Model. Mathematical Biosciences 211, no. 2 (February 2008) 
-                314–32. http://www.ncbi.nlm.nih.gov/pubmed/17936856.                
+        .. [2] Brun, R., Reichert, P., Kfinsch, H.R., Practical Identifiability
+            Analysis of Large Environmental Simulation (2001), 37, 1015-1030
         '''
         
         mat_to_plot = np.zeros([len(self._Variables),len(self.Parameters),len(self.Parameters)])
