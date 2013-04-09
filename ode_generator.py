@@ -728,8 +728,9 @@ class odegenerator(object):
         self._check_for_time(TimeStepsDict)
         self._check_for_init(Initial_Conditions)        
         
-        import MODEL_Halfreaction
-        res = spin.odeint(MODEL_Halfreaction.system,self.Initial_Conditions.values(), self._Time,args=(self.Parameters,))
+        #        import MODEL_Halfreaction
+        exec('import '+self.modelname)
+        res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,))
         
         #put output in pandas dataframe
         df = pd.DataFrame(res, columns = self._Variables)
