@@ -10,10 +10,20 @@ Contents:
 
 .. toctree::
    :maxdepth: 2
+
+ODE-Generator
+---------------  
+   
+ODE generator is a object oriented environment for model building and analysis, focussing on sensitivity and Identifiability analysis.
    
 .. autoclass:: ode_generator.odegenerator
    :members: 
 
+   
+Support Functions
+-------------------
+
+.. autofunction:: plotfunctions.scatterplot_matrix
 
 Indices and tables
 ==================
