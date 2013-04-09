@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator, LinearLocator, NullLocator
 
 
-def definedec(nummin,nummax):
+def _definedec(nummin,nummax):
     '''
     Help function to define the number of shown decimals
     '''
@@ -143,8 +143,8 @@ def scatterplot_matrix(data1, plottext=None, data2 = False, limin = False,
         limax=[]        
         for i in range(data1.shape[0]):
             if databoth == True:
-                dec1 = definedec(np.min(data1[i]),np.max(data1[i]))
-                dec2 = definedec(np.min(data2[i]),np.max(data2[i]))                
+                dec1 = _definedec(np.min(data1[i]),np.max(data1[i]))
+                dec2 = _definedec(np.min(data2[i]),np.max(data2[i]))                
                 limin1=np.around(np.min(data1[i]),decimals = dec1)
                 limax1=np.around(np.max(data1[i]),decimals = dec1)
                 limin2=np.around(np.min(data2[i]),decimals = dec2)
@@ -162,7 +162,7 @@ def scatterplot_matrix(data1, plottext=None, data2 = False, limin = False,
                     print 'potentially the datalimits of two datasets are\
                     too different for acceptabel results'
             else:
-                dec1 = definedec(np.min(data1[i]),np.max(data1[i]))
+                dec1 = _definedec(np.min(data1[i]),np.max(data1[i]))
                 limin.append(np.around(np.min(data1[i]),decimals = dec1))
                 limax.append(np.around(np.max(data1[i]),decimals = dec1))
         print 'used limits are', limin,'and', limax
