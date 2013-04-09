@@ -26,21 +26,32 @@ from plotfunctions import *
 
 class odegenerator(object):
     '''
+    Class to generated an ODE model based on a Parameter and Variables
+    dictionary.
+    
+    Parameters
+    ------------
+    System : OrderedDict
+        Ordered dict with the keys as the derivative of a state (written as 
+        'd'+State), the values of the dictionary is the ODE system written 
+        as a string
+    Parameters : OrderedDict
+        Ordered dict with parameter names as keys, parameter values are the 
+        values of the dictionary    
+    Modelname : string
+        String name to define the model
+        
+    
+    Examples
+    ----------
+    
+    
     
     '''
     
     def __init__(self, System, Parameters, Modelname = 'MyModel'):
         '''
-        
-        Parameters
-        ------------
-        System : OrderedDict
-            Ordered dict with the keys as the derivative of a state (written as 'd'+State),
-            the values of the dictionary is the ODE system written as a string
-        Parameters : OrderedDict
-            Ordered dict with parameter names as keys, parameter values are the values
-            of the dictionary
-        
+
         '''
         
         self.Parameters = collections.OrderedDict(sorted(Parameters.items(), key=lambda t: t[0]))
@@ -51,12 +62,16 @@ class odegenerator(object):
 
 
     def set_time(self,timedict):
-        '''
+        '''define time to calculate model
+        
+        The start, end and number of steps (nsteps) for the ode-calculation
         
         Parameters
         -----------
         timedict : dict
-            three elments
+            three elments dictionary; start, end and nsteps. The latter is the
+            number of timesteps between start and end to get output from
+        
         '''
         if timedict['start'] > timedict['end']:
             raise Exception('End timestep must be smaller then start!')
@@ -67,22 +82,40 @@ class odegenerator(object):
         self._Time = np.linspace(timedict['start'], timedict['end'], timedict['nsteps'])
 
     def set_initial_conditions(self, inic):
-        '''
-        eg inic = {'SA':5.,'SB':0.,'En':1.,'EP':0.,'Es':0.,'EsQ':0.,'PP':0.,'PQ':0.}
+        '''define initial conditions to calculate model
+        
+        The initial condition of the different variables
+        
+        Parameters
+        -----------
+        timedict : dict
+            For every variable, an initial value (float) is needed
+            
+        Examples
+        ----------
+        >>> inic = {'SA':5.,'SB':0.,'En':1.,'EP':0.,'Es':0.,'EsQ':0.,'PP':0.,'PQ':0.}
+        >>> set_initial_conditions(inic)
         '''
         self.Initial_Conditions = collections.OrderedDict(sorted(inic.items(), key=lambda t: t[0]))
 
     def set_measured_states(self, Measurable_States):
-        '''
-        Measurable_States -> list instead of dict; returns ordered dict
-        ['En', 'Es']        
+        '''define the measured variables
         
-        eg Measurable_States = {'En':0,'Es':0,'SA':1,'SB':1,'PP':1,'PQ':1,'EsQ':0,'EP':0}
+        Define which variables can be measured
+
+        Parameters
+        -----------
+        Measurable_States : list
+            string names of the variables thta can be measured
+            
+        Examples
+        ----------
+        >>> set_measured_states(['SA', 'SB', 'PP', 'PQ'])        
+        
         '''
         Measured_temp = {}
         for key in self.System:
-            Measured_temp[key] = 0
-        
+            Measured_temp[key] = 0        
         self._MeasuredList=[]
         
         for measured in Measurable_States:
@@ -97,20 +130,24 @@ class odegenerator(object):
         self.Measurable_States = collections.OrderedDict(sorted(Measured_temp.items(), key=lambda t: t[0]))
 
     def get_variables(self):
-        '''
+        '''get a list of all model variables
+        
         '''
         print self._Variables
 
     def get_measured_variables(self):
-        '''
+        '''get a list of all measurable variables
+        
         Help function for getting the values one can measure in the lab
         '''
         return self._MeasuredList
     
     def get_time(self):
-        '''
+        '''get the model-time characteristics
+        
         '''
         try:
+            self._TimeDict['start']
             print 'start timestep is ', self._TimeDict['start']
             print 'end timestep is ', self._TimeDict['end']
             print 'number of timesteps for printing is ', self._TimeDict['nsteps']
@@ -119,10 +156,28 @@ class odegenerator(object):
             
         
     def analytic_local_sensitivity(self):
-        '''
-        Analytic derivation of the local sensitivities
+        '''Analytic derivation of the local sensitivities
         
-        TODO: help!
+        Sympy based implementation to get the analytic derivation of the
+        model sensitivities.
+        
+        Returns
+        --------
+        Sensitivity_symbols : list
+            list for saving symbolic sensitivity formulas
+        
+        Sensitivity_list : list
+            list for saving combined symbols corresponding with sensitivity
+        
+        Notes
+        ------
+        
+        The output is best viewed by the write_model_to_file method        
+        
+        See Also
+        ---------
+        write_model_to_file
+        
         '''
         
         # Symbolify system states
@@ -170,9 +225,11 @@ class odegenerator(object):
         print '\n'
         print 'Sensitivity list: '
         print self.Sensitivity_list
+        return self.Sensitivity_symbols, self.Sensitivity_list
 
     def _check_for_meas(self, Measurable_States):
-        '''
+        '''verify presence of measured states
+        
         '''        
         #CHECK FOR THE MEASURABLE VARIBALES
         if Measurable_States == False:
@@ -185,7 +242,8 @@ class odegenerator(object):
             print 'Updated measured states are used'
 
     def _check_for_init(self, Initial_Conditions):
-        '''
+        '''verify presence of initial conditions
+        
         '''
         #CHECK FOR THE INITIAL CONDITIONS
         if Initial_Conditions == False:
@@ -198,7 +256,8 @@ class odegenerator(object):
             print 'Updated initial conditions are used'
 
     def _check_for_time(self, Timesteps):
-        '''
+        '''verify presence of model time information
+        
         '''
         #CHECK FOR THE INITIAL CONDITIONS
         if Timesteps == False:
@@ -212,8 +271,9 @@ class odegenerator(object):
 
     def taylor_series_approach(self, iterations, Measurable_States = False,
                              Initial_Conditions = False):
-        '''
-        Identifiability: TaylorSeriesApproach
+        '''Identifiability: TaylorSeriesApproach
+        
+        Taylor Series Approach for verification of identification.
         
         Parameters
         ----------
@@ -222,7 +282,7 @@ class odegenerator(object):
         Measurable_States : list or False
             if False, the previously set variables are used; otherwise this
             contains all the measured states in a list
-        inic : Dict of False
+        Initial_Conditions : Dict of False
             if False, the previously set conditions are used; otherwise this 
             dict contains initial conditions for all states
 
@@ -238,10 +298,22 @@ class odegenerator(object):
             Contains for every Measurable state and every iteration, an array
             (1 x number parameters), a value of 1 show that this parameter is unique. 
             A value of 0 states that this parameter is not uniquely identifiable.
+        
+        Identifiability_Swapping : array
+
+        Notes
+        ------
+        Identifiability is defined both by the so-called ghost-parameter and 
+        the swap-parameter method. 
             
         References
         ----------
-        .. [1] E. Walter and L. Pronzato, "Identification of parametric models from experimental data.", 1997.
+        .. [1] E. Walter and L. Pronzato, Identification of parametric models 
+                from experimental data., 1997.
+        
+        See Also
+        ---------
+        taylor_compare_methods_check, plot_taylor_ghost
          
         '''  
         self._check_for_init(Initial_Conditions)
@@ -320,8 +392,10 @@ class odegenerator(object):
         return self.Identifiability_Pairwise, self.Identifiability_Ghostparameter, self.Identifiability_Swapping
 
     def taylor_compare_methods_check(self):
-        '''
-        Check if the two methods are giving the same result
+        '''Taylor identifibility compare approaches
+        
+        Check if the ghost-parameter and swap-parameter methods are giving the 
+        same result        
         '''
         check = ((self.Identifiability_Ghostparameter==self.Identifiability_Swapping)==0).sum()
         if check == 0:
@@ -334,7 +408,8 @@ class odegenerator(object):
             pprint.pprint(self.Identifiability_Swapping)
 
     def _pairwise_to_ghoststyle(self,iterations):
-        '''
+        '''Puts the output of both Taylor methods in similar output format
+        
         '''
         self.Parameter_Identifiability = np.ones([sum(self.Measurable_States.values()),iterations,len(self.Parameters)])
         for h in range(sum(self.Measurable_States.values())):
@@ -344,11 +419,38 @@ class odegenerator(object):
         return self.Parameter_Identifiability
 
     def plot_taylor_ghost(self, ax1, order = 0, redgreen = False):
-        '''
-        Make an overview plot of the identifiable parameters, given
-        a certain order
+        '''Taylor identifiability plot
         
-        ax based in order to make order combinations possible
+        Creates an overview plot of the identifiable parameters, given
+        a certain order to show
+        
+        Parameters
+        -----------
+        ax1 : matplotlib axis instance
+            the axis will be updated by the function
+        order : int
+            order of the taylor expansion to plot (starts with 0)
+        redgreen : boolean True|False
+            if True, identifibility is addressed by red/green colors, otherwise
+            greyscale color is used
+
+        Returns
+        ---------
+        ax1 : matplotlib axis instance
+            axis with the plotted output 
+                
+        Examples
+        ----------
+        >>> M1 = odegenerator(System, Parameters, Modelname = Modelname)
+        >>> fig = plt.figure()
+        >>> fig.subplots_adjust(hspace=0.3)
+        >>> ax1 = fig.add_subplot(211)
+        >>> ax1 = M1.plot_taylor_ghost(ax1, order = 0, redgreen=True)
+        >>> ax1.set_title('First order derivative')
+        >>> ax2 = fig.add_subplot(212)
+        >>> ax2 = M1.plot_taylor_ghost(ax2, order = 1, redgreen=True)
+        >>> ax2.set_title('Second order derivative')
+        
         '''
         mat_to_plot = self.Identifiability_Ghostparameter[:,order,:]
               
@@ -395,9 +497,9 @@ class odegenerator(object):
        
         
     def _make_canonical(self):
+        '''transforms model in canonical shape
+                
         '''
-        '''
-        
         print self.System.keys()
         # Symbolify parameters
         for i in range(len(self.Parameters)):
@@ -437,8 +539,26 @@ class odegenerator(object):
 
     def identifiability_check_laplace_transform(self, Measurable_States = False, 
                               Initial_Conditions = False):
-        '''
-        TODO
+        '''Laplace transformation based identifiability test
+        
+        Checks the identifiability by Laplace transformation
+        
+        Parameters
+        -----------
+        Measurable_States : list or False
+            if False, the previously set variables are used; otherwise this
+            contains all the measured states in a list
+        Initial_Conditions : Dict of False
+            if False, the previously set conditions are used; otherwise this 
+            dict contains initial conditions for all states
+        
+        Returns
+        --------
+        H1 : ndarray
+            identifibaility array 1
+        H2 : ndarray
+            identifibaility array 2
+        
         '''
         #check for presence of initial conditions and measured values
         self._check_for_init(Initial_Conditions)
@@ -454,11 +574,18 @@ class odegenerator(object):
         return H1,H2
 
     def write_model_to_file(self, with_sens = False):
-        """
-        MakeFile(file_name): makes a file.
+        '''Write derivative of model as definition in file
         
-        if with_sens is True, the sensitivity definitions are also written to the file
-        """
+        Writes a file with a derivative definition to run the model and
+        use it for other applications
+        
+        Parameters
+        -----------
+        with_sensn : boolean True|False
+            If True, the analytic local sensitivity information is also added 
+            to the file
+        
+        '''
         temp_path = os.path.join(os.getcwd(),self.modelname+'.py')
         print 'File is printed to: ', temp_path
         print 'Filename used is: ', self.modelname
@@ -556,8 +683,26 @@ class odegenerator(object):
         file.close()
 
     def solve_ode(self, TimeStepsDict = False, Initial_Conditions = False, plotit = True):
-        '''
-        Solve the differential equation
+        '''Solve the differential equation
+        
+        Solves the ode model with the given properties and model configuration
+        
+        Parameters
+        -----------
+        TimeStepsDict : False|dict
+            If False, the time-attribute is checked for and used. 
+        Initial_Conditions : False|dict
+            If False, the initial conditions  attribute is checked for and used. 
+        
+        Returns
+        ---------
+        df : pandas DataFrame
+            DataFrame with in the columns the the different variable outputs
+        
+        See Also
+        ---------
+        set_initial_conditions, set_time
+                
         '''
 
         self._check_for_time(TimeStepsDict)
@@ -576,9 +721,10 @@ class odegenerator(object):
         return df
         
     def collinearity_check(self,variable):
-        '''
-        TODO
-        Change to total relative sensitivity instead of relative sensitivity to parameter
+        '''TODO
+        
+        Change to total relative sensitivity instead of relative sensitivity 
+        to parameter
         '''
         try:
             # Import file where sensitivities are located
@@ -616,9 +762,23 @@ class odegenerator(object):
             self.Collinearity_Pairwise[variable] = Collinearity_pairwise
         return Collinearity_pairwise
 
-    def numeric_local_sensitivity(self, perturbation_factor = 0.0001, TimeStepsDict = False, Initial_Conditions = False):
-        '''
-        For every parameter calcluate the 
+    def numeric_local_sensitivity(self, perturbation_factor = 0.0001, 
+                                  TimeStepsDict = False, 
+                                  Initial_Conditions = False):
+        '''Calculates numerical based local sensitivity 
+        
+        For every parameter calcluate the sensitivity of the output variables.
+        
+        Parameters
+        -----------
+        perturbation_factor : float (default 0.0001)
+            factor for perturbation of the parameter value to approximate 
+            the derivative
+        TimeStepsDict : False|dict
+            If False, the time-attribute is checked for and used. 
+        Initial_Conditions : False|dict
+            If False, the initial conditions  attribute is checked for and used.         
+            
         '''
         self._check_for_time(TimeStepsDict)
         self._check_for_init(Initial_Conditions) 
@@ -664,10 +824,17 @@ class odegenerator(object):
         return numerical_sens
 
     def visual_check_collinearity(self, output):
-        '''
-        TODO: use both numerical AND anlytical
+        '''show scatterplot of sensitivities
         
-        output: string with variable identifier
+        Check for linear dependence of the local sensitivity outputs for a 
+        specific variable. If the sensitivity output of two parameters is 
+        highly related, those parameters are probably interfering for 
+        this model output
+        
+        Parameters
+        ------------        
+        output : str
+            name of the variable to get the collinearity check from
         '''
         try:
             self.numerical_sensitivity
@@ -681,10 +848,37 @@ class odegenerator(object):
                              linestyle='none', marker='o', color='black', mfc='none')
 
     def plot_collinearity(self, ax1, redgreen = False):
-        '''
-        Make an overview plot of the collinearity
+        '''plot of calcluated collinearity check 
         
-        ax based in order to make order combinations possible
+        Make an overview plot of the collinearity calculation as decribed in
+        literature
+        
+        Parameters
+        -----------
+        ax1 : matplotlib axis instance
+            the axis will be updated by the function
+        redgreen :  boolean
+            if True, red/grees color is used instead of greyscale
+
+        Returns
+        ---------
+        ax1 : matplotlib axis instance
+            axis with the plotted output 
+        
+        Notes
+        ------
+        Collinearity check is implemented as described in [2]_ and [3]_, where
+        a threshold is defined to identify the dependecne between parameters.
+        
+        References
+        -----------
+        .. [2] Brun, Roland, Peter Reichert, and Hans R Kfinsch. Practical
+                Identifiability Analysis of Large Environmental Simulation
+                37, no. 4 (2001) 1015–1030.
+        .. [3] De Pauw, D J W, K Steppe, and B De Baets. Identifiability 
+                Analysis and Improvement of a Tree Water Flow and Storage 
+                Model. Mathematical Biosciences 211, no. 2 (February 2008) 
+                314–32. http://www.ncbi.nlm.nih.gov/pubmed/17936856.                
         '''
         
         mat_to_plot = np.zeros([len(self._Variables),len(self.Parameters),len(self.Parameters)])
