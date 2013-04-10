@@ -46,12 +46,12 @@ M1.set_initial_conditions({'SA':5.,'SB':0.,'En':1.,'EP':0.,'Es':0.,'EsQ':0.,'PP'
 #M1.set_initial_conditions({'SA':5.,'SB':4.,'En':1.,'EP':6.,'Es':2.5,'EsQ':1.,'PP':1.5,'PQ':0.})
 M1.set_time({'start':1,'end':20,'nsteps':10000})
 
-M1.write_model_to_file(with_sens=False)
+#M1.write_model_to_file(with_sens=False)
 #------------------------------------------------------------------------------
 #EXAMPLE SET FOR SEMINAR
 #------------------------------------------------------------------------------
 ##run the model
-modeloutput = M1.solve_ode(plotit=False)
+#modeloutput = M1.solve_ode(plotit=False)
 #print modeloutput
 #modeloutput.plot(subplots=True) 
 ##run the taylor approach for identifiability

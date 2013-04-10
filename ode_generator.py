@@ -844,7 +844,7 @@ class odegenerator(object):
 
         return numerical_sens
 
-    def visual_check_collinearity(self, output):
+    def visual_check_collinearity(self, output, layout = 'half'):
         '''show scatterplot of sensitivities
         
         Check for linear dependence of the local sensitivity outputs for a 
@@ -856,6 +856,8 @@ class odegenerator(object):
         ------------        
         output : str
             name of the variable to get the collinearity check from
+            
+        TODO: extend to use it for numerical AND analytical
         '''
         try:
             self.numerical_sensitivity
@@ -863,10 +865,8 @@ class odegenerator(object):
             self.numeric_local_sensitivity()
 
         toanalyze = self.numerical_sensitivity[output].as_matrix().transpose()            
-        scatterplot_matrix(toanalyze, plottext=self.Parameters.keys(), 
-                           data2 = False, limin = False, 
-                             limax = False, plothist = False, 
-                             linestyle='none', marker='o', color='black', mfc='none')
+        scatterplot_matrix(toanalyze, plottext=self.Parameters.keys(), plothist = False,
+                           layout = layout, marker='o', color='black', mfc='none')
 
     def plot_collinearity(self, ax1, redgreen = False):
         '''plot of calcluated collinearity check 
