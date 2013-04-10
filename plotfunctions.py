@@ -157,7 +157,6 @@ def scatterplot_matrix(data1, plottext=None, limin = False,
         else: #plot histogram in center
             axes[i,i].hist(data1[i],bins=20,color='k')
             axes[i,i].set_xlim(limin[i],limax[i])
-            print limin[i],limax[i]
                 
     if plothist:
         print 'plottext is not added'
@@ -178,7 +177,6 @@ def scatterplot_matrix(data1, plottext=None, limin = False,
             axes[i,j].yaxis.set_minor_locator(minorLocator)   
     else: #layout half
         for i, j in zip(count(1), range(numvars-1)):
-            print i,j
             axes[-1,j].xaxis.set_visible(True)
             axes[-1,j].set_xlim(limin[j]-0.1*(limax[j]-limin[j]),limax[j]+0.1*(limax[j]-limin[j]))
             majorLocator2= FixedLocator([limin[j], limax[j]])
