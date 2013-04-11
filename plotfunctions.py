@@ -102,7 +102,6 @@ def scatterplot_matrix(data1, plottext=None, limin = False,
         # Hide all ticks and labels
         ax.xaxis.set_visible(False)
         ax.yaxis.set_visible(False)
-
            
         if ax.is_first_col():
             ax.yaxis.set_ticks_position('left')
@@ -112,7 +111,6 @@ def scatterplot_matrix(data1, plottext=None, limin = False,
             ax.xaxis.set_ticks_position('top')
         if ax.is_last_row():
             ax.xaxis.set_ticks_position('bottom')
-                
         #adjust the ticker lengths and position
         ax.tick_params(direction = 'out', pad=8, length = 5., 
                        color = 'black', which = 'major')
@@ -146,7 +144,6 @@ def scatterplot_matrix(data1, plottext=None, limin = False,
             axes[x,y].set_ylim(limin[x],limax[x])
             axes[x,y].set_xlim(limin[y],limax[y]) 
 
-    
     #PLOT histograms  and variable names  
     #    for i, label in enumerate(plottext):   
     for i in range(numvars):
@@ -162,7 +159,6 @@ def scatterplot_matrix(data1, plottext=None, limin = False,
         print 'plottext is not added'
 
     # Turn on the proper x or y axes ticks.
-    
     if layout == 'full':
         for i, j in zip(range(numvars), cycle((-1, 0))):
             axes[j,i].xaxis.set_visible(True)
@@ -190,12 +186,10 @@ def scatterplot_matrix(data1, plottext=None, limin = False,
             minorLocator  = FixedLocator(np.linspace(limin[i], limax[i],10))            
             axes[i,0].yaxis.set_major_locator(majorLocator3)
             axes[i,0].yaxis.set_minor_locator(minorLocator)  
-          
-    
+              
     #When uneven, some changes needed to properly put the ticks and tickslabels
     #since the ticks next to the histogram need to take the others y-scale
     #solved by adding a twinx taking over the last limits
-
     if not numvars%2==0 and layout == 'full':# and plothist==False:  
         if plothist == False:
             #create dummy info when no histogram is added
