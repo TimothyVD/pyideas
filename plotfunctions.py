@@ -8,6 +8,7 @@ pltofunctions to support visual inspection
 """
 
 from itertools import cycle, count
+from scipy.stats import pearsonr, spearmanr, kendalltau
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator, LinearLocator, NullLocator, FixedLocator
@@ -32,7 +33,7 @@ def _definedec(nummin,nummax):
             dec = cnt
     return dec
 
-def scatterplot_matrix(data1, plottext=None, limin = False, 
+def scatterplot_matrix(data1, plottext=None, limin = False, upperpane = 'pearson',
                              limax = False,  plothist = False, layout = 'full', 
                              *args, **kwargs):
     """
@@ -61,6 +62,10 @@ def scatterplot_matrix(data1, plottext=None, limin = False,
     layout : full|half
         full doubles the visualisation, half only shows the lower half of 
         the scattermatrix
+    upperpane : pearson|spearman|kendall|data
+        Decision about the content of the upper pane of the graph; implemented
+        are pearson, spearman, kendall correlation coefficients; when data is
+        chosen, the data is plotted again
     *args, **kwargs: arg
         arguments passed to the scatter method 
     
@@ -76,12 +81,11 @@ def scatterplot_matrix(data1, plottext=None, limin = False,
     >>> np.random.seed(1977)
     >>> numvars, numdata = 4, 1111
     >>> data1 = 5 * np.random.normal(loc=3.,scale=2.0,size=(numvars, numdata))
-    >>> fig,axes = scatterplot_matrix(data1,
-            linestyle='none', marker='o', color='black', mfc='none', 
-            plothist = True, plottext=['A','B','C','D'])
+    >>> fig,axes = scatterplot_matrix(data1, marker='o', color='black', mfc='none', upperpane = 'kendall',
+                                  layout = 'full', plothist = True, plottext=['A','B','C','D'])
     >>> ax2add = axes[0,0]
-    >>> ax2add.text(0.05,0.8,r'$SSE_{\alpha}$',transform = ax2add.transAxes,
-                    fontsize=20) 
+    >>> ax2add.text(0.05,0.8,r'$some_{\alpha}$',transform = ax2add.transAxes,
+                    fontsize=20)
     
     Notes
     ------
@@ -138,8 +142,33 @@ def scatterplot_matrix(data1, plottext=None, limin = False,
                           
         for x, y in [(i,j)]:           
             if layout == 'full':
-                axes[x,y].plot(data1[y], data1[x], linestyle='none', *args, **kwargs)  
+                if upperpane == 'pearson': #default
+                    axes[x,y].text(0.5,0.5, r'%.3f'%pearsonr(data1[y], data1[x])[0],
+                        horizontalalignment='center', verticalalignment='center',
+                                    transform = axes[x,y].transAxes, fontsize=14)
+                elif upperpane == 'spearman':
+                    axes[x,y].text(0.5,0.5, r'%.3f'%spearmanr(data1[y], data1[x])[0],
+                        horizontalalignment='center', verticalalignment='center',
+                                    transform = axes[x,y].transAxes, fontsize=14)
+                elif upperpane == 'kendall':
+                    try:
+                        kendal, kendalp = kendalltau(data1[y], data1[x])
+                        axes[x,y].text(0.5,0.5, r'%.3f'%kendal,
+                            horizontalalignment='center', verticalalignment='center',
+                                        transform = axes[x,y].transAxes, fontsize=14)                         
+                    except:
+                        kendal = 'nan'
+                        axes[x,y].text(0.5,0.5, kendal,
+                            horizontalalignment='center', verticalalignment='center',
+                                        transform = axes[x,y].transAxes, fontsize=14)    
+                elif upperpane == 'data':
+                    axes[x,y].plot(data1[y], data1[x], linestyle='none', *args, **kwargs)  
+                else:
+                    axes[x,y].plot(data1[y], data1[x], linestyle='none', *args, **kwargs)  
+                    print 'data is plotted again, since no correlation coefficent was selected'
+                    
             elif layout == 'half':
+                print 'upperpane is hidden'
                 axes[x,y].set_axis_off()
             axes[x,y].set_ylim(limin[x],limax[x])
             axes[x,y].set_xlim(limin[y],limax[y]) 
@@ -156,7 +185,7 @@ def scatterplot_matrix(data1, plottext=None, limin = False,
             axes[i,i].set_xlim(limin[i],limax[i])
                 
     if plothist:
-        print 'plottext is not added'
+        print 'plottext is not visible'
 
     # Turn on the proper x or y axes ticks.
     if layout == 'full':
@@ -208,4 +237,5 @@ def scatterplot_matrix(data1, plottext=None, limin = False,
         
         axes[numvars-1,numvars-1].xaxis.set_major_locator(majorLocator)
         axes[numvars-1,numvars-1].xaxis.set_minor_locator(minorLocator)                
-    return fig, axes     
+    return fig, axes   
+    

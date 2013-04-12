@@ -51,8 +51,8 @@ M1.set_time({'start':1,'end':20,'nsteps':10000})
 #EXAMPLE SET FOR SEMINAR
 #------------------------------------------------------------------------------
 ##run the model
-#modeloutput = M1.solve_ode(plotit=False)
-#print modeloutput
+modeloutput = M1.solve_ode(plotit=False)
+print modeloutput
 #modeloutput.plot(subplots=True) 
 ##run the taylor approach for identifiability
 #M1.taylor_series_approach(2)

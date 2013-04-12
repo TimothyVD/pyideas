@@ -844,7 +844,7 @@ class odegenerator(object):
 
         return numerical_sens
 
-    def visual_check_collinearity(self, output, layout = 'half'):
+    def visual_check_collinearity(self, output, layout = 'full', upperpane = 'pearson'):
         '''show scatterplot of sensitivities
         
         Check for linear dependence of the local sensitivity outputs for a 
@@ -856,6 +856,13 @@ class odegenerator(object):
         ------------        
         output : str
             name of the variable to get the collinearity check from
+        layout : full|half
+            full doubles the visualisation, half only shows the lower half of 
+            the scattermatrix
+        upperpane : pearson|spearman|kendall|data
+            Decision about the content of the upper pane of the graph if full
+            layout is selected; implemented are pearson, spearman, kendall 
+            correlation coefficients; when data is chosen, the data is plotted again            
             
         TODO: extend to use it for numerical AND analytical
         '''
@@ -863,10 +870,11 @@ class odegenerator(object):
             self.numerical_sensitivity
         except:
             self.numeric_local_sensitivity()
-
+        
         toanalyze = self.numerical_sensitivity[output].as_matrix().transpose()            
-        scatterplot_matrix(toanalyze, plottext=self.Parameters.keys(), plothist = False,
-                           layout = layout, marker='o', color='black', mfc='none')
+        fig, axes = scatterplot_matrix(toanalyze, plottext=self.Parameters.keys(), plothist = False,
+                           layout = layout, upperpane = upperpane, marker='o', color='black', mfc='none')
+        plt.draw()
 
     def plot_collinearity(self, ax1, redgreen = False):
         '''plot of calcluated collinearity check 
@@ -963,3 +971,5 @@ class odegenerator(object):
         ax1.xaxis.set_ticks_position('top')
         ax1.yaxis.set_ticks_position('left')
         return ax1
+
+        
