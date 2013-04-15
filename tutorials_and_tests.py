@@ -44,7 +44,7 @@ M1 = odegenerator(System, Parameters, Modelname = Modelname)
 M1.set_measured_states(['SA', 'SB', 'PP', 'PQ'])
 M1.set_initial_conditions({'SA':5.,'SB':0.,'En':1.,'EP':0.,'Es':0.,'EsQ':0.,'PP':0.,'PQ':0.})
 #M1.set_initial_conditions({'SA':5.,'SB':4.,'En':1.,'EP':6.,'Es':2.5,'EsQ':1.,'PP':1.5,'PQ':0.})
-M1.set_time({'start':1,'end':20,'nsteps':10000})
+M1.set_time({'start':1,'end':20,'nsteps':100})
 
 #M1.write_model_to_file(with_sens=False)
 #------------------------------------------------------------------------------

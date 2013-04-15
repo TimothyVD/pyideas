@@ -145,17 +145,17 @@ def scatterplot_matrix(data1, plottext=None, limin = False, upperpane = 'pearson
                 if upperpane == 'pearson': #default
                     axes[x,y].text(0.5,0.5, r'%.3f'%pearsonr(data1[y], data1[x])[0],
                         horizontalalignment='center', verticalalignment='center',
-                                    transform = axes[x,y].transAxes, fontsize=14)
+                                    transform = axes[x,y].transAxes, fontsize=14, alpha = 0.5)
                 elif upperpane == 'spearman':
                     axes[x,y].text(0.5,0.5, r'%.3f'%spearmanr(data1[y], data1[x])[0],
                         horizontalalignment='center', verticalalignment='center',
-                                    transform = axes[x,y].transAxes, fontsize=14)
+                                    transform = axes[x,y].transAxes, fontsize=14, alpha = 0.5)
                 elif upperpane == 'kendall':
                     try:
                         kendal, kendalp = kendalltau(data1[y], data1[x])
                         axes[x,y].text(0.5,0.5, r'%.3f'%kendal,
                             horizontalalignment='center', verticalalignment='center',
-                                        transform = axes[x,y].transAxes, fontsize=14)                         
+                                        transform = axes[x,y].transAxes, fontsize=14, alpha = 0.5)   
                     except:
                         kendal = 'nan'
                         axes[x,y].text(0.5,0.5, kendal,
@@ -179,7 +179,7 @@ def scatterplot_matrix(data1, plottext=None, limin = False, upperpane = 'pearson
         if not plothist and plottext:
             label = plottext[i]
             axes[i,i].annotate(label, (0.5, 0.5), xycoords='axes fraction',
-                    ha='center', va='center')
+                    ha='center', va='center', fontsize = 16)
         else: #plot histogram in center
             axes[i,i].hist(data1[i],bins=20,color='k')
             axes[i,i].set_xlim(limin[i],limax[i])
