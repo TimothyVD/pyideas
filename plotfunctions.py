@@ -7,13 +7,14 @@ Created on Tue Mar 26 15:07:26 2013
 pltofunctions to support visual inspection
 """
 
-import itertools
+from itertools import cycle, count
+from scipy.stats import pearsonr, spearmanr, kendalltau
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.ticker import MaxNLocator, LinearLocator, NullLocator
+from matplotlib.ticker import MaxNLocator, LinearLocator, NullLocator, FixedLocator
 
 
-def definedec(nummin,nummax):
+def _definedec(nummin,nummax):
     '''
     Help function to define the number of shown decimals
     '''
@@ -32,11 +33,8 @@ def definedec(nummin,nummax):
             dec = cnt
     return dec
 
-def scatterplot_matrix(data1, plottext=None, data2 = False, limin = False, 
-                             limax = False, diffstyle1 = None, 
-                             diffstyle2 = None, plothist = False,
-                             mstyles=['o','v','^','<','>','1\
-                             ','2','3','4','s','x','+',',','_','|'], 
+def scatterplot_matrix(data1, plottext=None, limin = False, upperpane = 'pearson',
+                             limax = False,  plothist = False, layout = 'full', 
                              *args, **kwargs):
     """
     Plots a scatterplot matrix of subplots.  Each row of "data" is plotted
@@ -46,32 +44,28 @@ def scatterplot_matrix(data1, plottext=None, data2 = False, limin = False,
         
     Parameters
     -----------
-    data1: ndarray
+    data1 : ndarray
         numvars rows and numdata columns datapoints to compare,
         when only this dataset is given, the dat is plotted twice in the 
         graph
-    data2: ndarray
-        optional second dataset to put in the upper-part, whereas the 
-        first dataset is putted in the lower part
-    plottext: None | list
+    plottext : None | list
         list of strings woth the text to put for the variables, when no 
         histograms are needed
-    limin: False | list 
+    limin : False | list 
         List of user defined minimal values for the different
         variables. When False, the min/max values are calculated
-    limax: False | list 
+    limax : False | list 
         List of user defined maximal values for the different
         variables. When False, the min/max values are calculated 
-    diffstyle1: None |list
-        when every variable contains sub-groups, the diffstyle list gives 
-        the number of elements to group the elements, different groups are
-        given different color/style caracteristics automatically
-    diffstyle2: None |list
-        analgue to diffstyle1
-    mstyles: list
-        list of user defined symbols to use for different groups
-    plothist: bool
+    plothist : bool
         histogram is plotted in the middle of the data1 when True
+    layout : full|half
+        full doubles the visualisation, half only shows the lower half of 
+        the scattermatrix
+    upperpane : pearson|spearman|kendall|data
+        Decision about the content of the upper pane of the graph; implemented
+        are pearson, spearman, kendall correlation coefficients; when data is
+        chosen, the data is plotted again
     *args, **kwargs: arg
         arguments passed to the scatter method 
     
@@ -87,17 +81,11 @@ def scatterplot_matrix(data1, plottext=None, data2 = False, limin = False,
     >>> np.random.seed(1977)
     >>> numvars, numdata = 4, 1111
     >>> data1 = 5 * np.random.normal(loc=3.,scale=2.0,size=(numvars, numdata))
-    >>> data2 = 50 * np.random.random((numvars, numdata))
-    >>> fig,axes = scatterplot_matrix(data1, data2 = False,
-            linestyle='none', marker='o', color='black', mfc='none', 
-            diffstyle1=[555,556], plothist = True, plottext=['A','B','C','D'])
+    >>> fig,axes = scatterplot_matrix(data1, marker='o', color='black', mfc='none', upperpane = 'kendall',
+                                  layout = 'full', plothist = True, plottext=['A','B','C','D'])
     >>> ax2add = axes[0,0]
-    >>> ax2add.text(0.05,0.8,r'$SSE_{\alpha}$',transform = ax2add.transAxes,
+    >>> ax2add.text(0.05,0.8,r'$some_{\alpha}$',transform = ax2add.transAxes,
                     fontsize=20)
-    >>> 
-    >>> fig,axes = scatterplot_matrix(data1, data2 = data2,
-            linestyle='none', marker='o', color='black', mfc='none', 
-            diffstyle1=False, plothist = False, plottext=['A','B','C','D'])   
     
     Notes
     ------
@@ -108,22 +96,17 @@ def scatterplot_matrix(data1, plottext=None, data2 = False, limin = False,
     are more or less the same, since otherwise the plot won't show both nicely
     """
        
-    databoth = False
-    if isinstance(data2, np.ndarray):
-        databoth = True
-    
-    #TODO: control for inputs
-    
+   
     numvars, numdata = data1.shape
-    fig, axes = plt.subplots(nrows=numvars, ncols=numvars, figsize=(40,40))
-    fig.subplots_adjust(hspace=0.05, wspace=0.03)
+    fig, axes = plt.subplots(nrows=numvars, ncols=numvars, figsize=(20,20))
+#    fig.subplots_adjust(hspace=0.05, wspace=0.03)
+    fig.subplots_adjust(hspace=0., wspace=0.0)
 
     for ax in axes.flat:
         # Hide all ticks and labels
         ax.xaxis.set_visible(False)
         ax.yaxis.set_visible(False)
-
-        # Set up ticks only on one side for the "edge" subplots...
+           
         if ax.is_first_col():
             ax.yaxis.set_ticks_position('left')
         if ax.is_last_col():
@@ -142,27 +125,7 @@ def scatterplot_matrix(data1, plottext=None, data2 = False, limin = False,
         limin=[]
         limax=[]        
         for i in range(data1.shape[0]):
-            if databoth == True:
-                dec1 = definedec(np.min(data1[i]),np.max(data1[i]))
-                dec2 = definedec(np.min(data2[i]),np.max(data2[i]))                
-                limin1=np.around(np.min(data1[i]),decimals = dec1)
-                limax1=np.around(np.max(data1[i]),decimals = dec1)
-                limin2=np.around(np.min(data2[i]),decimals = dec2)
-                limax2=np.around(np.max(data2[i]),decimals = dec2)
-                print dec2
-                limin.append(min(limin1,limin2))
-                limax.append(max(limax1,limax2))
-                               
-                if np.abs(limin1 - limin2) > min(limin1,limin2):
-                    print np.abs(limin1 - limin2), min(limin1,limin2),'min'
-                    print 'potentially the datalimits of two datasets are \
-                    too different for presenting results'
-                if np.abs(limax1 - limax2) > min(limax1,limax2):
-                    print np.abs(limax1 - limax2), min(limax1,limax2),'max'
-                    print 'potentially the datalimits of two datasets are\
-                    too different for acceptabel results'
-            else:
-                dec1 = definedec(np.min(data1[i]),np.max(data1[i]))
+                dec1 = _definedec(np.min(data1[i]),np.max(data1[i]))
                 limin.append(np.around(np.min(data1[i]),decimals = dec1))
                 limax.append(np.around(np.max(data1[i]),decimals = dec1))
         print 'used limits are', limin,'and', limax
@@ -172,80 +135,44 @@ def scatterplot_matrix(data1, plottext=None, data2 = False, limin = False,
     # Plot the data.
     for i, j in zip(*np.triu_indices_from(axes, k=1)):
 #        for x, y in [(i,j), (j,i)]:
-        for x, y in [(j,i)]: #low
-            if diffstyle1:
-                cls=np.linspace(0.0,0.5,len(diffstyle1))              
-                dfc=np.cumsum(np.array(diffstyle1))
-                dfc=np.insert(dfc,0,0)        
-                if dfc[-1]<>data1.shape[1]:
-                    raise Exception('sum of element in each subarray is\
-                    not matching the total data size')
-                if len(diffstyle1)>15:
-                    raise Exception('Not more than 15 markers provided')
-                for ig in range(len(diffstyle1)):
-                    axes[x,y].plot(data1[y][dfc[ig]:dfc[ig+1]], 
-                                    data1[x][dfc[ig]:dfc[ig+1]], 
-                                    marker=mstyles[ig], markersize = 6.,
-                                    linestyle='none', markerfacecolor='none', markeredgewidth=0.7,#color=str(cls[ig]),
-                                    markeredgecolor=str(cls[ig]))                   
-                axes[x,y].set_ylim(limin[x],limax[x])
-                axes[x,y].set_xlim(limin[y],limax[y])
-                
-            else:    
-                axes[x,y].plot(data1[y], data1[x], *args, **kwargs)
-                axes[x,y].set_ylim(limin[x],limax[x])
-                axes[x,y].set_xlim(limin[y],limax[y])
-                         
- 
-        if databoth == True: #plot data2
-            for x, y in [(i,j)]: 
-                if diffstyle2:
-                    cls=np.linspace(0.0,0.5,len(diffstyle2))
-                    dfc=np.cumsum(np.array(diffstyle2))
-                    dfc=np.insert(dfc,0,0)        
-                    if dfc[-1]<>data2.shape[1]:
-                        raise Exception('sum of element in each subarray\
-                        is not matching the total data size')
-                    if len(diffstyle1)>15:
-                        raise Exception('Not more than 15 markers provided')                    
-                    for ig in range(len(diffstyle2)):
-                        axes[x,y].plot(data2[y][dfc[ig]:dfc[ig+1]], 
-                                        data2[x][dfc[ig]:dfc[ig+1]], 
-                                        marker=mstyles[ig], markersize = 6,
-                                        linestyle='none', markerfacecolor='none', markeredgewidth=0.7,
-                                        markeredgecolor=str(cls[ig]))
-                    axes[x,y].set_ylim(limin[x],limax[x])
-                    axes[x,y].set_xlim(limin[y],limax[y])                    
-                else:             
-                    axes[x,y].plot(data2[y], data2[x], *args, **kwargs)  
-                    axes[x,y].set_ylim(limin[x],limax[x])
-                    axes[x,y].set_xlim(limin[y],limax[y]) 
+        for x, y in [(j,i)]: #low  
+            axes[x,y].plot(data1[y], data1[x], linestyle='none', *args, **kwargs)
+            axes[x,y].set_ylim(limin[x],limax[x])
+            axes[x,y].set_xlim(limin[y],limax[y])
+                          
+        for x, y in [(i,j)]:           
+            if layout == 'full':
+                if upperpane == 'pearson': #default
+                    axes[x,y].text(0.5,0.5, r'%.3f'%pearsonr(data1[y], data1[x])[0],
+                        horizontalalignment='center', verticalalignment='center',
+                                    transform = axes[x,y].transAxes, fontsize=14)
+                elif upperpane == 'spearman':
+                    axes[x,y].text(0.5,0.5, r'%.3f'%spearmanr(data1[y], data1[x])[0],
+                        horizontalalignment='center', verticalalignment='center',
+                                    transform = axes[x,y].transAxes, fontsize=14)
+                elif upperpane == 'kendall':
+                    try:
+                        kendal, kendalp = kendalltau(data1[y], data1[x])
+                        axes[x,y].text(0.5,0.5, r'%.3f'%kendal,
+                            horizontalalignment='center', verticalalignment='center',
+                                        transform = axes[x,y].transAxes, fontsize=14)                         
+                    except:
+                        kendal = 'nan'
+                        axes[x,y].text(0.5,0.5, kendal,
+                            horizontalalignment='center', verticalalignment='center',
+                                        transform = axes[x,y].transAxes, fontsize=14)    
+                elif upperpane == 'data':
+                    axes[x,y].plot(data1[y], data1[x], linestyle='none', *args, **kwargs)  
+                else:
+                    axes[x,y].plot(data1[y], data1[x], linestyle='none', *args, **kwargs)  
+                    print 'data is plotted again, since no correlation coefficent was selected'
                     
-        else: #plot the data1 again
-            for x, y in [(i,j)]:
-                if diffstyle1:
-                    cls=np.linspace(0.0,0.5,len(diffstyle1))
-                    dfc=np.cumsum(np.array(diffstyle1))
-                    dfc=np.insert(dfc,0,0)        
-                    if dfc[-1]<>data1.shape[1]:
-                        raise Exception('sum of element in each subarray\
-                        is not matching the total data size')
-                    if len(diffstyle1)>15:
-                        raise Exception('Not more than 15 markers provided')                    
-                    for ig in range(len(diffstyle1)):
-                        axes[x,y].plot(data1[y][dfc[ig]:dfc[ig+1]], 
-                                        data1[x][dfc[ig]:dfc[ig+1]], 
-                                        marker=mstyles[ig], markersize = 6,
-                                        linestyle='none', markerfacecolor='none', markeredgewidth=0.7,
-                                        markeredgecolor=str(cls[ig]))
-                    axes[x,y].set_ylim(limin[x],limax[x])
-                    axes[x,y].set_xlim(limin[y],limax[y])                    
-                else:             
-                    axes[x,y].plot(data1[y], data1[x], *args, **kwargs)  
-                    axes[x,y].set_ylim(limin[x],limax[x])
-                    axes[x,y].set_xlim(limin[y],limax[y]) 
+            elif layout == 'half':
+                print 'upperpane is hidden'
+                axes[x,y].set_axis_off()
+            axes[x,y].set_ylim(limin[x],limax[x])
+            axes[x,y].set_xlim(limin[y],limax[y]) 
 
-    
     #PLOT histograms  and variable names  
     #    for i, label in enumerate(plottext):   
     for i in range(numvars):
@@ -254,46 +181,45 @@ def scatterplot_matrix(data1, plottext=None, data2 = False, limin = False,
             axes[i,i].annotate(label, (0.5, 0.5), xycoords='axes fraction',
                     ha='center', va='center')
         else: #plot histogram in center
-            if diffstyle1:
-                dfc=np.cumsum(np.array(diffstyle1))
-                dfc=np.insert(dfc,0,0)        
-                if dfc[-1]<>data1.shape[1]:
-                    raise Exception('sum of element in each subarray is\
-                    not matching the total data size')
-                cls=np.linspace(0.0,0.5,len(diffstyle1))
-                
-                for ig in range(len(diffstyle1)):
-                    axes[i,i].hist(data1[i][dfc[ig]:dfc[ig+1]], 
-                                    facecolor = 'none', bins=20, 
-                                    edgecolor=str(cls[ig]), linewidth = 1.5)
-                axes[i,i].set_xlim(limin[i],limax[i])      
-                print limin[i],limax[i]
-            else:
-                axes[i,i].hist(data1[i],bins=20,color='k')
-                axes[i,i].set_xlim(limin[i],limax[i])
-                print limin[i],limax[i]
+            axes[i,i].hist(data1[i],bins=20,color='k')
+            axes[i,i].set_xlim(limin[i],limax[i])
                 
     if plothist:
-        print 'plottext is not added'
+        print 'plottext is not visible'
 
     # Turn on the proper x or y axes ticks.
-    for i, j in zip(range(numvars), itertools.cycle((-1, 0))):
-        axes[j,i].xaxis.set_visible(True)
-        axes[i,j].yaxis.set_visible(True)
-             
-        majorLocator = LinearLocator(3)
-        axes[j,i].xaxis.set_major_locator(majorLocator)
-        axes[i,j].yaxis.set_major_locator(majorLocator)
-
-        minorLocator  = LinearLocator(11)
-        axes[j,i].xaxis.set_minor_locator(minorLocator)
-        axes[i,j].yaxis.set_minor_locator(minorLocator)        
+    if layout == 'full':
+        for i, j in zip(range(numvars), cycle((-1, 0))):
+            axes[j,i].xaxis.set_visible(True)
+            axes[i,j].yaxis.set_visible(True)
+                 
+            majorLocator = LinearLocator(3)
+            axes[j,i].xaxis.set_major_locator(majorLocator)
+            axes[i,j].yaxis.set_major_locator(majorLocator)
     
+            minorLocator  = LinearLocator(11)
+            axes[j,i].xaxis.set_minor_locator(minorLocator)
+            axes[i,j].yaxis.set_minor_locator(minorLocator)   
+    else: #layout half
+        for i, j in zip(count(1), range(numvars-1)):
+            axes[-1,j].xaxis.set_visible(True)
+            axes[-1,j].set_xlim(limin[j]-0.1*(limax[j]-limin[j]),limax[j]+0.1*(limax[j]-limin[j]))
+            majorLocator2= FixedLocator([limin[j], limax[j]])
+            minorLocator  = FixedLocator(np.linspace(limin[j], limax[j],10))
+            axes[-1,j].xaxis.set_major_locator(majorLocator2) 
+            axes[-1,j].xaxis.set_minor_locator(minorLocator)            
+
+            axes[i,0].yaxis.set_visible(True)
+            axes[i,0].set_ylim(limin[i]-0.1*(limax[i]-limin[i]),limax[i]+0.1*(limax[i]-limin[i]))
+            majorLocator3= FixedLocator([limin[i], limax[i]])
+            minorLocator  = FixedLocator(np.linspace(limin[i], limax[i],10))            
+            axes[i,0].yaxis.set_major_locator(majorLocator3)
+            axes[i,0].yaxis.set_minor_locator(minorLocator)  
+              
     #When uneven, some changes needed to properly put the ticks and tickslabels
     #since the ticks next to the histogram need to take the others y-scale
     #solved by adding a twinx taking over the last limits
-
-    if not numvars%2==0:# and plothist==False:  
+    if not numvars%2==0 and layout == 'full':# and plothist==False:  
         if plothist == False:
             #create dummy info when no histogram is added
             axes[numvars-1,numvars-1].set_xlim(limin[numvars-1], 
@@ -305,9 +231,11 @@ def scatterplot_matrix(data1, plottext=None, data2 = False, limin = False,
         axextra.set_ylim(limin[numvars-1],limax[numvars-1])
         axextra.yaxis.set_minor_locator(minorLocator)
         axextra.yaxis.set_major_locator(majorLocator)
+        
         axes[numvars-1,numvars-1].yaxis.set_ticks([])
         axes[numvars-1,numvars-1].yaxis.set_minor_locator(NullLocator())    
         
         axes[numvars-1,numvars-1].xaxis.set_major_locator(majorLocator)
         axes[numvars-1,numvars-1].xaxis.set_minor_locator(minorLocator)                
     return fig, axes   
+    
