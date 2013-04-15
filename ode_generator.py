@@ -23,8 +23,6 @@ import matplotlib.pyplot as plt
 
 from plotfunctions import *
 
-
-
 class odegenerator(object):
     '''
     
