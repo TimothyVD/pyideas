@@ -135,9 +135,9 @@ class odegenerator(object):
         '''
         Measured_temp = {}
         for key in self.System:
-            Measured_temp[key] = 0        
-        self._MeasuredList=[]
-        
+            Measured_temp[key] = 0   
+            
+        self._MeasuredList=[]        
         for measured in Measurable_States:
             dmeasured = 'd' + measured
             if dmeasured in  Measured_temp:
