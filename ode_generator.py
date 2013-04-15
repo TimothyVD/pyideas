@@ -235,7 +235,7 @@ class odegenerator(object):
                         # Reset state to its original symbolic representation                    
                         exec(self.System.keys()[j-1][1:]+" = sympy.symbols('"+self.System.keys()[j-1][1:]+"')")
                         # Perform partial derivation to certian parameter
-                        self.Sensitivity_list[-1] = sympy.diff(self.Sensitivity_list[-1],eval(Parameters.keys()[k]))
+                        self.Sensitivity_list[-1] = sympy.diff(self.Sensitivity_list[-1],eval(self.Parameters.keys()[k]))
                        
                     # Multiply sensitivity with the value of the parameter
                     self.Sensitivity_list[-1] = self.Sensitivity_list[-1]*eval(self.Parameters.keys()[k])#/eval(symbol_list[i]+'+1e-6')
@@ -649,7 +649,7 @@ class odegenerator(object):
             temp = []
             for i in range(len(self.System)):
                 #file.write('    '+self.System.keys()[i][1:]+" = States['"+self.System.keys()[i][1:]+"']\n")
-                file.write('    '+self.System.keys()[i][1:]+" = States['"+i+"']\n")
+                file.write('    '+self.System.keys()[i][1:]+" = States["+str(i)+"]\n")
             file.write('\n')
             for i in range(len(self.Parameters)):
                 file.write('    '+self.Parameters.keys()[i]+" = Parameters['"+self.Parameters.keys()[i]+"']\n")
@@ -672,7 +672,7 @@ class odegenerator(object):
             for i in range(len(self.System)):
                 file.write('    '+self.System.keys()[i][1:]+" = States['"+self.System.keys()[i][1:]+"']\n")
             file.write('\n')
-            for i in range(len(Parameters)):
+            for i in range(len(self.Parameters)):
                 file.write('    '+self.Parameters.keys()[i]+" = Parameters['"+self.Parameters.keys()[i]+"']\n")
             file.write('\n')
             for i in range(len(self.System)*len(self.Parameters),len(self.Sensitivity_symbols)):
@@ -682,7 +682,7 @@ class odegenerator(object):
             for i in range(self.System.__len__()):
                 for j in range(len(self.Parameters)):
                     file.write('    d'+self.System.keys()[i][1:]+'d'+self.Parameters.keys()[j]+' = ')
-                    for k in range(System.__len__()):
+                    for k in range(self.System.__len__()):
                         file.write('d'+self.System.keys()[i][1:]+'d'+self.System.keys()[k][1:]+'Xd'+self.System.keys()[k][1:]+'d'+self.Parameters.keys()[j]+' + ') 
                     file.seek(-3,2)
                     file.write('\n')
@@ -749,6 +749,7 @@ class odegenerator(object):
         try:
             # Import file where sensitivities are located
             exec('import ' + self.modelname)
+            exec('reload('+self.modelname+')')
             # Check whether sensitivities are written to this file
             eval(self.modelname).Sensitivity_direct(self.Initial_Conditions.values(),self.Parameters)
         except:
@@ -896,7 +897,7 @@ class odegenerator(object):
         Notes
         ------
         Collinearity check is implemented as described in [2]_, where
-        a threshold is defined to identify the dependecne between parameters.
+        a threshold is defined to identify the dependence between parameters.
         
         References
         -----------
