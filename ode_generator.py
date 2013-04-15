@@ -26,7 +26,8 @@ from plotfunctions import *
 class odegenerator(object):
     '''
     Class to generated an ODE model based on a Parameter and Variables
-    dictionary.
+    dictionary. Includes ODE-model run, identifiability analysis with Tatlor
+    apporach and Laplace and numerical/analytical sensitivity analysis
     
     Parameters
     ------------
@@ -732,7 +733,7 @@ class odegenerator(object):
         res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,))
         
         #put output in pandas dataframe
-        df = pd.DataFrame(res, columns = self._Variables)
+        df = pd.DataFrame(res, index=self._Time, columns = self._Variables)
         
         #plotfunction
         if plotit == True:
@@ -799,6 +800,11 @@ class odegenerator(object):
             If False, the time-attribute is checked for and used. 
         Initial_Conditions : False|dict
             If False, the initial conditions  attribute is checked for and used.         
+        
+        Returns
+        --------
+        numerical_sens : dict
+            each variable gets a t timesteps x k par DataFrame
             
         '''
         self._check_for_time(TimeStepsDict)
@@ -809,7 +815,7 @@ class odegenerator(object):
         for key in self._Variables:
             #belangrijk dat deze dummy in loop wordt geschreven!
             dummy = np.empty((self._Time.size,len(self.Parameters)))
-            numerical_sens[key] = pd.DataFrame(dummy, columns = self.Parameters.keys())
+            numerical_sens[key] = pd.DataFrame(dummy, index=self._Time, columns = self.Parameters.keys())
         
         for parameter in self.Parameters:
             value2save = self.Parameters[parameter]
