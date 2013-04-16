@@ -157,7 +157,7 @@ class odegenerator(object):
         '''get a list of all model variables
         
         '''
-        print self._Variables
+        return self._Variables
 
     def get_measured_variables(self):
         '''get a list of all measurable variables
@@ -631,6 +631,7 @@ class odegenerator(object):
         file.write('\n#System definition\n\n')
         
     #    file.write('States = '+str(System.keys()).replace("'d","").replace("'","")+'\n\n')
+        file.write('import numpy as np\n\n')
         
         file.write('def system(States,t,Parameters):\n')
         for i in range(len(self.Parameters)):
@@ -668,11 +669,14 @@ class odegenerator(object):
                 file.write('    '+self.Sensitivity_symbols[i]+' = '+str(self.Sensitivity_list[i])+'\n')
                 exec(self.Sensitivity_symbols[i]+" = sympy.symbols('"+self.Sensitivity_symbols[i]+"')")
                 temp.append(eval(self.Sensitivity_symbols[i]))
-            file.write('    Output = {}\n')
+            file.write('\n    Output = np.zeros(['+str(len(self.get_variables()))+','+str(len(self.Parameters))+'])\n\n')
+#            file.write('    Output = {}\n')
+#            for i in range(self.System.__len__()):
+#                for j in range(len(self.Parameters)):
+#                    file.write("    Output['"+'d'+self.System.keys()[i][1:]+'d'+self.Parameters.keys()[j]+"'] = "+'d'+self.System.keys()[i][1:]+'d'+self.Parameters.keys()[j]+'\n')
             for i in range(self.System.__len__()):
                 for j in range(len(self.Parameters)):
-                    file.write("    Output['"+'d'+self.System.keys()[i][1:]+'d'+self.Parameters.keys()[j]+"'] = "+'d'+self.System.keys()[i][1:]+'d'+self.Parameters.keys()[j]+'\n')
-           
+                    file.write("    Output["+str(i)+","+str(j)+"] = "+'d'+self.System.keys()[i][1:]+'d'+self.Parameters.keys()[j]+'\n')
             file.write('    return Output\n')
         #    pprint.pprint(temp,file)
             file.write('\n')
@@ -747,6 +751,8 @@ class odegenerator(object):
         #plotfunction
         if plotit == True:
             df.plot(subplots = True)
+            
+        self.ode_solved = df
                
         return df
         
@@ -987,5 +993,19 @@ class odegenerator(object):
         ax1.xaxis.set_ticks_position('top')
         ax1.yaxis.set_ticks_position('left')
         return ax1
+        
+    def calc_analytical_sens(self):
+        exec('import '+self.modelname)
+        Output = np.zeros([len(self._Time),len(self.get_variables()),len(self.Parameters)])
+        for i in range(len(self._Time)):
+            Output[i,:,:] = eval(self.modelname).Sensitivity_direct(self.ode_solved.ix[i,:],self.Parameters)
+        analytical_sens = {}
+        for i in range(len(self._Variables)):
+            #belangrijk dat deze dummy in loop wordt geschreven!
+            analytical_sens[self._Variables[i]] = pd.DataFrame(Output[:,i,:], index=self._Time, columns = self.Parameters.keys())
+        
+        self.analytical_sens = analytical_sens
+        return analytical_sens
+            
 
         
