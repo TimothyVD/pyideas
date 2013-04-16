@@ -19,40 +19,41 @@ from matplotlib import colors
 #bio-intense custom developments
 from plotfunctions import *
 from ode_generator import odegenerator
+from optimalexperimentaldesign import OED
 
-#------------------------------------------------------------------------------
-#EXAMPLE MODEL
-#------------------------------------------------------------------------------
-Parameters = {'k1':1/10,'k1m':1/20,
-              'k2':1/20,'k2m':1/20,
-              'k3':1/200,'k3m':1/175,
-              'k4':1/200,'k4m':1/165}
-              
-System =    {'dEn':'k1m*Es*PP + k4*EP + k2*Es*SB - k1*En*SA - k4*En*PP - k2m*En*PQ',
-             'dEs':'- k1m*Es*PP + k3*EsQ - k2*Es*SB + k1*En*SA - k3*Es + k2m*En*PQ',
-             'dSA':'- k1*En*SA + k1m*Es*PP',
-             'dSB':'- k2*Es*SB + k2m*En*PQ',
-             'dPP':'k1*En*SA - k1m*Es*PP - k4*En*PP + k4m*EP',
-             'dPQ':'k2*En*SB - k2m*En*PQ - k3*Es*PQ + k3m*EsQ',
-             'dEsQ':'k3*Es*PQ - k3m*EsQ',
-             'dEP':'k4*En*PP - k4m*EP'}
-                        
-Modelname = 'MODEL_Halfreaction'
-
-##INITIATE MODEL
-M1 = odegenerator(System, Parameters, Modelname = Modelname)
-M1.set_measured_states(['SA', 'SB', 'PP', 'PQ'])
-M1.set_initial_conditions({'SA':5.,'SB':0.,'En':1.,'EP':0.,'Es':0.,'EsQ':0.,'PP':0.,'PQ':0.})
-#M1.set_initial_conditions({'SA':5.,'SB':4.,'En':1.,'EP':6.,'Es':2.5,'EsQ':1.,'PP':1.5,'PQ':0.})
-M1.set_time({'start':0,'end':20,'nsteps':1000})
+##------------------------------------------------------------------------------
+##EXAMPLE MODEL
+##------------------------------------------------------------------------------
+#Parameters = {'k1':1/10,'k1m':1/20,
+#              'k2':1/20,'k2m':1/20,
+#              'k3':1/200,'k3m':1/175,
+#              'k4':1/200,'k4m':1/165}
+#              
+#System =    {'dEn':'k1m*Es*PP + k4*EP + k2*Es*SB - k1*En*SA - k4*En*PP - k2m*En*PQ',
+#             'dEs':'- k1m*Es*PP + k3*EsQ - k2*Es*SB + k1*En*SA - k3*Es + k2m*En*PQ',
+#             'dSA':'- k1*En*SA + k1m*Es*PP',
+#             'dSB':'- k2*Es*SB + k2m*En*PQ',
+#             'dPP':'k1*En*SA - k1m*Es*PP - k4*En*PP + k4m*EP',
+#             'dPQ':'k2*En*SB - k2m*En*PQ - k3*Es*PQ + k3m*EsQ',
+#             'dEsQ':'k3*Es*PQ - k3m*EsQ',
+#             'dEP':'k4*En*PP - k4m*EP'}
+#                        
+#Modelname = 'MODEL_Halfreaction'
+#
+###INITIATE MODEL
+#M1 = odegenerator(System, Parameters, Modelname = Modelname)
+#M1.set_measured_states(['SA', 'SB', 'PP', 'PQ'])
+#M1.set_initial_conditions({'SA':5.,'SB':0.,'En':1.,'EP':0.,'Es':0.,'EsQ':0.,'PP':0.,'PQ':0.})
+##M1.set_initial_conditions({'SA':5.,'SB':4.,'En':1.,'EP':6.,'Es':2.5,'EsQ':1.,'PP':1.5,'PQ':0.})
+#M1.set_time({'start':0,'end':20,'nsteps':1000})
 
 #M1.write_model_to_file(with_sens=False)
 #------------------------------------------------------------------------------
 #EXAMPLE SET FOR SEMINAR
 #------------------------------------------------------------------------------
 ##run the model
-modeloutput = M1.solve_ode(plotit=False)
-print modeloutput
+#modeloutput = M1.solve_ode(plotit=False)
+#print modeloutput
 #modeloutput.plot(subplots=True) 
 ##run the taylor approach for identifiability
 #M1.taylor_series_approach(2)
@@ -121,4 +122,29 @@ print modeloutput
 #    
 ##put back original value
 #self.Parameters[parameter] = value2save
+
+#------------------------------------------------------------------------------
+#EXAMPLE OED test -> MODSIM voorbeeld
+#------------------------------------------------------------------------------
+Parameters = {'k1':0.2980,'k2':0.3979}
+              
+System =    {'dBZV':'1. - k1*BZV',
+             'dDO':'k2*11. - k2*DO - k1*BZV'}
+                        
+Modelname = 'Rivierlozing'
+
+##INITIATE MODEL
+M2 = OED(System, Parameters, Modelname = Modelname)
+M2.set_measured_states(['BZV','DO'])
+M2.set_initial_conditions({'BZV':7.33,'DO':8.5})
+M2.set_time({'start':0,'end':25,'nsteps':25})
+#
+M2.set_measured_errors({'DO':0.05})
+
+M2.Qerr[0,0] = 1./0.05**2
+M2.get_FIM()
+#O1.set_measured_errors({'SA':0.2, 'SB':0.4, 'PP':0.1, 'PQ':0.05})
+#O1.set_measured_times('all')
+#O1.numeric_local_sensitivity()
+#O1.get_FIM()
 

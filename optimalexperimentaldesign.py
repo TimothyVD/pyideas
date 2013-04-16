@@ -13,7 +13,13 @@ import sympy
 
 import pandas as pd
 
+if sys.hexversion > 0x02070000:
+    import collections
+else:
+    import ordereddict as collections
+
 from plotfunctions import *
+from ode_generator import odegenerator
 
 
 
@@ -30,8 +36,8 @@ class OED(odegenerator):
     AIM:
     - Link with robust OED -> sequential design (paropt - exp-opt - paropt)
     '''
-    def __init__(self):
-        odegenerator.__init__(self, System, Parameters, Modelname = 'MyModel')
+    def __init__(self,System, Parameters, Modelname = 'MyModel'):
+        odegenerator.__init__(self, System, Parameters, Modelname = Modelname)
     
     
     def set_measured_times(self, meas_time):
@@ -95,7 +101,7 @@ class OED(odegenerator):
         if Meas_same == False or len(meas_error_dict) <> len(self._Variables):
             print 'Measured variables are updated!'
             self.set_measured_states(meas_error_dict.keys())
-        self.Meas_Errors = collections.OrderedDict(sorted(meas_error_dict .items(), key=lambda t: t[0]))
+        self.Meas_Errors = collections.OrderedDict(sorted(meas_error_dict.items(), key=lambda t: t[0]))
         
         #update measurement error covariance matrix eenheidsmatrix
         self.Qerr = np.identity(len(self._MeasuredList))
@@ -103,7 +109,7 @@ class OED(odegenerator):
         #recalculate values of error percentages towards values
 #        self.Qerr = np.diag(self.Meas_Errors.values()) #np.diag_indices_from()
     
-    def FIM(self):
+    def get_FIM(self):
         '''
         Based on the measurement errors and timesteps to include evaluation,
         the FIM is calculated
@@ -112,14 +118,27 @@ class OED(odegenerator):
         ------
         
         '''
-        FIM = np.empty((len(self.Parameters),len(self.Parameters)))
         
+        try:
+            self._measdata_ID
+        except:
+            self.set_measured_times('all')
+            print 'all model timesteps are included in FIM calculation'
+        
+        #test for sensitivity
+        try:
+            self.numerical_sensitivity
+        except:
+            self.numeric_local_sensitivity()
+        
+        
+        self.FIM = np.zeros((len(self.Parameters),len(self.Parameters)))
         for timestep in self._measdata_ID:
             #GET SENS_MATRIX
-            sensmatrix = np.empty((len(self._MeasuredList),len(self.Parameters)))
+            sensmatrix = np.zeros((len(self._MeasuredList),len(self.Parameters)))
             #create sensitivity amtrix
             varcounter = 0
-            for var in self.numerical_sensitivity:
+            for var in self._MeasuredList:
                 sensmatrix[varcounter,:] = np.array(self.numerical_sensitivity[var].xs(timestep))
                 varcounter+=1
 
@@ -127,7 +146,7 @@ class OED(odegenerator):
                             
             #calculate matrices
             FIMt = np.matrix(sensmatrix).transpose() * np.matrix(self.Qerr) * np.matrix(sensmatrix)
-            FIM+=FIMt
+            self.FIM = self.FIM + FIMt
             
     def D_criterium(self):
         pass

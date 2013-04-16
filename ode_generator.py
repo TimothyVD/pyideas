@@ -79,6 +79,8 @@ class odegenerator(object):
         self.modelname = Modelname        
         
         self._Variables = [i[1:] for i in self.System.keys()] 
+        
+        self._write_model_to_file(with_sens = True)
 
 
     def set_time(self,timedict):
@@ -593,7 +595,7 @@ class odegenerator(object):
         
         return H1,H2
 
-    def write_model_to_file(self, with_sens = False):
+    def _write_model_to_file(self, with_sens = False):
         '''Write derivative of model as definition in file
         
         Writes a file with a derivative definition to run the model and
@@ -606,6 +608,9 @@ class odegenerator(object):
             to the file
         
         '''
+
+             
+        
         temp_path = os.path.join(os.getcwd(),self.modelname+'.py')
         print 'File is printed to: ', temp_path
         print 'Filename used is: ', self.modelname
@@ -641,7 +646,9 @@ class odegenerator(object):
             try:
                 self.Sensitivity_list
             except:
-                raise Exception('Run analytic_local_sensitivity first!')
+                self.analytic_local_sensitivity() 
+                print 'analytical local sensitivity running...'
+#                raise Exception('Run analytic_local_sensitivity first!')
                 
             print 'Sensitivities are printed to the file....'
             file.write('\n#Sensitivities\n\n')
@@ -834,14 +841,15 @@ class odegenerator(object):
             CAS = (modout_plus-modout_min)/(2.*perturbation_factor*value2save) #dy/dp         
             
             #we use now CPRS, but later on we'll adapt to CTRS
-            CPRS = CAS*value2save    
+#            CPRS = CAS*value2save    
 #            average_out = (modout_plus+modout_min)/2.
 #            CTRS = CAS*value2save/average_out
             
             #put on the rigth spot in the dictionary
             for var in self._Variables:
-                numerical_sens[var][parameter] = CPRS[var][:].copy()
+#                numerical_sens[var][parameter] = CPRS[var][:].copy()
 #                numerical_sens[var][parameter] = CTRS[var][:].copy()
+                numerical_sens[var][parameter] = CAS[var][:].copy()
                 
             #put back original value
             self.Parameters[parameter] = value2save
