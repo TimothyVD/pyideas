@@ -995,15 +995,28 @@ class odegenerator(object):
         return ax1
         
     def calc_analytical_sens(self):
+        '''
+        '''
+        try:
+            self.ode_solved
+        except:
+            print 'Running ODE solver with following time characteristics'
+            self.get_time()
+            print '...'
+            self.solve_ode()
+            print '... Done!'
+        # Initialize array for every timestep, every variable and every parameter
+        Sensitivity_Timeseries = np.zeros([len(self._Time),len(self.get_variables()),len(self.Parameters)])
+        # Import sensitivity function from generated file     
         exec('import '+self.modelname)
-        Output = np.zeros([len(self._Time),len(self.get_variables()),len(self.Parameters)])
+        # For every timestep calculate the sensitivity
         for i in range(len(self._Time)):
-            Output[i,:,:] = eval(self.modelname).Sensitivity_direct(self.ode_solved.ix[i,:],self.Parameters)
+            Sensitivity_Timeseries[i,:,:] = eval(self.modelname).Sensitivity_direct(self.ode_solved.ix[i,:],self.Parameters)
         analytical_sens = {}
+        # For every variable copy the evolution in time for every parameter        
         for i in range(len(self._Variables)):
-            #belangrijk dat deze dummy in loop wordt geschreven!
-            analytical_sens[self._Variables[i]] = pd.DataFrame(Output[:,i,:], index=self._Time, columns = self.Parameters.keys())
-        
+            analytical_sens[self._Variables[i]] = pd.DataFrame(Sensitivity_Timeseries[:,i,:], index=self._Time, columns = self.Parameters.keys())
+            
         self.analytical_sens = analytical_sens
         return analytical_sens
             
