@@ -137,12 +137,14 @@ class odegenerator(object):
         '''
         Measured_temp = {}
         for key in self.System:
-            Measured_temp[key] = 0   
-            
-        self._MeasuredList=[]        
+            Measured_temp[key] = 0        
+        self._MeasuredList=[]
+        
+        Measurable_States.sort()
+        
         for measured in Measurable_States:
             dmeasured = 'd' + measured
-            if dmeasured in  Measured_temp:
+            if dmeasured in Measured_temp:
                 Measured_temp[dmeasured] = 1
                 self._MeasuredList.append(measured)
             
@@ -376,7 +378,7 @@ class odegenerator(object):
                     # Copy original system in dict
                     Measurable_Output_Derivatives.append(str(intern_system['d'+self.System.keys()[h_measurable][1:]]))
                 else:
-                    # Take derivative of previous element fo list
+                    # Take derivative of previous element of list
                     Measurable_Output_Derivatives.append(str(sympy.diff(Measurable_Output_Derivatives[-1],t)))
                 for j in range(len(self.System)):
                     # Replace 'Derivative(X(t),t)' by dX(t) from system
