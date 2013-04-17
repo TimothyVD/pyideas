@@ -80,7 +80,7 @@ class odegenerator(object):
         
         self._Variables = [i[1:] for i in self.System.keys()] 
         
-        self._write_model_to_file(with_sens = True)
+        #self._write_model_to_file(with_sens = True)
 
 
     def set_time(self,timedict):
@@ -204,9 +204,12 @@ class odegenerator(object):
         
         '''
         
+        t = sympy.symbols('t')
+       
         # Symbolify system states
         for i in range(len(self.System)):
             exec(self.System.keys()[i][1:]+" = sympy.symbols('"+self.System.keys()[i][1:]+"')")
+
         # Symbolify parameters
         for i in range(len(self.Parameters)):
             exec(self.Parameters.keys()[i]+" = sympy.symbols('"+self.Parameters.keys()[i]+"')")
@@ -216,42 +219,80 @@ class odegenerator(object):
         # Make empty list for saving combined symbols corresponding with sensitivity
         self.Sensitivity_symbols = []
         
-        # Calculate direct and indirect sensitivities
-        for j in range(self.System.__len__()+1):
-            for i in range(self.System.__len__()):
-                for k in range(len(self.Parameters)):
-                    ##Evaluation of the system
-                    self.Sensitivity_list.append(str(eval(self.System.values()[i])))
-                    # Symbolic derivative of the system to a certain parameter
-                    if j ==0:
-                        # Make symbol for pythonscript
-                        self.Sensitivity_symbols.append(self.System.keys()[i]+'d'+self.Parameters.keys()[k])
-                        # Perform partial derivation to certian parameter
-                        self.Sensitivity_list[-1] = sympy.diff(self.Sensitivity_list[-1],eval(self.Parameters.keys()[k]))
-                    # First replace certain state by its derivative and then perform partial derivative to specific parameter
-                    else:
-                        # Make symbol for pythonscript
-                        self.Sensitivity_symbols.append(self.System.keys()[i]+self.System.keys()[j-1]+'X'+self.System.keys()[j-1]+'d'+self.Parameters.keys()[k])
-                        # Replace state by its derivative
-                        exec(self.System.keys()[j-1][1:]+" = sympy.symbols('("+self.System.values()[j-1].replace(" ","")+")')")
-                        # Evaluate                    
-                        self.Sensitivity_list[-1] = eval(str(self.Sensitivity_list[-1]))
-                        #temp = sympy.diff(temp,eval(System.keys()[j-1].replace("d","")))*sympy.diff(eval(System[System.keys()[j-1]]),eval(parameter_list[k]))
-                        # Reset state to its original symbolic representation                    
-                        exec(self.System.keys()[j-1][1:]+" = sympy.symbols('"+self.System.keys()[j-1][1:]+"')")
-                        # Perform partial derivation to certain parameter
-                        # CAS (Absolute sensitivity)
-                        self.Sensitivity_list[-1] = sympy.diff(self.Sensitivity_list[-1],eval(self.Parameters.keys()[k]))
+                
+        self.system_matrix = sympy.zeros(len(self.System),1)
+        self.states_matrix = sympy.zeros(len(self._Variables),1)
+        
+        # Set up symbolic matrix of ODE system and states
+        for i in range(len(self.System)):
+            self.system_matrix[i,0] = eval(self.System.values()[i])
+            self.states_matrix[i,0] = eval(self._Variables[i])
+        
+        self.parameter_matrix = sympy.zeros(len(self.Parameters),1)
+        # Set up symbolic matrix of parameters
+        for i in range(len(self.Parameters)):
+            self.parameter_matrix[i,0] = eval(self.Parameters.keys()[i])
+            
+        #dfdtheta
+        dfdtheta = self.system_matrix.jacobian(self.parameter_matrix)
+        #dfdx
+        dfdx = self.system_matrix.jacobian(self.states_matrix)
+        
+        #dgdtheta
+        dgdtheta = sympy.zeros(len(self.System),len(self.Parameters))
+        #dgdx
+        dgdx = sympy.eye(len(self.System))
+        
+        for i in range(len(self._Variables)):
+            #exec(self._Variables[i]+" = sympy.symbols('"+self._Variables[i]+"(t)')")
+            exec(self._Variables[i]+" = sympy.symbols('"+self._Variables[i]+"')(t)")
+            print eval(self._Variables[i]).diff(t)
+            print sympy.dsolve(eval(self._Variables[i]).diff(t)-self.system_matrix[i],eval(self._Variables[i]),hint='best')
+            #print sympy.dsolve(__X__.diff(t)-system_matrix[i],__X__,hint='best')
+            exec(self._Variables[i]+" = sympy.symbols('"+self._Variables[i]+"')")
+        
+        #str(tep)[str(tep).index('==')+3:]        
+        
+        return dfdtheta,dfdx
+        
+               
+        
+#        # Calculate direct and indirect sensitivities
+#        for j in range(self.System.__len__()+1):
+#            for i in range(self.System.__len__()):
+#                for k in range(len(self.Parameters)):
+#                    ##Evaluation of the system
+#                    self.Sensitivity_list.append(str(eval(self.System.values()[i])))
+#                    # Symbolic derivative of the system to a certain parameter
+#                    if j ==0:
+#                        # Make symbol for pythonscript
+#                        self.Sensitivity_symbols.append(self.System.keys()[i]+'d'+self.Parameters.keys()[k])
+#                        # Perform partial derivation to certian parameter
+#                        self.Sensitivity_list[-1] = sympy.diff(self.Sensitivity_list[-1],eval(self.Parameters.keys()[k]))
+#                    # First replace certain state by its derivative and then perform partial derivative to specific parameter
+#                    else:
+#                        # Make symbol for pythonscript
+#                        self.Sensitivity_symbols.append(self.System.keys()[i]+self.System.keys()[j-1]+'X'+self.System.keys()[j-1]+'d'+self.Parameters.keys()[k])
+#                        # Replace state by its derivative
+#                        exec(self.System.keys()[j-1][1:]+" = sympy.symbols('("+self.System.values()[j-1].replace(" ","")+")')")
+#                        # Evaluate                    
+#                        self.Sensitivity_list[-1] = eval(str(self.Sensitivity_list[-1]))
+#                        #temp = sympy.diff(temp,eval(System.keys()[j-1].replace("d","")))*sympy.diff(eval(System[System.keys()[j-1]]),eval(parameter_list[k]))
+#                        # Reset state to its original symbolic representation                    
+#                        exec(self.System.keys()[j-1][1:]+" = sympy.symbols('"+self.System.keys()[j-1][1:]+"')")
+#                        # Perform partial derivation to certain parameter
+#                        # CAS (Absolute sensitivity)
+#                        self.Sensitivity_list[-1] = sympy.diff(self.Sensitivity_list[-1],eval(self.Parameters.keys()[k]))
                        
                     # CPRS (Multiply sensitivity with the value of the parameter)
                     #self.Sensitivity_list[-1] = self.Sensitivity_list[-1]*eval(self.Parameters.keys()[k])#/eval(symbol_list[i]+'+1e-6')
         
-        print 'Sensitivity Symbols: '
-        print self.Sensitivity_symbols
-        print '\n'
-        print 'Sensitivity list: '
-        print self.Sensitivity_list
-        return self.Sensitivity_symbols, self.Sensitivity_list
+#        print 'Sensitivity Symbols: '
+#        print self.Sensitivity_symbols
+#        print '\n'
+#        print 'Sensitivity list: '
+#        print self.Sensitivity_list
+#        return self.Sensitivity_symbols, self.Sensitivity_list
 
     def _check_for_meas(self, Measurable_States):
         '''verify presence of measured states
