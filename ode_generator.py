@@ -1005,7 +1005,7 @@ class odegenerator(object):
             print 'Running ODE solver with following time characteristics'
             self.get_time()
             print '...'
-            self.solve_ode()
+            self.solve_ode(plotit = False)
             print '... Done!'
         # Initialize array for every timestep, every variable and every parameter
         Sensitivity_Timeseries = np.zeros([len(self._Time),len(self.get_variables()),len(self.Parameters)])
