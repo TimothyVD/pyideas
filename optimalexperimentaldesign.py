@@ -21,8 +21,6 @@ else:
 from plotfunctions import *
 from ode_generator import odegenerator
 
-
-
 class OED(odegenerator):
     '''
     OED aimed class functioning
@@ -41,8 +39,12 @@ class OED(odegenerator):
         
         self.criteria_optimality_info = {'A':'min', 'modA': 'max', 'D': 'max', 
                                          'E':'max', 'modE':'min'}
-    
-    
+
+    def get_mod_times(self):
+        '''view timesteps of model output
+        '''
+        return self._Time
+        
     def set_measured_times(self, meas_time):
         '''
         Based on the modelled timesteps, a subset is selected of measurable
@@ -59,6 +61,16 @@ class OED(odegenerator):
             self._measdata_ID = self._Time
         else:
             print 'not yet implemented'
+    
+
+    def set_measurement_data(self, measured_states):
+        '''
+        Give measurement data to calculate objective functions and perform
+        optimizations
+        Pandas DATAFRAME OR??
+        ADD control actions
+        '''
+        self.measured_states = measured_states
     
     def set_measured_errors(self, meas_error_dict, method = 'relative'):
         '''CURRENTLY UNITY MATRIX!!!!
@@ -107,10 +119,31 @@ class OED(odegenerator):
         self.Meas_Errors = collections.OrderedDict(sorted(meas_error_dict.items(), key=lambda t: t[0]))
         
         #update measurement error covariance matrix eenheidsmatrix
-        self.Qerr = np.identity(len(self._MeasuredList))
+#        self.Qerr = np.identity(len(self._MeasuredList))
+        self.Qerr = np.zeros(len(self._MeasuredList),len(self._MeasuredList),
+                             self._Time.size)
+        
+        if method == 'absolute':
+            ide = 0
+            for var,measerr in self.Meas_Errors:
+                self.Qerr[ide,ide,:] = measerr**2.
+                ide+=1
+        elif method == 'relative': #BUGGY!
+            try:
+                self.meausured_states
+            except:
+                print 'WARNING : Modelled states are used to get error variances instead of measurements'
+                self.meausured_states = self.solve_ode(plotit=False)
+                
+            ide = 0
+            for var,measerr in self.Meas_Errors:
+                self.Qerr[ide,ide,:] = np.array((measerr*self.meausured_states[var])**2.)
+                ide+=1 
+        elif method == 'donckels':
+            raise Exception('not yet implemented')
         
         #recalculate values of error percentages towards values
-#        self.Qerr = np.diag(self.Meas_Errors.values()) #np.diag_indices_from()
+        # relat/absolu + p47 phd Ternbach!! or Donckels.. zie script
     
     def get_FIM(self):
         '''
@@ -145,10 +178,10 @@ class OED(odegenerator):
                 sensmatrix[varcounter,:] = np.array(self.numerical_sensitivity[var].xs(timestep))
                 varcounter+=1
 
-            #GET ERROR_MATRIX!! TODO
-                            
+            #GET ERROR_MATRIX!! TODO!!
+    
             #calculate matrices
-            FIMt = np.matrix(sensmatrix).transpose() * np.matrix(self.Qerr) * np.matrix(sensmatrix)
+            FIMt = np.matrix(sensmatrix).transpose() * np.linalg.inv(np.matrix(self.Qerr)) * np.matrix(sensmatrix)
             self.FIM = self.FIM + FIMt
         return self.FIM
 
@@ -245,13 +278,8 @@ class OED(odegenerator):
                           'D': self.D_criterium(), 'E':self.E_criterium(), 'modE':self.modE_criterium()}
         return self._all_crit
               
-    def set_measurement_data(self):
-        '''
-        Give measurement data to calculate objective functions and perform
-        optimizations
-        '''
-        pass    
-    
+
+
     def residual_analysis(self):
         pass
     

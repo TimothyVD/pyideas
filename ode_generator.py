@@ -82,6 +82,11 @@ class odegenerator(object):
         
         self._write_model_to_file(with_sens = True)
 
+    def _reset_parameters(self, Parameters):
+        '''Parameter stuff
+        
+        '''
+        self.Parameters = collections.OrderedDict(sorted(Parameters.items(), key=lambda t: t[0]))
 
     def set_time(self,timedict):
         '''define time to calculate model
@@ -179,7 +184,7 @@ class odegenerator(object):
             raise Exception('Please add a time-dictionary containing start, end and nsteps')
             
         
-    def analytic_local_sensitivity(self):
+    def _analytic_local_sensitivity(self):
         '''Analytic derivation of the local sensitivities
         
         Sympy based implementation to get the analytic derivation of the
@@ -651,7 +656,7 @@ class odegenerator(object):
             try:
                 self.Sensitivity_list
             except:
-                self.analytic_local_sensitivity() 
+                self._analytic_local_sensitivity() 
                 print 'analytical local sensitivity running...'
 #                raise Exception('Run analytic_local_sensitivity first!')
                 
@@ -845,10 +850,13 @@ class odegenerator(object):
             self.Parameters[parameter] = value2save - perturbation_factor*value2save
             modout_min = self.solve_ode(plotit = False)        
 #            modout_min = pd.DataFrame(modout, columns = self._Variables)
+            self.Parameters[parameter] = value2save
+            modout = self.solve_ode(plotit = False) 
             
             #calculate sensitivity for this parameter, all outputs    
             #sensitivity indices:
-            CAS = (modout_plus-modout_min)/(2.*perturbation_factor*value2save) #dy/dp         
+#            CAS = (modout_plus-modout_min)/(2.*perturbation_factor*value2save) #dy/dp         
+            CAS = (modout_plus-modout)/(perturbation_factor*value2save) #dy/dp
             
             #we use now CPRS, but later on we'll adapt to CTRS
 #            CPRS = CAS*value2save    
