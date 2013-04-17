@@ -157,7 +157,7 @@ class odegenerator(object):
         '''get a list of all model variables
         
         '''
-        print self._Variables
+        return self._Variables
 
     def get_measured_variables(self):
         '''get a list of all measurable variables
@@ -239,11 +239,13 @@ class odegenerator(object):
                         #temp = sympy.diff(temp,eval(System.keys()[j-1].replace("d","")))*sympy.diff(eval(System[System.keys()[j-1]]),eval(parameter_list[k]))
                         # Reset state to its original symbolic representation                    
                         exec(self.System.keys()[j-1][1:]+" = sympy.symbols('"+self.System.keys()[j-1][1:]+"')")
-                        # Perform partial derivation to certian parameter
+                        # Perform partial derivation to certain parameter
+                        # CAS (Absolute sensitivity)
                         self.Sensitivity_list[-1] = sympy.diff(self.Sensitivity_list[-1],eval(self.Parameters.keys()[k]))
                        
-                    # Multiply sensitivity with the value of the parameter
-                    self.Sensitivity_list[-1] = self.Sensitivity_list[-1]*eval(self.Parameters.keys()[k])#/eval(symbol_list[i]+'+1e-6')
+                    # CPRS (Multiply sensitivity with the value of the parameter)
+                    #self.Sensitivity_list[-1] = self.Sensitivity_list[-1]*eval(self.Parameters.keys()[k])#/eval(symbol_list[i]+'+1e-6')
+        
         print 'Sensitivity Symbols: '
         print self.Sensitivity_symbols
         print '\n'
@@ -631,6 +633,7 @@ class odegenerator(object):
         file.write('\n#System definition\n\n')
         
     #    file.write('States = '+str(System.keys()).replace("'d","").replace("'","")+'\n\n')
+        file.write('import numpy as np\n\n')
         
         file.write('def system(States,t,Parameters):\n')
         for i in range(len(self.Parameters)):
@@ -668,11 +671,14 @@ class odegenerator(object):
                 file.write('    '+self.Sensitivity_symbols[i]+' = '+str(self.Sensitivity_list[i])+'\n')
                 exec(self.Sensitivity_symbols[i]+" = sympy.symbols('"+self.Sensitivity_symbols[i]+"')")
                 temp.append(eval(self.Sensitivity_symbols[i]))
-            file.write('    Output = {}\n')
+            file.write('\n    Output = np.zeros(['+str(len(self.get_variables()))+','+str(len(self.Parameters))+'])\n\n')
+#            file.write('    Output = {}\n')
+#            for i in range(self.System.__len__()):
+#                for j in range(len(self.Parameters)):
+#                    file.write("    Output['"+'d'+self.System.keys()[i][1:]+'d'+self.Parameters.keys()[j]+"'] = "+'d'+self.System.keys()[i][1:]+'d'+self.Parameters.keys()[j]+'\n')
             for i in range(self.System.__len__()):
                 for j in range(len(self.Parameters)):
-                    file.write("    Output['"+'d'+self.System.keys()[i][1:]+'d'+self.Parameters.keys()[j]+"'] = "+'d'+self.System.keys()[i][1:]+'d'+self.Parameters.keys()[j]+'\n')
-           
+                    file.write("    Output["+str(i)+","+str(j)+"] = "+'d'+self.System.keys()[i][1:]+'d'+self.Parameters.keys()[j]+'\n')
             file.write('    return Output\n')
         #    pprint.pprint(temp,file)
             file.write('\n')
@@ -747,6 +753,8 @@ class odegenerator(object):
         #plotfunction
         if plotit == True:
             df.plot(subplots = True)
+            
+        self.ode_solved = df
                
         return df
         
@@ -987,5 +995,32 @@ class odegenerator(object):
         ax1.xaxis.set_ticks_position('top')
         ax1.yaxis.set_ticks_position('left')
         return ax1
+        
+    def calc_analytical_sens(self):
+        '''
+        '''
+        try:
+            self.ode_solved
+        except:
+            print 'Running ODE solver with following time characteristics'
+            self.get_time()
+            print '...'
+            self.solve_ode()
+            print '... Done!'
+        # Initialize array for every timestep, every variable and every parameter
+        Sensitivity_Timeseries = np.zeros([len(self._Time),len(self.get_variables()),len(self.Parameters)])
+        # Import sensitivity function from generated file     
+        exec('import '+self.modelname)
+        # For every timestep calculate the sensitivity
+        for i in range(len(self._Time)):
+            Sensitivity_Timeseries[i,:,:] = eval(self.modelname).Sensitivity_direct(self.ode_solved.ix[i,:],self.Parameters)
+        analytical_sens = {}
+        # For every variable copy the evolution in time for every parameter        
+        for i in range(len(self._Variables)):
+            analytical_sens[self._Variables[i]] = pd.DataFrame(Sensitivity_Timeseries[:,i,:], index=self._Time, columns = self.Parameters.keys())
+            
+        self.analytical_sens = analytical_sens
+        return analytical_sens
+            
 
         

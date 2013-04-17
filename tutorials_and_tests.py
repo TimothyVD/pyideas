@@ -24,28 +24,28 @@ from optimalexperimentaldesign import OED
 ##------------------------------------------------------------------------------
 ##EXAMPLE MODEL
 ##------------------------------------------------------------------------------
-#Parameters = {'k1':1/10,'k1m':1/20,
-#              'k2':1/20,'k2m':1/20,
-#              'k3':1/200,'k3m':1/175,
-#              'k4':1/200,'k4m':1/165}
-#              
-#System =    {'dEn':'k1m*Es*PP + k4*EP + k2*Es*SB - k1*En*SA - k4*En*PP - k2m*En*PQ',
-#             'dEs':'- k1m*Es*PP + k3*EsQ - k2*Es*SB + k1*En*SA - k3*Es + k2m*En*PQ',
-#             'dSA':'- k1*En*SA + k1m*Es*PP',
-#             'dSB':'- k2*Es*SB + k2m*En*PQ',
-#             'dPP':'k1*En*SA - k1m*Es*PP - k4*En*PP + k4m*EP',
-#             'dPQ':'k2*En*SB - k2m*En*PQ - k3*Es*PQ + k3m*EsQ',
-#             'dEsQ':'k3*Es*PQ - k3m*EsQ',
-#             'dEP':'k4*En*PP - k4m*EP'}
-#                        
-#Modelname = 'MODEL_Halfreaction'
+Parameters = {'k1':1/10,'k1m':1/20,
+              'k2':1/20,'k2m':1/20,
+              'k3':1/200,'k3m':1/175,
+              'k4':1/200,'k4m':1/165}
+              
+System =    {'dEn':'k1m*Es*PP + k4*EP + k2*Es*SB - k1*En*SA - k4*En*PP - k2m*En*PQ',
+             'dEs':'- k1m*Es*PP + k3*EsQ - k2*Es*SB + k1*En*SA - k3*Es + k2m*En*PQ',
+             'dSA':'- k1*En*SA + k1m*Es*PP',
+             'dSB':'- k2*Es*SB + k2m*En*PQ',
+             'dPP':'k1*En*SA - k1m*Es*PP - k4*En*PP + k4m*EP',
+             'dPQ':'k2*En*SB - k2m*En*PQ - k3*Es*PQ + k3m*EsQ',
+             'dEsQ':'k3*Es*PQ - k3m*EsQ',
+             'dEP':'k4*En*PP - k4m*EP'}
+                        
+Modelname = 'MODEL_Halfreaction'
 #
 ###INITIATE MODEL
-#M1 = odegenerator(System, Parameters, Modelname = Modelname)
-#M1.set_measured_states(['SA', 'SB', 'PP', 'PQ'])
-#M1.set_initial_conditions({'SA':5.,'SB':0.,'En':1.,'EP':0.,'Es':0.,'EsQ':0.,'PP':0.,'PQ':0.})
+M1 = odegenerator(System, Parameters, Modelname = Modelname)
+M1.set_measured_states(['SA', 'SB', 'PP', 'PQ'])
+M1.set_initial_conditions({'SA':5.,'SB':0.,'En':1.,'EP':0.,'Es':0.,'EsQ':0.,'PP':0.,'PQ':0.})
 ##M1.set_initial_conditions({'SA':5.,'SB':4.,'En':1.,'EP':6.,'Es':2.5,'EsQ':1.,'PP':1.5,'PQ':0.})
-#M1.set_time({'start':0,'end':20,'nsteps':1000})
+M1.set_time({'start':0,'end':20,'nsteps':1000})
 
 #M1.write_model_to_file(with_sens=False)
 #------------------------------------------------------------------------------
