@@ -239,11 +239,13 @@ class odegenerator(object):
                         #temp = sympy.diff(temp,eval(System.keys()[j-1].replace("d","")))*sympy.diff(eval(System[System.keys()[j-1]]),eval(parameter_list[k]))
                         # Reset state to its original symbolic representation                    
                         exec(self.System.keys()[j-1][1:]+" = sympy.symbols('"+self.System.keys()[j-1][1:]+"')")
-                        # Perform partial derivation to certian parameter
+                        # Perform partial derivation to certain parameter
+                        # CAS (Absolute sensitivity)
                         self.Sensitivity_list[-1] = sympy.diff(self.Sensitivity_list[-1],eval(self.Parameters.keys()[k]))
                        
-                    # Multiply sensitivity with the value of the parameter
-                    self.Sensitivity_list[-1] = self.Sensitivity_list[-1]*eval(self.Parameters.keys()[k])#/eval(symbol_list[i]+'+1e-6')
+                    # CPRS (Multiply sensitivity with the value of the parameter)
+                    #self.Sensitivity_list[-1] = self.Sensitivity_list[-1]*eval(self.Parameters.keys()[k])#/eval(symbol_list[i]+'+1e-6')
+        
         print 'Sensitivity Symbols: '
         print self.Sensitivity_symbols
         print '\n'
