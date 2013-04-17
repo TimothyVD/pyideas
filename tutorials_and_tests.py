@@ -120,7 +120,7 @@ from optimalexperimentaldesign import OED
 #    numerical_sens[var][parameter] = CPRS[var][:]
 #    numerical_sens[var].plot()
 #    
-##put back original value
+##put back original valuew
 #self.Parameters[parameter] = value2save
 
 #------------------------------------------------------------------------------
@@ -137,12 +137,12 @@ Modelname = 'Rivierlozing'
 M2 = OED(System, Parameters, Modelname = Modelname)
 M2.set_measured_states(['BZV','DO'])
 M2.set_initial_conditions({'BZV':7.33,'DO':8.5})
-M2.set_time({'start':0,'end':25,'nsteps':25})
+M2.set_time({'start':0,'end':25,'nsteps':2500})
 #
 M2.set_measured_errors({'DO':0.05})
 
-M2.Qerr[0,0] = 1./0.05**2
-M2.get_FIM()
+#M2.Qerr[0,0] = 1./0.05**2
+#M2.get_FIM()
 #O1.set_measured_errors({'SA':0.2, 'SB':0.4, 'PP':0.1, 'PQ':0.05})
 #O1.set_measured_times('all')
 #O1.numeric_local_sensitivity()
