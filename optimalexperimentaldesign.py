@@ -73,7 +73,8 @@ class OED(odegenerator):
         self.measured_states = measured_states
     
     def set_measured_errors(self, meas_error_dict, method = 'relative'):
-        '''CURRENTLY UNITY MATRIX!!!!
+        r'''CURRENTLY UNITY MATRIX!!!!
+        
         Measurement errors on the measured data; options are relative and
         absolute.
 
@@ -88,21 +89,29 @@ class OED(odegenerator):
         
         Typically, Q is chosen as the inverse of the measurement error 
         covariance matrix(Marsili–Libelli et al., 2003; Omlin and Reichert, 
-                             1999; Vanrolleghem and Dochain, 1998)
+        1999; Vanrolleghem and Dochain, 1998)
         
         Parameters
         -----------
         meas_error_dict : dict
             dictionary with the variable names and their corresponding errors
             (relative or absolute)
-            
         method : relative|absolute
             relative is percentage value of the variable itself; absolute 
             is a constant measurement value
+
+        Notes
+        -----
+        For the Ternbach method,  the standard deviations of the measurements 
+        were calculated by:
         
-        References
-        -----------
-        De Pauw
+        .. math:: \sigma_y = \hat{y} \cdot \varsigma_y \cdot \left(1+\frac{1}{(\frac{\hat{y}}{lb_y})^2 + \frac{\hat{y}}{lb_y}} \right)
+        
+        Here, :math:`\varsigma_y` and :math:`lb_y` respectively represent a 
+        constant minimal relative error and a lower accuracy bound on the 
+        measurement of y. In this way, the standard deviations of the 
+        meaurements are proportional to the value of the measurements
+        :math:`\hat{y}`.        
         '''
         #compare with previous set measured variable; if same; ok, if not warning
         
@@ -139,8 +148,8 @@ class OED(odegenerator):
             for var,measerr in self.Meas_Errors:
                 self.Qerr[ide,ide,:] = np.array((measerr*self.meausured_states[var])**2.)
                 ide+=1 
-        elif method == 'donckels':
-            raise Exception('not yet implemented')
+        elif method == 'Ternbach':
+            pass
         
         #recalculate values of error percentages towards values
         # relat/absolu + p47 phd Ternbach!! or Donckels.. zie script
