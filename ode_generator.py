@@ -715,10 +715,13 @@ class odegenerator(object):
             df = pd.DataFrame(res, index=self._Time, columns = self._Variables)
         else:
             res = spin.odeint(eval(self.modelname+'.system_with_sens'), np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,))
-            self.res = res            
             #put output in pandas dataframe
-            df = pd.DataFrame(res, index=self._Time,columns = self._Variables + self.Jac_names)
-        
+            df = pd.DataFrame(res[:,0:len(self._Variables)], index=self._Time,columns = self._Variables)
+            analytical_sens = {}
+            for i in range(len(self._Variables)):
+                analytical_sens[self._Variables[i]] = pd.DataFrame(res[:,len(self._Variables)*(1+i):len(self._Variables)*(1+i)+len(self.Parameters)], index=self._Time,columns = self.Parameters.keys())
+            self.analytic_sens = analytical_sens        
+            
         #plotfunction
         if plotit == True:
             df.plot(subplots = True)
