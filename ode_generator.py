@@ -722,7 +722,7 @@ class odegenerator(object):
         Change to total relative sensitivity instead of relative sensitivity 
         to parameter
         
-        TODO adapt to new analyical sens
+        TODO adapt to new analyical sens, will possibly be deleted?
         '''
         try:
             # Import file where sensitivities are located
@@ -871,7 +871,7 @@ class odegenerator(object):
         plt.draw()
 
     def plot_collinearity(self, ax1, redgreen = False):
-        '''plot of calcluated collinearity check 
+        '''plot of calculated collinearity check 
         
         Make an overview plot of the collinearity calculation as decribed in
         literature
@@ -897,6 +897,8 @@ class odegenerator(object):
         -----------
         .. [2] Brun, R., Reichert, P., Kfinsch, H.R., Practical Identifiability
             Analysis of Large Environmental Simulation (2001), 37, 1015-1030
+            
+        TODO update this to useful purpose!
         '''
         
         mat_to_plot = np.zeros([len(self._Variables),len(self.Parameters),len(self.Parameters)])
