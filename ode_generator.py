@@ -183,6 +183,9 @@ class odegenerator(object):
             raise Exception('Please add a time-dictionary containing start, end and nsteps')
             
     def Jacobian_names(self):
+        '''
+        TODO check if still necessary
+        '''
         Jac_names = []
         Meas_names = []
         for i in range(len(self._Variables)):
@@ -731,10 +734,12 @@ class odegenerator(object):
         return df
         
     def collinearity_check(self,variable):
-        '''TODO
+        '''
         
         Change to total relative sensitivity instead of relative sensitivity 
         to parameter
+        
+        TODO adapt to new analyical sens
         '''
         try:
             # Import file where sensitivities are located
@@ -840,7 +845,7 @@ class odegenerator(object):
 
         return numerical_sens
 
-    def visual_check_collinearity(self, output, layout = 'full', upperpane = 'pearson'):
+    def visual_check_collinearity(self, output, analytic = False, layout = 'full', upperpane = 'pearson'):
         '''show scatterplot of sensitivities
         
         Check for linear dependence of the local sensitivity outputs for a 
@@ -860,14 +865,24 @@ class odegenerator(object):
             layout is selected; implemented are pearson, spearman, kendall 
             correlation coefficients; when data is chosen, the data is plotted again            
             
-        TODO: extend to use it for numerical AND analytical
         '''
-        try:
-            self.numerical_sensitivity
-        except:
-            self.numeric_local_sensitivity()
-        
-        toanalyze = self.numerical_sensitivity[output].as_matrix().transpose()            
+        if analytic == False:
+            try:
+                self.numerical_sensitivity
+            except:
+                self.numeric_local_sensitivity()
+            
+            toanalyze = self.numerical_sensitivity[output].as_matrix().transpose()
+        else:
+            try:
+                self.analytic_sens
+            except:
+                self.analytic_local_sensitivity()
+                self._write_model_to_file()
+                self.solve_ode(with_sens = True)
+            
+            toanalyze = self.analytic_sens[output].as_matrix().transpose()
+            
         fig, axes = scatterplot_matrix(toanalyze, plottext=self.Parameters.keys(), plothist = False,
                            layout = layout, upperpane = upperpane, marker='o', color='black', mfc='none')
         plt.draw()
