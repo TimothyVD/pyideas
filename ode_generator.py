@@ -182,23 +182,6 @@ class odegenerator(object):
         except:
             raise Exception('Please add a time-dictionary containing start, end and nsteps')
             
-    def Jacobian_names(self):
-        '''
-        TODO check if still necessary
-        '''
-        Jac_names = []
-        Meas_names = []
-        for i in range(len(self._Variables)):
-            for j in range(len(self.Parameters.keys())):
-                Jac_names.append('d'+self._Variables[i]+'d'+self.Parameters.keys()[j])
-        self.Jac_names = Jac_names
-        for i in range(len(self.Measurable_States.values())):
-            if self.Measurable_States.values()[i] == 1:
-                for j in range(len(self.Parameters.keys())):
-                    Meas_names.append(self.Measurable_States.keys()[i]+'d'+self.Parameters.keys()[j])
-        self.Meas_names = Meas_names
-                
-        
     def analytic_local_sensitivity(self):
         '''Analytic derivation of the local sensitivities
         
