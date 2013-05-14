@@ -621,12 +621,8 @@ class odegenerator(object):
         
         Parameters
         -----------
-        with_sensn : boolean True|False
-            If True, the analytic local sensitivity information is also added 
-            to the file
         
         '''
-
              
         temp_path = os.path.join(os.getcwd(),self.modelname+'.py')
         print 'File is printed to: ', temp_path
@@ -667,18 +663,22 @@ class odegenerator(object):
         print 'Sensitivities are printed to the file....'
         file.write('\n    #Sensitivities\n\n')
         
+        # Calculate number of states by using inputs
         file.write('    state_len = len(ODES)/(len(Parameters)+1)\n')
+        # Reshape ODES input to array with right dimensions in order to perform matrix multiplication
         file.write('    dxdtheta = np.array(ODES[state_len:].reshape(state_len,len(Parameters)))\n\n')
         
+        # Write dfdtheta as symbolic array
         file.write('    dfdtheta = np.')
         pprint.pprint(self.dfdtheta,file)
+        # Write dfdx as symbolic array
         file.write('\n    dfdx = np.')
         pprint.pprint(self.dfdx,file)
-        file.write('\n    dxdtheta = dfdtheta + dfdx*dxdtheta\n')
-        # dxdtheta.reshape(1,64)[0]
+        # Calculate derivative in order to integrate this
+        file.write('\n    dxdtheta = dfdtheta + np.dot(dfdx,dxdtheta)\n')
+
         file.write('    return '+str(self.System.keys()).replace("'","")+'+ list(dxdtheta.reshape(-1,))'+'\n')
                 
-        
         file.close()
 
     def solve_ode(self, with_sens = False, TimeStepsDict = False, Initial_Conditions = False, plotit = True):
