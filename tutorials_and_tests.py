@@ -2,7 +2,9 @@
 """
 Created on Tue Apr 09 14:07:51 2013
 
-@author: VHOEYS
+@author: Timothy Van Daele; Stijn Van Hoey
+
+0.1 Class version of the ODE generator test file
 """
 
 #general python imports
@@ -20,6 +22,7 @@ from matplotlib import colors
 from plotfunctions import *
 from ode_generator import odegenerator
 from optimalexperimentaldesign import OED
+from optimization import *
 
 ##------------------------------------------------------------------------------
 ##EXAMPLE MODEL
@@ -138,20 +141,41 @@ M2 = OED(System, Parameters, Modelname = Modelname)
 M2.set_measured_states(['BZV','DO'])
 M2.set_initial_conditions({'BZV':7.33,'DO':8.5})
 M2.set_time({'start':0,'end':25,'nsteps':26})
-#Time2save = M2._Time.copy()
-##
-M2.set_measured_errors({'DO':0.05, 'BZV':0.02}, method = 'relative')
-M2.numeric_local_sensitivity(perturbation_factor=1e-5)
+Time2save = M2._Time.copy()
 #
+#M2.set_measured_errors({'DO':0.05, 'BZV':0.02}, method = 'relative')
+#M2.numeric_local_sensitivity(perturbation_factor=1e-5)
+##
 #M2.Qerr[0,0] = 1./(0.05**2)
 #M2.get_FIM()
 
 
+#MEASURED DATA INPUT TYPES
+#------------------------------------------------------------------------------
+
+datatype1 = {'variables':['BZV','BZV','BZV', 'DO','DO'], 'time':[1,2,5,1,2], 'values': [6.1,5.8,4.1,7.8,7.4]}
+data1 = MeasData(datatype1)
+
+datatype2 = {'time':[1,2,5,8,11], 'BZV': [6.1,5.8,4.1,4.0,3.6], 'DO': [7.8,7.4,7.45,7.9,8.3]}
+data2 = MeasData(datatype2)
+
+data1.add_measured_errors({'DO':0.05, 'BZV':0.02}, method = 'relative')
+#data2.add_measured_variable({'time':[0.5,2.,8.],'DO2':[5.,9.,2.]})
+#t1 = pd.DataFrame(tt1)
+#t1.pivot(index='time', columns='name', values='val')
+
+#------------------------------------------------------------------------------
+
+#OPitmizaiotn stuff
+Modfit = ModOptim(M2,data1)
+#Modfit.plot_comp()
+res = Modfit.optimize(initial_parset = {'k1':0.25,'k2':0.45})
 
 
 
 
-##MODEL TEST FOR ANALYT VS NUMERIC
+##MODEL TEST FOR ANALYT VS NUMERIC---------------------------------------------
+#------------------------------------------------------------------------------
 #modeloutput_ref = M2.solve_ode()
 #
 #Parameters = {'k1':0.2980-0.2980*0.0001,'k2':0.3979}
@@ -179,4 +203,4 @@ M2.numeric_local_sensitivity(perturbation_factor=1e-5)
 #    
 #
 #dDO = -3.9743*np.exp(-0.2980*M2._Time) - 1./0.2980
-
+#------------------------------------------------------------------------------

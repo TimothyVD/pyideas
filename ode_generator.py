@@ -279,7 +279,8 @@ class odegenerator(object):
         #CHECK FOR THE INITIAL CONDITIONS
         if Initial_Conditions == False:
             try:
-                print 'Used initial conditions: ', self.Initial_Conditions
+#                print 'Used initial conditions: ', self.Initial_Conditions
+                self.Initial_Conditions
             except:
                 raise Exception('No initial conditions are provided for the current model')            
         else:
@@ -293,7 +294,8 @@ class odegenerator(object):
         #CHECK FOR THE INITIAL CONDITIONS
         if Timesteps == False:
             try:
-                print 'Used timesteps: ', self._TimeDict
+#                print 'Used timesteps: ', self._TimeDict
+                self._TimeDict
             except:
                 raise Exception('No time step information is provided for the current model')            
         else:
@@ -744,7 +746,7 @@ class odegenerator(object):
         set_initial_conditions, set_time
                 
         '''
-
+        print 'Current parameters', self.Parameters.values()
         self._check_for_time(TimeStepsDict)
         self._check_for_init(Initial_Conditions)        
         
