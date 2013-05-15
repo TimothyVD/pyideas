@@ -82,9 +82,8 @@ class odegenerator(object):
         
         self._Variables = [i[1:] for i in self.System.keys()]
         
-        #self.Jacobian_names()
-        
-        #self._write_model_to_file(with_sens = True)
+        self._analytic_local_sensitivity()
+        self._write_model_to_file()
 
 
     def set_time(self,timedict):
@@ -182,7 +181,7 @@ class odegenerator(object):
         except:
             raise Exception('Please add a time-dictionary containing start, end and nsteps')
             
-    def analytic_local_sensitivity(self):
+    def _analytic_local_sensitivity(self):
         '''Analytic derivation of the local sensitivities
         
         Sympy based implementation to get the analytic derivation of the
@@ -190,11 +189,7 @@ class odegenerator(object):
         
         Returns
         --------
-        Sensitivity_symbols : list
-            list for saving symbolic sensitivity formulas
-        
-        Sensitivity_list : list
-            list for saving combined symbols corresponding with sensitivity
+        TODO
         
         Notes
         ------
@@ -203,7 +198,7 @@ class odegenerator(object):
         
         See Also
         ---------
-        write_model_to_file
+        _write_model_to_file
         
         '''
         
@@ -215,33 +210,28 @@ class odegenerator(object):
         for i in range(len(self.Parameters)):
             exec(self.Parameters.keys()[i]+" = sympy.symbols('"+self.Parameters.keys()[i]+"')")
                     
-        # Make empty list for saving symbolic sensitivity formulas
-        self.Sensitivity_list = []
-        # Make empty list for saving combined symbols corresponding with sensitivity
-        self.Sensitivity_symbols = []
-        
-                
-        self.system_matrix = sympy.zeros(len(self.System),1)
-        self.states_matrix = sympy.zeros(len(self._Variables),1)
+        self._system_matrix = sympy.zeros(len(self.System),1)
+        self._states_matrix = sympy.zeros(len(self._Variables),1)
         
         # Set up symbolic matrix of ODE system and states
         for i in range(len(self.System)):
-            self.system_matrix[i,0] = eval(self.System.values()[i])
-            self.states_matrix[i,0] = eval(self._Variables[i])
+            self._system_matrix[i,0] = eval(self.System.values()[i])
+            self._states_matrix[i,0] = eval(self._Variables[i])
         
-        self.parameter_matrix = sympy.zeros(len(self.Parameters),1)
+        self._parameter_matrix = sympy.zeros(len(self.Parameters),1)
         # Set up symbolic matrix of parameters
         for i in range(len(self.Parameters)):
-            self.parameter_matrix[i,0] = eval(self.Parameters.keys()[i])
-            
-        #dfdtheta
-        dfdtheta = self.system_matrix.jacobian(self.parameter_matrix)
+            self._parameter_matrix[i,0] = eval(self.Parameters.keys()[i])
+        
+        # Initialize and calculate matrices for analytic sensitivity calculation
+        # dfdtheta
+        dfdtheta = self._system_matrix.jacobian(self._parameter_matrix)
         self.dfdtheta = np.array(dfdtheta)
-        #dfdx
-        dfdx = self.system_matrix.jacobian(self.states_matrix)
+        # fdx
+        dfdx = self._system_matrix.jacobian(self._states_matrix)
         self.dfdx = np.array(dfdx)
-        #dxdtheta
-        dxdtheta = np.zeros([len(self.states_matrix),len(self.Parameters)])
+        # dxdtheta
+        dxdtheta = np.zeros([len(self._states_matrix),len(self.Parameters)])
         self.dxdtheta = np.asmatrix(dxdtheta)
         
 #        #dgdtheta
@@ -609,6 +599,12 @@ class odegenerator(object):
         -----------
         
         '''
+        try:
+            self.dfdtheta
+        except:
+            print 'Running symbolic calculation of analytic sensitivity ...'
+            self._analytic_local_sensitivity()
+            print '... Done!'
              
         temp_path = os.path.join(os.getcwd(),self.modelname+'.py')
         print 'File is printed to: ', temp_path
@@ -667,7 +663,7 @@ class odegenerator(object):
                 
         file.close()
 
-    def solve_ode(self, with_sens = False, TimeStepsDict = False, Initial_Conditions = False, plotit = True):
+    def solve_ode(self, TimeStepsDict = False, Initial_Conditions = False, plotit = True, with_sens = False):
         '''Solve the differential equation
         
         Solves the ode model with the given properties and model configuration
@@ -760,6 +756,9 @@ class odegenerator(object):
             self.Collinearity_Pairwise = {}
             self.Collinearity_Pairwise[variable] = Collinearity_pairwise
         return Collinearity_pairwise
+        
+    def analytic_local_sensitivity(self):
+        self.solve_ode(with_sens = True, plotit = False)
 
     def numeric_local_sensitivity(self, perturbation_factor = 0.0001, 
                                   TimeStepsDict = False, 
