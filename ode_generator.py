@@ -710,7 +710,7 @@ class odegenerator(object):
             analytical_sens = {}
             for i in range(len(self._Variables)):
                 analytical_sens[self._Variables[i]] = pd.DataFrame(res[:,len(self._Variables)*(1+i):len(self._Variables)*(1+i)+len(self.Parameters)], index=self._Time,columns = self.Parameters.keys())
-            self.analytic_sens = analytical_sens        
+            self.analytical_sensitivity = analytical_sens        
             
         #plotfunction
         if plotit == True:
@@ -868,13 +868,13 @@ class odegenerator(object):
             toanalyze = self.numerical_sensitivity[output].as_matrix().transpose()
         else:
             try:
-                self.analytic_sens
+                self.analytical_sensitivity
             except:
                 self.analytic_local_sensitivity()
                 self._write_model_to_file()
                 self.solve_ode(with_sens = True)
             
-            toanalyze = self.analytic_sens[output].as_matrix().transpose()
+            toanalyze = self.analytical_sensitivity[output].as_matrix().transpose()
             
         fig, axes = scatterplot_matrix(toanalyze, plottext=self.Parameters.keys(), plothist = False,
                            layout = layout, upperpane = upperpane, marker='o', color='black', mfc='none')

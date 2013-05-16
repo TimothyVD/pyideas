@@ -62,8 +62,8 @@ class ode_optimizer(object):
             else:
                 raise Exception('%s is not a variable in the current model' %var)
         if Meas_same == False or len(Data.get_measured_variables()) <> len(odeModel._Variables):
-            print 'Measured variables are updated!'
-            Data.set_measured_states(Data.get_measured_variables())
+            print 'Measured variables are updated in model!'
+            odeModel.set_measured_states(Data.get_measured_variables())
         
         self.Data = Data.Data
 #        self.Data.columns = [var+'_meas' for var in self.Data.columns]
@@ -321,9 +321,16 @@ class ode_FIM(object):
     - Link with robust OED -> sequential design (paropt - exp-opt - paropt)
     '''
     
-    def __init__(self, odeoptimizer): #Measurements
+    def __init__(self, odeoptimizer, sensmethod = 'analytical'): #Measurements
         '''
         Measurements: measurements-class instance
+        
+        Parameters
+        -----------
+        sensmethod: analytical|numerical
+            analytical is ot always working, but more accurate, since not dependent
+            on a selected perturbation factor for sensitivity calcluation              
+        
         '''
         if isinstance(odeoptimizer, ode_optimizer):
             self.odeoptimizer = odeoptimizer
@@ -333,14 +340,60 @@ class ode_FIM(object):
         self._model = odeoptimizer._model
         self._data = odeoptimizer._data
         self.Error_Covariance_Matrix = odeoptimizer._data._Error_Covariance_Matrix
+        self.Parameters = odeoptimizer._model.Parameters
         
         self.criteria_optimality_info = {'A':'min', 'modA': 'max', 'D': 'max', 
                                          'E':'max', 'modE':'min'}
+        
+        #initially set all measured variables as included
+        self.set_variables_for_FIM(self.get_measured_variables())
+        
+        #Run sensitivity
+        self._model._Time = np.concatenate((np.array([0.]),self._data.get_measured_times()))
+        if sensmethod == 'analytical':
+            self._model.analytic_local_sensitivity()
+            self.sensitivities = self._model.analytical_sensitivity
+        elif sensmethod == 'numerical':
+            self._model.numeric_local_sensitivity()
+            self.sensitivities = self._model.numerical_sensitivity           
+        self._model.set_time(self._model._TimeDict)
+        #
+        self.get_FIM()        
+        
+    def get_all_variables(self):
+        '''
+        returns all model variables in the current model
+        '''
+        return self._model._model.get_variables()
+
+    def get_measured_variables(self):
+        '''
+        '''
+        if sorted(self._model.get_measured_variables()) != sorted(self._data.get_measured_variables()):
+            raise Exception('Model and Data measured variables are not in line with eachother.')
+        return self._data.get_measured_variables()
+        
+    def get_variables_for_FIM(self):
+        '''variables for FIM calculation
+        '''
+        return self._FIMvariables
+
+    def set_variables_for_FIM(self, varlist):
+        '''variables for FIM calculation
+        '''
+        for var in varlist:
+            if not var in self.get_measured_variables():
+                raise Exception('Variabel %s not measured')
+        self._FIMvariables = varlist
+
+    def _get_nonFIM(self):
+        '''
+        '''
+        return [x for x in self.get_measured_variables() if not x in self.get_variables_for_FIM()]
 
     def get_FIM(self):
-        '''
-        Needs update to be able to manage different measurement length types
-        in order ot be combined with the current Error_Covariance_Method        
+        '''  
+        TOMORROW!!!! eerst nonFIM dan nans eruit!!
         
         Based on the measurement errors and timesteps to include evaluation,
         the FIM is calculated
@@ -350,30 +403,39 @@ class ode_FIM(object):
         Notes
         ------
         
-        '''
-        #test for sensitivity
-        try:
-            self.odeoptimizer._model.numerical_sensitivity
-        except:
-            self.odeoptimizer._model.numeric_local_sensitivity()
-        
+        '''        
         
         self.FIM = np.zeros((len(self.Parameters),len(self.Parameters)))
-        for timestep in self._measdata_ID:
-            #GET SENS_MATRIX
-            sensmatrix = np.zeros((len(self._MeasuredList),len(self.Parameters)))
-            #create sensitivity amtrix
-            varcounter = 0
-            for var in self._MeasuredList:
-                sensmatrix[varcounter,:] = np.array(self.numerical_sensitivity[var].xs(timestep))
-                varcounter+=1
-
-            #GET ERROR_MATRIX!! TODO!!
-    
-            #calculate matrices
-            FIMt = np.matrix(sensmatrix).transpose() * np.linalg.inv(np.matrix(self.Qerr)) * np.matrix(sensmatrix)
-            self.FIM = self.FIM + FIMt
+        self.FIM_timestep = {}
+        
+        Qerr = self.Error_Covariance_Matrix.copy()
+        
+        check_for_empties=False
+        for timestep in self._data.get_measured_times():
+            #select subset of Error Covariance based on variables selected for FIM
+            for varnot in self._get_nonFIM():
+                Qerr[timestep] = Qerr[timestep].drop(varnot,axis=1).drop(varnot)
             
+            #control if there is a measured value for this timestep 
+            #for all used values (check Error Covariance, since this one is prepared)
+            if Qerr[timestep].empty:
+                check_for_empties = True
+            else:
+                #GET SENS_MATRIX
+                #varibales in time that are available
+                nbvar = Qerr[timestep].shape[0]
+                
+                sensmatrix = np.zeros((nbvar,len(self.Parameters)))
+                #create sensitivity amtrix
+                for i,var in enumerate(Qerr[timestep].columns):
+                    sensmatrix[i,:] = np.array(self.sensitivities[var].xs(timestep))
+    
+                #calculate matrices
+                FIMt = np.matrix(sensmatrix).transpose() * np.linalg.inv(np.matrix(Qerr[timestep])) * np.matrix(sensmatrix)
+                self.FIM = self.FIM + FIMt
+                self.FIM_timestep[timestep] = FIMt
+        if check_for_empties == True:
+            print 'Not all timesteps are evaluated'
         return self.FIM
 
     def _check_for_FIM(self):
@@ -458,8 +520,6 @@ class ode_FIM(object):
         print 'MINIMIZE modE criterium for OED'
         w, v = np.linalg.eig(self.FIM)
         return max(w)/min(w)
-
-
 
     def get_all_optimality_design_criteria(self):
         '''Return all optimality criteria
