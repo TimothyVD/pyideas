@@ -137,7 +137,7 @@ Modelname = 'Rivierlozing'
 M2 = OED(System, Parameters, Modelname = Modelname)
 M2.set_measured_states(['BZV','DO'])
 M2.set_initial_conditions({'BZV':7.33,'DO':8.5})
-M2.set_time({'start':0,'end':25,'nsteps':25})
+M2.set_time({'start':0,'end':25,'nsteps':2500})
 #
 M2.set_measured_errors({'DO':0.05})
 
@@ -147,4 +147,20 @@ M2.get_FIM()
 #O1.set_measured_times('all')
 #O1.numeric_local_sensitivity()
 #O1.get_FIM()
+
+# EASY example
+System = {'dX1':'-p1*X1-p2*(1-p3*X2)*X1',
+          'dX2':'p2*(1-p3*X2)*X1-p4*X2'}
+          
+Parameters = {'p1':1,'p2':2,'p3':3,'p4':4}
+          
+Modelname = 'TaylorSeriesCheck'
+#
+###INITIATE MODEL
+M2 = odegenerator(System, Parameters, Modelname = Modelname)
+M2.set_measured_states(['X1'])
+
+M2.set_initial_conditions({'X1':1,'X2':0})
+
+M2.taylor_series_approach(4)
 
