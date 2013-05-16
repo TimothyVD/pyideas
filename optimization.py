@@ -433,7 +433,7 @@ class ModOptim(object):
         #TODO: ADD OPTION FOR SAVING THE PARSETS (IN GETWSSE!!)
         #different algorithms: but implementation  Anneal and CG are not working 
         #a first fix made Powell work
-        res = minimize(self.get_WSSE, parray, method= 'Anneal')
+        res = minimize(self.get_WSSE, parray, method= 'Powell')
         
         #comparison plot
         fig,axes = plt.subplots(len(self.Data.columns),1)
