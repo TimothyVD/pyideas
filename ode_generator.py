@@ -560,7 +560,7 @@ class odegenerator(object):
         return self._canon_A, self._canon_B, self._canon_C, self._canon_D
 
 
-    def identifiability_check_laplace_transform(self, Measurable_States = False, 
+    def _identifiability_check_laplace_transform(self, Measurable_States = False, 
                               Initial_Conditions = False):
         '''Laplace transformation based identifiability test
         
@@ -729,41 +729,29 @@ class odegenerator(object):
         TODO adapt to new analyical sens, will possibly be deleted?
         '''
         try:
-            # Import file where sensitivities are located
-            exec('import ' + self.modelname)
-            exec('reload('+self.modelname+')')
-            # Check whether sensitivities are written to this file
-            eval(self.modelname).Sensitivity_direct(self.Initial_Conditions.values(),self.Parameters)
+            self.analytic_sens
         except:
-            raise Exception('First generate external sensitivity file (write_to_file(with_sens=True)')
+            print 'Running Analytical sensitvity analysis'
+            self.analytic_local_sensitivity()
+            print '... Done!'
         
-        # Run ode model
-        ode_output = (self.solve_ode(plotit=False)).values
-        # Find place in _Variable list equal to variable of interest
-        var_place = np.where(np.core.defchararray.find(self._Variables,variable) == 0)[0][0]
-        
-        # Make matrix which contains sensitivities of the specified variable to all parameters in time
-        Sens_var_all_par = np.zeros([len(self._Time),len(self.Parameters)])
-        # Calculate sensitivities for every timestep
-        for i in range(len(self._Time)):
-            # Sensitivity_direct
-            temp = eval(self.modelname).Sensitivity_direct(ode_output[i,:],self.Parameters)
-            # Sort dictionary according keys
-            temp = collections.OrderedDict(sorted(temp.items(), key=lambda t: t[0]))
-            # Only add sensitivities of variable we're interested in :)
-            Sens_var_all_par[i,:] = temp.values()[len(self.Parameters)*var_place:len(self.Parameters)*(var_place+1)]
         # Make matrix for storing collinearities per two parameters
         Collinearity_pairwise = np.zeros([len(self.Parameters),len(self.Parameters)])
         for i in range(len(self.Parameters)):
             for j in range(i+1,len(self.Parameters)):
                 # Transpose is performed on second array because by selecting only one column, python automatically converts the column to a row!
-                Collinearity_pairwise[i,j] = np.sqrt(1/min(np.linalg.eigvals(np.array(np.matrix(np.vstack([Sens_var_all_par[:,i],Sens_var_all_par[:,j]]))*np.vstack([Sens_var_all_par[:,i],Sens_var_all_par[:,j]]).transpose()))))
+                # Klopt enkel voor genormaliseerde sensitiviteiten                
+                #Collinearity_index_pairwise[i,j] = np.sqrt(1/min(np.linalg.eigvals(np.array(np.matrix(np.vstack([self.analytic_sens[variable][self.Parameters.keys()[i]],self.analytic_sens[variable][self.Parameters.keys()[j]]]))*(np.vstack([self.analytic_sens[variable][self..Parameters.keys()[i]],self.analytic_sens[variable][self.Parameters.keys()[j]])).transpose()))))
+                print 'Nothing interesting to calculate!'
+        x = pd.DataFrame(Collinearity_pairwise, index=self.Parameters.keys(), columns = self.Parameters.keys())
+        
         try:
-            self.Collinearity_Pairwise[variable] = Collinearity_pairwise
+            self.Collinearity_Pairwise[variable] = x
         except:
             self.Collinearity_Pairwise = {}
-            self.Collinearity_Pairwise[variable] = Collinearity_pairwise
-        return Collinearity_pairwise
+            self.Collinearity_Pairwise[variable] = x
+        
+        
         
     def analytic_local_sensitivity(self):
         self.solve_ode(with_sens = True, plotit = False)
@@ -871,8 +859,6 @@ class odegenerator(object):
                 self.analytical_sensitivity
             except:
                 self.analytic_local_sensitivity()
-                self._write_model_to_file()
-                self.solve_ode(with_sens = True)
             
             toanalyze = self.analytical_sensitivity[output].as_matrix().transpose()
             
