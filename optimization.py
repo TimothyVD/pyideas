@@ -14,14 +14,14 @@ import os
 
 import numpy as np
 import pandas as pd
-from scipy.optimize import minimize
+from scipy import optimize
 
 if sys.hexversion > 0x02070000:
     import collections
 else:
     import ordereddict as collections
 
-from plotfunctions import *
+from plotfunctions import Spread_diagram
 from ode_generator import odegenerator
 from optimalexperimentaldesign import OED
 
@@ -84,7 +84,15 @@ class MeasData(object):
         
         #We provide for internal purposes also second data-type: dict with {'cvar1':Timeserie,'var': Timeserie}                
         self._data2dictsystem()
-        self.get_measured_variables()                  
+        self.get_measured_variables()  
+
+        #Create Error Covariance Matrix with unity matrixes
+        unity_dict ={}
+        for var in self.get_measured_variables():
+            unity_dict[var]=1            
+        print unity_dict
+        self.add_measured_errors(unity_dict, method = 'absolute')
+
 
     def _data2dictsystem(self):
         '''
@@ -180,11 +188,7 @@ class MeasData(object):
         meaurements are proportional to the value of the measurements
         :math:`\hat{y}`.        
         '''
-        try:
-            self._Error_Covariance_Matrix
-            warnings.warn('Measurement errors are updated ', UserWarning)
-        except:
-            print 'Error Covariance Matrix is created'
+        print 'Error Covariance Matrix is updated'
         
         for var in meas_error_dict:
             if not var in self.get_measured_variables():       
@@ -210,10 +214,11 @@ class MeasData(object):
                 self.Data_dict[var]['error'] = measerr**2.
             
             for timestep in self.get_measured_times():   
-                self._Error_Covariance_Matrix[timestep] = np.zeros((len(self.Data.ix[timestep].dropna()), len(self.Data.ix[timestep].dropna())))
+                temp = np.zeros((len(self.Data.ix[timestep].dropna()), len(self.Data.ix[timestep].dropna())))
+                self._Error_Covariance_Matrix[timestep] = pd.DataFrame(temp, index=self.Data.ix[timestep].dropna().index.tolist(), columns=self.Data.ix[timestep].dropna().index.tolist())
                 for ide, var in enumerate(self.Data.ix[timestep].dropna().index):
                     measerr = self.Meas_Errors[var]
-                    self._Error_Covariance_Matrix[timestep].values[ide,ide] = measerr**2.  #De 1/sigma^2 komt bij inv berekening van FIM
+                    self._Error_Covariance_Matrix[timestep] .values[ide,ide] = measerr**2.  #De 1/sigma^2 komt bij inv berekening van FIM
                 
         elif method == 'relative':   
             for var in self.Meas_Errors:
@@ -238,7 +243,8 @@ class MeasData(object):
                 self.Data_dict[var]['error'] = yti*minimal_relative_error*temp
             
             for timestep in self.get_measured_times():   
-                self._Error_Covariance_Matrix[timestep] = np.zeros((len(self.Data.ix[timestep].dropna()), len(self.Data.ix[timestep].dropna())))
+                temp = np.zeros((len(self.Data.ix[timestep].dropna()), len(self.Data.ix[timestep].dropna())))
+                self._Error_Covariance_Matrix[timestep] = pd.DataFrame(temp, index=self.Data.ix[timestep].dropna().index.tolist(), columns=self.Data.ix[timestep].dropna().index.tolist())
                 for ide, var in enumerate(self.Data.ix[timestep].dropna().index):
                     yti = self.Data_dict[var].ix[timestep][var]
                     measerr = self.Meas_Errors[var]      
@@ -248,11 +254,11 @@ class MeasData(object):
 import datetime
 class ModOptim_saver():
     '''
-    
-    Better would be to make this as baseclass and add the other part on this one
+    Better would be to make this as baseclass and add the other part on this one,
+    but this does the job
     '''
     def __init__(self):
-        self.info='Saving of output settings and fit characteristics on ',datetime.datetime.now().strftime("%I:%M%p on %B %d, %Y")
+        self.info='Last saving of output settings and fit characteristics on ',datetime.datetime.now().strftime("%I:%M%p on %B %d, %Y")
     
 
 class ModOptim(object):
@@ -282,7 +288,7 @@ class ModOptim(object):
                 raise Exception('%s is not a variable in the current model' %var)
         if Meas_same == False or len(Data.get_measured_variables()) <> len(odeModel._Variables):
             print 'Measured variables are updated!'
-            Dat.set_measured_states(Data.get_measured_variables())
+            Data.set_measured_states(Data.get_measured_variables())
         
         self.Data = Data.Data
 #        self.Data.columns = [var+'_meas' for var in self.Data.columns]
@@ -404,10 +410,12 @@ class ModOptim(object):
         return self._model.Parameters
 
     
-    def optimize(self, initial_parset=None, add_plot=True):
+    def local_optimize(self, initial_parset=None, add_plot=True, method = 'Nelder-Mead', *args, **kwargs):
         '''find parameters for optimal fit
         
         initial_parset: dict!!
+        
+        method options: 
         
         '''
         #first save the output with the 'old' parameters
@@ -433,21 +441,54 @@ class ModOptim(object):
         #TODO: ADD OPTION FOR SAVING THE PARSETS (IN GETWSSE!!)
         #different algorithms: but implementation  Anneal and CG are not working 
         #a first fix made Powell work
-        res = minimize(self.get_WSSE, parray, method= 'Powell')
+
+        self.optimize_info = optimize.minimize(self.get_WSSE, parray, method= method, *args, **kwargs)
+        print self.optimize_info.message
         
         #comparison plot
-        fig,axes = plt.subplots(len(self.Data.columns),1)
-        for i,var in enumerate(self.Data.columns):
-            #plot data
-            axes[i].plot(self.Data.index, self.Data[var], marker='o', linestyle='none', color='k', label='Measured')
-            #plot output old
-            axes[i].plot(self._Pre_Optimize.visual_output.index, self._Pre_Optimize.visual_output[var], linestyle='-.', color='k', label='No optimization')            
-            #plot output new
-            axes[i].plot(self._solve_for_visual().index, self._solve_for_visual()[var], linestyle='--', color='k', label='Optimized')
-        return res
+        if add_plot == True:
+            fig,axes = plt.subplots(len(self.Data.columns),1)
+            for i,var in enumerate(self.Data.columns):
+                #plot data
+                axes[i].plot(self.Data.index, self.Data[var], marker='o', linestyle='none', color='k', label='Measured')
+                #plot output old
+                axes[i].plot(self._Pre_Optimize.visual_output.index, self._Pre_Optimize.visual_output[var], linestyle='-.', color='k', label='No optimization')            
+                #plot output new
+                axes[i].plot(self._solve_for_visual().index, self._solve_for_visual()[var], linestyle='--', color='k', label='Optimized')
+        return self.optimize_info
         
         
+    def plot_spread_diagram(self, variable, ax = None, marker='o', facecolor='none', 
+                             edgecolor = 'k'):
+        '''
+        Spread_diagram(axs,obs, mod, infobox = True, *args, **kwargs)
+                
+        '''
+        try:
+            self.optimize_info
+        except:
+            raise Exception('Run optimization first!')
         
+        if variable not in self._data.get_measured_variables():
+            raise Exception('This variable is not listed as measurement')
+        
+        if ax == None:
+            fig,ax = plt.subplots(1,1)
+
+        #prepare dataframe
+        varModMeas = pd.concat((self.Data[variable],self.ModelOutput[variable]), axis=1, keys=['Measured','Modelled']) 
+        varModMeas = varModMeas.dropna()
+        
+        ax = Spread_diagram(ax,varModMeas['Measured'], 
+                            varModMeas['Modelled'], 
+                            infobox = True, marker='o', facecolor='none', 
+                            edgecolor = 'k')
+                            
+        ax.set_xlabel(r'measured')                     
+        ax.set_ylabel(r'modelled')                             
+
+        return ax                            
+            
         
 
 

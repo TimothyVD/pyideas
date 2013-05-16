@@ -159,17 +159,23 @@ data1 = MeasData(datatype1)
 datatype2 = {'time':[1,2,5,8,11], 'BZV': [6.1,5.8,4.1,4.0,3.6], 'DO': [7.8,7.4,7.45,7.9,8.3]}
 data2 = MeasData(datatype2)
 
-data1.add_measured_errors({'DO':0.05, 'BZV':0.02}, method = 'relative')
+#data1.add_measured_errors({'DO':0.05, 'BZV':0.02}, method = 'relative')
+#data2.add_measured_errors({'DO':0.05, 'BZV':0.02}, method = 'relative')
 #data2.add_measured_variable({'time':[0.5,2.,8.],'DO2':[5.,9.,2.]})
 #t1 = pd.DataFrame(tt1)
 #t1.pivot(index='time', columns='name', values='val')
 
 #------------------------------------------------------------------------------
-
-#OPitmization stuff
-Modfit = ModOptim(M2,data1)
+#OPitmizaiotn stuff
+Modfit = ModOptim(M2,data2)
 #Modfit.plot_comp()
-res = Modfit.optimize(initial_parset = {'k1':0.25,'k2':0.45})
+res = Modfit.local_optimize(initial_parset = {'k1':0.25,'k2':0.45}, method = 'Powell')
+fig,ax = plt.subplots(1,2, figsize=(12,8))
+Modfit.plot_spread_diagram('BZV',ax[0])
+ax[0].set_title('BZV')
+Modfit.plot_spread_diagram('DO',ax[1])
+ax[1].set_title('DO')
+
 
 
 # EASY example
@@ -219,4 +225,3 @@ M2.taylor_series_approach(4)
 #
 #dDO = -3.9743*np.exp(-0.2980*M2._Time) - 1./0.2980
 #------------------------------------------------------------------------------
-

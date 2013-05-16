@@ -12,7 +12,9 @@ from scipy.stats import pearsonr, spearmanr, kendalltau
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator, LinearLocator, NullLocator, FixedLocator
-
+from matplotlib.patches import Rectangle, Polygon
+from scipy import stats
+import pylab as p
 
 def _definedec(nummin,nummax):
     '''
@@ -238,4 +240,88 @@ def scatterplot_matrix(data1, plottext=None, limin = False, upperpane = 'pearson
         axes[numvars-1,numvars-1].xaxis.set_major_locator(majorLocator)
         axes[numvars-1,numvars-1].xaxis.set_minor_locator(minorLocator)                
     return fig, axes   
+
+
+def Spread_diagram(axs,obs, mod, infobox = True, *args, **kwargs):
+    '''
+    Adapted from pySTAN-Packages, author: Van Hoey Stijn
     
+    Plot a scatter plot comparing the modelled and observed datasets in a 
+    scatter plot. 
+    
+    Parameters
+    -----------
+    axs : axes.AxesSubplot object
+        an subplot instance where the graph will be located,
+        this supports the use of different subplots
+    obs : ndarray
+        1D array of the observed data
+    mod : ndarray
+        1D array of the modelled output
+    infobox : bool True|False
+        defines if a infobox with the regression info is added or not
+    *args, **kwargs : args
+        argument passed to the matplotlib scatter command
+    
+    Returns
+    --------
+    axs
+    
+    Examples
+    ---------
+    >>> obs = 20*np.random.random(200)
+    >>> mod = 0.8*obs + 2 * np.random.random(200) -1
+    >>> fig = plt.figure()
+    >>> axs = fig.add_subplot(111)
+    >>> axs = Spread_diagram(axs, obs, mod, infobox = True, 
+                             marker='o', facecolor='none', 
+                             edgecolor = 'k')
+    >>> axs.set_xlabel(r'observed ($m^3 s^{-1}$)')                     
+    >>> axs.set_ylabel(r'modelled ($m^3 s^{-1}$)') 
+    
+    '''
+    p.rc('mathtext', default='regular')    
+       
+    axs.scatter(obs,mod, *args, **kwargs)
+    axs.set_aspect('equal')
+    
+    getmax = max(obs.max(),mod.max())*1.1
+    getmin = min(obs.min(),mod.min())*0.9
+    axs.plot([getmin,getmax],[getmin,getmax],'k--', linewidth = 0.5)
+    
+    slope, intercept, r_value, p_value, std_err = stats.linregress(obs, mod)
+#    m,b = p.polyfit(obs, mod, 1)
+    forplot = np.arange(getmin,getmax,0.01)
+    axs.plot(forplot, slope*forplot+intercept, '-', color='grey', 
+             linewidth = 0.5)  
+    axs.set_xlim(left = getmin, right=getmax)
+    axs.set_ylim(bottom = getmin, top=getmax)   
+    
+    rmse = np.sqrt((np.sum((obs-mod)**2))/obs.size)
+    
+    
+    #for infobox
+    if infobox == True:
+        patch=Rectangle((0., 0.65), .35, 0.35, facecolor = 'white',
+                        edgecolor='k', transform=axs.transAxes)
+        axs.add_patch(patch)
+        axs.set_axisbelow(True)
+        
+        textinfo = ({'transform' : axs.transAxes, 'verticalalignment':'center', 
+                    'horizontalalignment':'left', 'fontsize':12})
+                  
+        axs.text(0.05, 0.95, r'$\bar{x}\ $', textinfo) 
+        axs.text(0.05, 0.90, r'$\bar{y}\ $', textinfo)           
+        axs.text(0.05, 0.85, r'$rico\ $', textinfo)             
+        axs.text(0.05, 0.8, r'$intc.\ $', textinfo)  
+        axs.text(0.05, 0.75, r'$R^2\ $', textinfo)               
+        axs.text(0.05, 0.70, r'$RMSE\ $', textinfo)   
+    
+        axs.text(0.2, 0.95, r': %.2f'%obs.mean(), textinfo) 
+        axs.text(0.2, 0.90, r': %.2f'%mod.mean(), textinfo)           
+        axs.text(0.2, 0.85, r': %.2f'%slope, textinfo)             
+        axs.text(0.2, 0.8, r': %.2f'%intercept, textinfo)  
+        axs.text(0.2, 0.75, r': %.2f'%r_value, textinfo)               
+        axs.text(0.2, 0.70, r': %.2f'%rmse, textinfo)    
+
+    return axs    
