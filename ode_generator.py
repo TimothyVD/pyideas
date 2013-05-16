@@ -85,6 +85,11 @@ class odegenerator(object):
         self._analytic_local_sensitivity()
         self._write_model_to_file()
 
+    def _reset_parameters(self, Parameters):
+        '''Parameter stuff
+        
+        '''
+        self.Parameters = collections.OrderedDict(sorted(Parameters.items(), key=lambda t: t[0]))
 
     def set_time(self,timedict):
         '''define time to calculate model
@@ -264,7 +269,8 @@ class odegenerator(object):
         #CHECK FOR THE INITIAL CONDITIONS
         if Initial_Conditions == False:
             try:
-                print 'Used initial conditions: ', self.Initial_Conditions
+#                print 'Used initial conditions: ', self.Initial_Conditions
+                self.Initial_Conditions
             except:
                 raise Exception('No initial conditions are provided for the current model')            
         else:
@@ -278,7 +284,8 @@ class odegenerator(object):
         #CHECK FOR THE INITIAL CONDITIONS
         if Timesteps == False:
             try:
-                print 'Used timesteps: ', self._TimeDict
+#                print 'Used timesteps: ', self._TimeDict
+                self._TimeDict
             except:
                 raise Exception('No time step information is provided for the current model')            
         else:
@@ -685,7 +692,7 @@ class odegenerator(object):
         set_initial_conditions, set_time
                 
         '''
-
+        print 'Current parameters', self.Parameters.values()
         self._check_for_time(TimeStepsDict)
         self._check_for_init(Initial_Conditions)        
         
@@ -804,10 +811,13 @@ class odegenerator(object):
             self.Parameters[parameter] = value2save - perturbation_factor*value2save
             modout_min = self.solve_ode(plotit = False)        
 #            modout_min = pd.DataFrame(modout, columns = self._Variables)
+            self.Parameters[parameter] = value2save
+            modout = self.solve_ode(plotit = False) 
             
             #calculate sensitivity for this parameter, all outputs    
             #sensitivity indices:
-            CAS = (modout_plus-modout_min)/(2.*perturbation_factor*value2save) #dy/dp         
+#            CAS = (modout_plus-modout_min)/(2.*perturbation_factor*value2save) #dy/dp         
+            CAS = (modout_plus-modout)/(perturbation_factor*value2save) #dy/dp
             
             #we use now CPRS, but later on we'll adapt to CTRS
 #            CPRS = CAS*value2save    
