@@ -7,6 +7,8 @@ Created on Mon Mar 25 12:04:03 2013
 """
 from __future__ import division
 import numpy as np
+from numpy import *
+from sympy import *
 import scipy.integrate as spin
 import sympy
 import sys
@@ -78,9 +80,10 @@ class odegenerator(object):
         self.System = collections.OrderedDict(sorted(System.items(), key=lambda t: t[0]))    
         self.modelname = Modelname        
         
-        self._Variables = [i[1:] for i in self.System.keys()] 
+        self._Variables = [i[1:] for i in self.System.keys()]
         
-        self._write_model_to_file(with_sens = True)
+        self._analytic_local_sensitivity()
+        self._write_model_to_file()
 
     def _reset_parameters(self, Parameters):
         '''Parameter stuff
@@ -183,7 +186,6 @@ class odegenerator(object):
         except:
             raise Exception('Please add a time-dictionary containing start, end and nsteps')
             
-        
     def _analytic_local_sensitivity(self):
         '''Analytic derivation of the local sensitivities
         
@@ -192,11 +194,7 @@ class odegenerator(object):
         
         Returns
         --------
-        Sensitivity_symbols : list
-            list for saving symbolic sensitivity formulas
-        
-        Sensitivity_list : list
-            list for saving combined symbols corresponding with sensitivity
+        TODO
         
         Notes
         ------
@@ -205,59 +203,51 @@ class odegenerator(object):
         
         See Also
         ---------
-        write_model_to_file
+        _write_model_to_file
         
         '''
         
         # Symbolify system states
         for i in range(len(self.System)):
             exec(self.System.keys()[i][1:]+" = sympy.symbols('"+self.System.keys()[i][1:]+"')")
+
         # Symbolify parameters
         for i in range(len(self.Parameters)):
             exec(self.Parameters.keys()[i]+" = sympy.symbols('"+self.Parameters.keys()[i]+"')")
+                    
+        self._system_matrix = sympy.zeros(len(self.System),1)
+        self._states_matrix = sympy.zeros(len(self._Variables),1)
         
-        # Make empty list for saving symbolic sensitivity formulas
-        self.Sensitivity_list = []
-        # Make empty list for saving combined symbols corresponding with sensitivity
-        self.Sensitivity_symbols = []
+        # Set up symbolic matrix of ODE system and states
+        for i in range(len(self.System)):
+            self._system_matrix[i,0] = eval(self.System.values()[i])
+            self._states_matrix[i,0] = eval(self._Variables[i])
         
-        # Calculate direct and indirect sensitivities
-        for j in range(self.System.__len__()+1):
-            for i in range(self.System.__len__()):
-                for k in range(len(self.Parameters)):
-                    ##Evaluation of the system
-                    self.Sensitivity_list.append(str(eval(self.System.values()[i])))
-                    # Symbolic derivative of the system to a certain parameter
-                    if j ==0:
-                        # Make symbol for pythonscript
-                        self.Sensitivity_symbols.append(self.System.keys()[i]+'d'+self.Parameters.keys()[k])
-                        # Perform partial derivation to certian parameter
-                        self.Sensitivity_list[-1] = sympy.diff(self.Sensitivity_list[-1],eval(self.Parameters.keys()[k]))
-                    # First replace certain state by its derivative and then perform partial derivative to specific parameter
-                    else:
-                        # Make symbol for pythonscript
-                        self.Sensitivity_symbols.append(self.System.keys()[i]+self.System.keys()[j-1]+'X'+self.System.keys()[j-1]+'d'+self.Parameters.keys()[k])
-                        # Replace state by its derivative
-                        exec(self.System.keys()[j-1][1:]+" = sympy.symbols('("+self.System.values()[j-1].replace(" ","")+")')")
-                        # Evaluate                    
-                        self.Sensitivity_list[-1] = eval(str(self.Sensitivity_list[-1]))
-                        #temp = sympy.diff(temp,eval(System.keys()[j-1].replace("d","")))*sympy.diff(eval(System[System.keys()[j-1]]),eval(parameter_list[k]))
-                        # Reset state to its original symbolic representation                    
-                        exec(self.System.keys()[j-1][1:]+" = sympy.symbols('"+self.System.keys()[j-1][1:]+"')")
-                        # Perform partial derivation to certain parameter
-                        # CAS (Absolute sensitivity)
-                        self.Sensitivity_list[-1] = sympy.diff(self.Sensitivity_list[-1],eval(self.Parameters.keys()[k]))
-                       
-                    # CPRS (Multiply sensitivity with the value of the parameter)
-                    #self.Sensitivity_list[-1] = self.Sensitivity_list[-1]*eval(self.Parameters.keys()[k])#/eval(symbol_list[i]+'+1e-6')
+        self._parameter_matrix = sympy.zeros(len(self.Parameters),1)
+        # Set up symbolic matrix of parameters
+        for i in range(len(self.Parameters)):
+            self._parameter_matrix[i,0] = eval(self.Parameters.keys()[i])
         
-        print 'Sensitivity Symbols: '
-        print self.Sensitivity_symbols
-        print '\n'
-        print 'Sensitivity list: '
-        print self.Sensitivity_list
-        return self.Sensitivity_symbols, self.Sensitivity_list
-
+        # Initialize and calculate matrices for analytic sensitivity calculation
+        # dfdtheta
+        dfdtheta = self._system_matrix.jacobian(self._parameter_matrix)
+        self.dfdtheta = np.array(dfdtheta)
+        # fdx
+        dfdx = self._system_matrix.jacobian(self._states_matrix)
+        self.dfdx = np.array(dfdx)
+        # dxdtheta
+        dxdtheta = np.zeros([len(self._states_matrix),len(self.Parameters)])
+        self.dxdtheta = np.asmatrix(dxdtheta)
+        
+#        #dgdtheta
+#        dgdtheta = np.zeros([sum(self.Measurable_States.values()),len(self.Parameters)])
+#        self.dgdtheta = np.array(dgdtheta)
+#        #dgdx
+#        dgdx = np.eye(len(self.states_matrix))*self.Measurable_States.values()
+#        #Remove zero rows
+#        self.dgdx = np.array(dgdx[~np.all(dgdx == 0, axis=1)])
+        
+        
     def _check_for_meas(self, Measurable_States):
         '''verify presence of measured states
         
@@ -606,7 +596,7 @@ class odegenerator(object):
         
         return H1,H2
 
-    def _write_model_to_file(self, with_sens = False):
+    def _write_model_to_file(self):
         '''Write derivative of model as definition in file
         
         Writes a file with a derivative definition to run the model and
@@ -614,14 +604,15 @@ class odegenerator(object):
         
         Parameters
         -----------
-        with_sensn : boolean True|False
-            If True, the analytic local sensitivity information is also added 
-            to the file
         
         '''
-
+        try:
+            self.dfdtheta
+        except:
+            print 'Running symbolic calculation of analytic sensitivity ...'
+            self._analytic_local_sensitivity()
+            print '... Done!'
              
-        
         temp_path = os.path.join(os.getcwd(),self.modelname+'.py')
         print 'File is printed to: ', temp_path
         print 'Filename used is: ', self.modelname
@@ -630,101 +621,56 @@ class odegenerator(object):
         
         file.write('#'+self.modelname+'\n')
         
-    #    file.write('\n#Parameters\n\n')
-    
-        #for i in range(len(Parameters)):
-            #file.write(str(Parameters.keys()[i]) + ' = ' + str(Parameters.values()[i])+'\n')
-            
-        #file.write('\nParameters = '+str(Parameters.keys()).replace("'","")+'\n')
-            
-        file.write('\n#System definition\n\n')
-        
-    #    file.write('States = '+str(System.keys()).replace("'d","").replace("'","")+'\n\n')
         file.write('import numpy as np\n\n')
         
-        file.write('def system(States,t,Parameters):\n')
+        # Write function for solving ODEs only
+        file.write('def system(ODES,t,Parameters):\n')
         for i in range(len(self.Parameters)):
             #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
             file.write('    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n")
         file.write('\n')
         for i in range(len(self.System)):
-            file.write('    '+str(self.System.keys()[i]).replace("d","") + ' = States['+str(i)+']\n')
+            file.write('    '+str(self.System.keys()[i]).replace("d","") + ' = ODES['+str(i)+']\n')
         file.write('\n')    
         for i in range(len(self.System)):
             file.write('    '+str(self.System.keys()[i]) + ' = ' + str(self.System.values()[i])+'\n')
-        file.write('    return '+str(self.System.keys()).replace("'","")+'\n')
         
-        if with_sens == True:
-            try:
-                self.Sensitivity_list
-            except:
-                self._analytic_local_sensitivity() 
-                print 'analytical local sensitivity running...'
-#                raise Exception('Run analytic_local_sensitivity first!')
-                
-            print 'Sensitivities are printed to the file....'
-            file.write('\n#Sensitivities\n\n')
+        file.write('    return '+str(self.System.keys()).replace("'","")+'\n\n\n')
         
-            file.write('def Sensitivity_direct(States,Parameters):\n')
-            temp = []
-            for i in range(len(self.System)):
-                #file.write('    '+self.System.keys()[i][1:]+" = States['"+self.System.keys()[i][1:]+"']\n")
-                file.write('    '+self.System.keys()[i][1:]+" = States["+str(i)+"]\n")
-            file.write('\n')
-            for i in range(len(self.Parameters)):
-                file.write('    '+self.Parameters.keys()[i]+" = Parameters['"+self.Parameters.keys()[i]+"']\n")
-            file.write('\n')
-            for i in range(len(self.System)*len(self.Parameters)):
-                file.write('    '+self.Sensitivity_symbols[i]+' = '+str(self.Sensitivity_list[i])+'\n')
-                exec(self.Sensitivity_symbols[i]+" = sympy.symbols('"+self.Sensitivity_symbols[i]+"')")
-                temp.append(eval(self.Sensitivity_symbols[i]))
-            file.write('\n    Output = np.zeros(['+str(len(self.get_variables()))+','+str(len(self.Parameters))+'])\n\n')
-#            file.write('    Output = {}\n')
-#            for i in range(self.System.__len__()):
-#                for j in range(len(self.Parameters)):
-#                    file.write("    Output['"+'d'+self.System.keys()[i][1:]+'d'+self.Parameters.keys()[j]+"'] = "+'d'+self.System.keys()[i][1:]+'d'+self.Parameters.keys()[j]+'\n')
-            for i in range(self.System.__len__()):
-                for j in range(len(self.Parameters)):
-                    file.write("    Output["+str(i)+","+str(j)+"] = "+'d'+self.System.keys()[i][1:]+'d'+self.Parameters.keys()[j]+'\n')
-            file.write('    return Output\n')
-        #    pprint.pprint(temp,file)
-            file.write('\n')
-            temp = []
-            test = []
-            file.write('def Sensitivity_indirect(States,Parameters):\n')
-            for i in range(len(self.System)):
-                file.write('    '+self.System.keys()[i][1:]+" = States['"+self.System.keys()[i][1:]+"']\n")
-            file.write('\n')
-            for i in range(len(self.Parameters)):
-                file.write('    '+self.Parameters.keys()[i]+" = Parameters['"+self.Parameters.keys()[i]+"']\n")
-            file.write('\n')
-            for i in range(len(self.System)*len(self.Parameters),len(self.Sensitivity_symbols)):
-                file.write('    '+self.Sensitivity_symbols[i]+' = '+str(self.Sensitivity_list[i])+'\n')
-                temp.append(self.Sensitivity_symbols[i])
-            file.write('    Output = {}\n')
-            for i in range(self.System.__len__()):
-                for j in range(len(self.Parameters)):
-                    file.write('    d'+self.System.keys()[i][1:]+'d'+self.Parameters.keys()[j]+' = ')
-                    for k in range(self.System.__len__()):
-                        file.write('d'+self.System.keys()[i][1:]+'d'+self.System.keys()[k][1:]+'Xd'+self.System.keys()[k][1:]+'d'+self.Parameters.keys()[j]+' + ') 
-                    file.seek(-3,2)
-                    file.write('\n')
-        #            for k in range(System.__len__()):
-        #                file.write("    Output['"+'d'+state_list[i]+'d'+state_list[k]+'Xd'+state_list[k]+'d'+parameter_list[j]+"'] = " + 'd'+state_list[i]+'d'+state_list[k]+'Xd'+state_list[k]+'d'+parameter_list[j]+'\n')
+        # Write function for solving ODEs of both system and analytical sensitivities
+        file.write('def system_with_sens(ODES,t,Parameters):\n')
+        for i in range(len(self.Parameters)):
+            #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
+            file.write('    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n")
+        file.write('\n')
+        for i in range(len(self.System)):
+            file.write('    '+str(self.System.keys()[i]).replace("d","") + ' = ODES['+str(i)+']\n')
+        file.write('\n')    
+        for i in range(len(self.System)):
+            file.write('    '+str(self.System.keys()[i]) + ' = ' + str(self.System.values()[i])+'\n')
+        
+        print 'Sensitivities are printed to the file....'
+        file.write('\n    #Sensitivities\n\n')
+        
+        # Calculate number of states by using inputs
+        file.write('    state_len = len(ODES)/(len(Parameters)+1)\n')
+        # Reshape ODES input to array with right dimensions in order to perform matrix multiplication
+        file.write('    dxdtheta = np.array(ODES[state_len:].reshape(state_len,len(Parameters)))\n\n')
+        
+        # Write dfdtheta as symbolic array
+        file.write('    dfdtheta = np.')
+        pprint.pprint(self.dfdtheta,file)
+        # Write dfdx as symbolic array
+        file.write('\n    dfdx = np.')
+        pprint.pprint(self.dfdx,file)
+        # Calculate derivative in order to integrate this
+        file.write('\n    dxdtheta = dfdtheta + np.dot(dfdx,dxdtheta)\n')
 
-                    exec('d'+self.System.keys()[i][1:]+'d'+self.Parameters.keys()[j]+" = sympy.symbols('"+'d'+self.System.keys()[i][1:]+'d'+self.Parameters.keys()[j]+"')")
-                    test.append(eval('d'+self.System.keys()[i][1:]+'d'+self.Parameters.keys()[j]))
-            
-            for i in range(self.System.__len__()):
-                for j in range(len(self.Parameters)):
-                    file.write("    Output['"+'d'+self.System.keys()[i][1:]+'d'+self.Parameters.keys()[j]+"'] = "+'d'+self.System.keys()[i][1:]+'d'+self.Parameters.keys()[j]+'\n')
-                    
-            
-            file.write('    return Output\n')
-            print '...done!'
+        file.write('    return '+str(self.System.keys()).replace("'","")+'+ list(dxdtheta.reshape(-1,))'+'\n')
+                
         file.close()
 
-    def solve_ode(self, TimeStepsDict = False, Initial_Conditions = False, plotit = True):
+    def solve_ode(self, TimeStepsDict = False, Initial_Conditions = False, plotit = True, with_sens = False):
         '''Solve the differential equation
         
         Solves the ode model with the given properties and model configuration
@@ -752,11 +698,19 @@ class odegenerator(object):
         
         #        import MODEL_Halfreaction
         exec('import '+self.modelname)
-        res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,))
-        
-        #put output in pandas dataframe
-        df = pd.DataFrame(res, index=self._Time, columns = self._Variables)
-        
+        if with_sens == False:
+            res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,))
+            #put output in pandas dataframe
+            df = pd.DataFrame(res, index=self._Time, columns = self._Variables)
+        else:
+            res = spin.odeint(eval(self.modelname+'.system_with_sens'), np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,))
+            #put output in pandas dataframe
+            df = pd.DataFrame(res[:,0:len(self._Variables)], index=self._Time,columns = self._Variables)
+            analytical_sens = {}
+            for i in range(len(self._Variables)):
+                analytical_sens[self._Variables[i]] = pd.DataFrame(res[:,len(self._Variables)*(1+i):len(self._Variables)*(1+i)+len(self.Parameters)], index=self._Time,columns = self.Parameters.keys())
+            self.analytic_sens = analytical_sens        
+            
         #plotfunction
         if plotit == True:
             df.plot(subplots = True)
@@ -766,10 +720,12 @@ class odegenerator(object):
         return df
         
     def collinearity_check(self,variable):
-        '''TODO
+        '''
         
         Change to total relative sensitivity instead of relative sensitivity 
         to parameter
+        
+        TODO adapt to new analyical sens, will possibly be deleted?
         '''
         try:
             # Import file where sensitivities are located
@@ -807,6 +763,9 @@ class odegenerator(object):
             self.Collinearity_Pairwise = {}
             self.Collinearity_Pairwise[variable] = Collinearity_pairwise
         return Collinearity_pairwise
+        
+    def analytic_local_sensitivity(self):
+        self.solve_ode(with_sens = True, plotit = False)
 
     def numeric_local_sensitivity(self, perturbation_factor = 0.0001, 
                                   TimeStepsDict = False, 
@@ -878,7 +837,7 @@ class odegenerator(object):
 
         return numerical_sens
 
-    def visual_check_collinearity(self, output, layout = 'full', upperpane = 'pearson'):
+    def visual_check_collinearity(self, output, analytic = False, layout = 'full', upperpane = 'pearson'):
         '''show scatterplot of sensitivities
         
         Check for linear dependence of the local sensitivity outputs for a 
@@ -898,20 +857,30 @@ class odegenerator(object):
             layout is selected; implemented are pearson, spearman, kendall 
             correlation coefficients; when data is chosen, the data is plotted again            
             
-        TODO: extend to use it for numerical AND analytical
         '''
-        try:
-            self.numerical_sensitivity
-        except:
-            self.numeric_local_sensitivity()
-        
-        toanalyze = self.numerical_sensitivity[output].as_matrix().transpose()            
+        if analytic == False:
+            try:
+                self.numerical_sensitivity
+            except:
+                self.numeric_local_sensitivity()
+            
+            toanalyze = self.numerical_sensitivity[output].as_matrix().transpose()
+        else:
+            try:
+                self.analytic_sens
+            except:
+                self.analytic_local_sensitivity()
+                self._write_model_to_file()
+                self.solve_ode(with_sens = True)
+            
+            toanalyze = self.analytic_sens[output].as_matrix().transpose()
+            
         fig, axes = scatterplot_matrix(toanalyze, plottext=self.Parameters.keys(), plothist = False,
                            layout = layout, upperpane = upperpane, marker='o', color='black', mfc='none')
         plt.draw()
 
     def plot_collinearity(self, ax1, redgreen = False):
-        '''plot of calcluated collinearity check 
+        '''plot of calculated collinearity check 
         
         Make an overview plot of the collinearity calculation as decribed in
         literature
@@ -937,6 +906,8 @@ class odegenerator(object):
         -----------
         .. [2] Brun, R., Reichert, P., Kfinsch, H.R., Practical Identifiability
             Analysis of Large Environmental Simulation (2001), 37, 1015-1030
+            
+        TODO update this to useful purpose!
         '''
         
         mat_to_plot = np.zeros([len(self._Variables),len(self.Parameters),len(self.Parameters)])
@@ -1005,32 +976,6 @@ class odegenerator(object):
         ax1.xaxis.set_ticks_position('top')
         ax1.yaxis.set_ticks_position('left')
         return ax1
-        
-    def calc_analytical_sens(self):
-        '''
-        '''
-        try:
-            self.ode_solved
-        except:
-            print 'Running ODE solver with following time characteristics'
-            self.get_time()
-            print '...'
-            self.solve_ode(plotit = False)
-            print '... Done!'
-        # Initialize array for every timestep, every variable and every parameter
-        Sensitivity_Timeseries = np.zeros([len(self._Time),len(self.get_variables()),len(self.Parameters)])
-        # Import sensitivity function from generated file     
-        exec('import '+self.modelname)
-        # For every timestep calculate the sensitivity
-        for i in range(len(self._Time)):
-            Sensitivity_Timeseries[i,:,:] = eval(self.modelname).Sensitivity_direct(self.ode_solved.ix[i,:],self.Parameters)
-        analytical_sens = {}
-        # For every variable copy the evolution in time for every parameter        
-        for i in range(len(self._Variables)):
-            analytical_sens[self._Variables[i]] = pd.DataFrame(Sensitivity_Timeseries[:,i,:], index=self._Time, columns = self.Parameters.keys())
-            
-        self.analytical_sens = analytical_sens
-        return analytical_sens
             
 
         

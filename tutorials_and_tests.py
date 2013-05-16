@@ -140,7 +140,7 @@ Modelname = 'Rivierlozing'
 M2 = OED(System, Parameters, Modelname = Modelname)
 M2.set_measured_states(['BZV','DO'])
 M2.set_initial_conditions({'BZV':7.33,'DO':8.5})
-M2.set_time({'start':0,'end':25,'nsteps':26})
+M2.set_time({'start':0,'end':25,'nsteps':2500})
 Time2save = M2._Time.copy()
 #
 #M2.set_measured_errors({'DO':0.05, 'BZV':0.02}, method = 'relative')
@@ -166,17 +166,33 @@ data2 = MeasData(datatype2)
 #t1.pivot(index='time', columns='name', values='val')
 
 #------------------------------------------------------------------------------
-
 #OPitmizaiotn stuff
 Modfit = ModOptim(M2,data2)
 #Modfit.plot_comp()
 res = Modfit.local_optimize(initial_parset = {'k1':0.25,'k2':0.45}, method = 'Powell')
-
 fig,ax = plt.subplots(1,2, figsize=(12,8))
 Modfit.plot_spread_diagram('BZV',ax[0])
 ax[0].set_title('BZV')
 Modfit.plot_spread_diagram('DO',ax[1])
 ax[1].set_title('DO')
+
+
+
+# EASY example
+System = {'dX1':'-p1*X1-p2*(1-p3*X2)*X1',
+          'dX2':'p2*(1-p3*X2)*X1-p4*X2'}
+          
+Parameters = {'p1':1,'p2':2,'p3':3,'p4':4}
+          
+Modelname = 'TaylorSeriesCheck'
+#
+###INITIATE MODEL
+M2 = odegenerator(System, Parameters, Modelname = Modelname)
+M2.set_measured_states(['X1'])
+
+M2.set_initial_conditions({'X1':1,'X2':0})
+
+M2.taylor_series_approach(4)
 
 
 ##MODEL TEST FOR ANALYT VS NUMERIC---------------------------------------------
