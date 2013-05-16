@@ -670,7 +670,8 @@ class odegenerator(object):
                 
         file.close()
 
-    def solve_ode(self, TimeStepsDict = False, Initial_Conditions = False, plotit = True, with_sens = False):
+    def solve_ode(self, TimeStepsDict = False, Initial_Conditions = False, 
+                  plotit = True, with_sens = False):
         '''Solve the differential equation
         
         Solves the ode model with the given properties and model configuration

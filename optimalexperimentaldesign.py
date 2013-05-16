@@ -10,10 +10,12 @@ Created on Thu Apr 11 11:39:49 2013
 from __future__ import division
 import sys
 import os
+import datetime
 import numpy as np
 import sympy
 
 import pandas as pd
+from scipy import optimize
 
 if sys.hexversion > 0x02070000:
     import collections
@@ -21,73 +23,339 @@ else:
     import ordereddict as collections
 
 from plotfunctions import *
+from matplotlib.ticker import MaxNLocator
 from ode_generator import odegenerator
+from measurements import ode_measurements
+
+class ode_optim_saver():
+    '''
+    Better would be to make this as baseclass and add the other part on this one,
+    but this does the job
+    '''
+    def __init__(self):
+        self.info='Last saving of output settings and fit characteristics on ',datetime.datetime.now().strftime("%I:%M%p on %B %d, %Y")
+    
+
+class ode_optimizer(object):
+    '''class to include measured data in the framework
+    
+    Last run is always internally saved...
+    
+    '''
+    
+    def __init__(self, odeModel, Data):
+        '''
+        '''
+        #check inputs
+        if not isinstance(odeModel, odegenerator):
+            raise Exception('Bad input type for model or oed')
+        if not isinstance(Data, ode_measurements):
+            raise Exception('Bad input type for Data')
+            
+
+        #compare with previous set measured variable; if same; ok, if not warning
+        Meas_same = True
+        for var in Data.get_measured_variables():
+            if var in odeModel._Variables:
+                if not var in odeModel._MeasuredList:
+                    Meas_same = False
+            else:
+                raise Exception('%s is not a variable in the current model' %var)
+        if Meas_same == False or len(Data.get_measured_variables()) <> len(odeModel._Variables):
+            print 'Measured variables are updated!'
+            Data.set_measured_states(Data.get_measured_variables())
+        
+        self.Data = Data.Data
+#        self.Data.columns = [var+'_meas' for var in self.Data.columns]
+        self._data = Data
+        self._data_dict = Data.Data_dict
+        self._model = odeModel
+        
+        #create initial set of information:
+        self._solve_for_opt()
+        self.get_WSSE()
+        #All parameters are set as fitting
+        self.set_fitting_parameters(self._model.Parameters)
+
+    def _parmapper(self, pararray):
+        '''converts parameter array for minimize function in dict
+        
+        Gets an array of values and converts into dictionary
+        '''
+        # A FIX FOR CERTAIN SCIPY MINIMIZE ALGORITHMS
+        try:
+            pararray = pararray[0,:]   
+        except:
+            pararray = pararray
+            
+        pardict = self._get_fitting_parameters()
+        for i, key in enumerate(pardict):
+            pardict[key] = pararray[i]
+        return pardict
+
+    def _pardemapper(self, pardict):
+        '''converts parameter dict in array for minimize function
+        
+        Gets an array of values and converts into dictionary
+        '''
+        #compare with existing pardict
+        if sorted(pardict.keys()) != sorted(self._get_fitting_parameters().keys()):
+            raise Exception('The fitting parameters are not equal with the given dict')
+        
+        pararray = np.zeros(len(self._get_fitting_parameters()))
+        for i, key in enumerate(pardict):
+            pararray[i] = pardict[key]
+        return pararray
+        
+
+    def _solve_for_opt(self, parset=None):
+        '''
+        ATTENTION: Zero-point also added, need to be excluded for optimization
+        '''
+        #run option        
+        if parset != None:
+            #run model first with new parameters
+            for par in self._get_fitting_parameters().keys():
+                self._model.Parameters[par] = parset[par]
+        
+        self._model._Time = np.concatenate((np.array([0.]),self._data.get_measured_times()))
+        self.ModelOutput = self._model.solve_ode(plotit=False)
+#        self.ModelOutput.columns = [var+'_model' for var in self.ModelOutput.columns]
+        self._model.set_time(self._model._TimeDict)
+        #put ModMeas in set
+        self.ModMeas = pd.concat((self.Data,self.ModelOutput), axis=1, keys=['Measured','Modelled'])        
+        return self.ModelOutput
+              
+    def _solve_for_visual(self, parset=None):
+        '''
+        ATTENTION: Zero-point also added, need to be excluded for optimization
+        '''
+        #run option        
+        if parset != None:
+            #run model first with new parameters
+            for par in self._get_fitting_parameters().keys():
+                self._model.Parameters[par] = parset[par]
+                
+        visual_ModelOutput = self._model.solve_ode(plotit=False)
+        return visual_ModelOutput     
+        
+              
+    def get_WSSE(self, pararray=None):
+        '''calculate weighted SSE
+        
+        according:  Typically, Q is chosen as the inverse of the measurement 
+        error covariance matrix (Marsili–Libelli et al., 2003; 
+        Omlin and Reichert, 1999; Vanrolleghem and Dochain, 1998)
+
+        '''
+        if pararray != None:
+            self._solve_for_opt(parset = self._parmapper(pararray))
+        else:
+            self._solve_for_opt()
+        
+        #Residuals for the current model_output
+        self.residuals = (self.ModelOutput-self.Data).dropna(how='all') 
+        self.unweigthed_SSE = (self.residuals**2).sum() 
+        
+        #WSSE CALCULATION       
+        #sum over the timesteps (order is not important, so dict-iteration could also be used)
+        self.WSSE = 0.0
+        for timestep in self._data.get_measured_times():
+            resid = np.matrix(self.residuals.ix[timestep].dropna().values)
+            qerr = np.matrix(self._data._Error_Covariance_Matrix[timestep])
+            self.WSSE = self.WSSE + resid * np.linalg.inv(qerr)*resid.transpose()
+        self.WSSE = np.array(self.WSSE)            
+        return self.WSSE
+
+    def plot_ModMeas(self):
+        '''plot outputs
+        '''        
+        fig,axes = plt.subplots(len(self.Data.columns),1)
+        for i,var in enumerate(self.Data.columns):
+            axes[i].plot(self.Data.index, self.Data[var], marker='o', linestyle='none', color='k')
+            axes[i].plot(self._solve_for_visual().index, self._solve_for_visual()[var], linestyle='--', color='k')
+        
+    def get_all_parameters(self):
+        '''get all model parameters of the current model
+        '''
+        return self._model.Parameters
+
+    def set_fitting_parameters(self, parlist):
+        '''set subset of parameters as basis for optimization
+        
+        List of parameter names included in the fitting
+        or dict + values
+        '''
+        if isinstance(parlist,list):
+            self._fitting_pars = {}
+            for par in parlist:
+                if par in self._model.Parameters:
+                    self._fitting_pars[par] = self._model.Parameters[par]
+                else:
+                    raise Exception('Parameter %s is no model parameter.'%par)
+        elif isinstance(parlist,dict):               
+            self._fitting_pars = {}
+            for par in parlist:
+                if par in self._model.Parameters:
+                    self._fitting_pars[par] = parlist[par]
+                    self._model.Parameters[par] = parlist[par]
+                else:
+                    raise Exception('Parameter %s is no model parameter.'%par)            
+        else:
+            raise Exception('List or dictionary is needed!')
+
+    def _get_fitting_parameters(self):
+        '''
+        '''
+        return self._fitting_pars
+
+    
+    def local_parameter_optimize(self, initial_parset=None, add_plot=True, method = 'Nelder-Mead', *args, **kwargs):
+        '''find parameters for optimal fit
+        
+        initial_parset: dict!!
+        
+        method options: Nelder-Mead, 
+        
+        '''
+        #first save the output with the 'old' parameters
+        #if initial parameter set given, use this, run and save   
+        self._Pre_Optimize = ode_optim_saver()
+        if initial_parset != None:
+            #control for similarity and update the fitting pars 
+            if sorted(initial_parset.keys()) != sorted(self._get_fitting_parameters().keys()):
+                print 'Fitting parameters are updated...'
+                print 'Previous set of fitting parameters: ',
+                print self._get_fitting_parameters().keys()
+                print 'New set of fitting parameters: '
+                print initial_parset.keys()
+            self.set_fitting_parameters(initial_parset)
+            
+            parray = self._pardemapper(initial_parset)         
+            
+            self._solve_for_opt(initial_parset)
+            self._Pre_Optimize.parameters = initial_parset
+            self._Pre_Optimize.visual_output = self._solve_for_visual(initial_parset)
+        else:
+            parray = self._pardemapper(self._get_fitting_parameters())
+            self._solve_for_opt()
+            self._Pre_Optimize.parameters = self._get_fitting_parameters()
+            self._Pre_Optimize.visual_output = self._solve_for_visual(self._get_fitting_parameters())
+        #Save them for comparison
+        self._Pre_Optimize.residuals = self.residuals
+        self._Pre_Optimize.ModMeas = self.ModMeas
+        self._Pre_Optimize.WSSE = self.WSSE
+        self._Pre_Optimize.unweigthed_SSE = self.unweigthed_SSE
+
+        #OPTIMIZATION
+        #TODO: ADD OPTION FOR SAVING THE PARSETS (IN GETWSSE!!)
+        #different algorithms: but implementation  Anneal and CG are not working 
+        #a first fix made Powell work
+        self.optimize_info = optimize.minimize(self.get_WSSE, parray, method= method, *args, **kwargs)
+        print self.optimize_info.message
+        
+        #comparison plot
+        if add_plot == True:
+            fig,axes = plt.subplots(len(self.Data.columns),1)
+            fig.subplots_adjust(hspace=0.1)
+            for i,var in enumerate(self.Data.columns):
+                #plot data
+                axes[i].plot(self.Data.index, self.Data[var], marker='o', linestyle='none', color='k', label='Measured')
+                #plot output old
+                axes[i].plot(self._Pre_Optimize.visual_output.index, self._Pre_Optimize.visual_output[var], linestyle='-.', color='k', label='No optimization')            
+                #plot output new
+                axes[i].plot(self._solve_for_visual().index, self._solve_for_visual()[var], linestyle='--', color='k', label='Optimized')
+                axes[i].set_ylabel(var)
+                axes[i].yaxis.set_major_locator(MaxNLocator(5, prune='lower'))
+   
+            axes[0].set_xticklabels([])
+            # resize for legend
+            box1 = axes[0].get_position()
+            axes[0].set_position([box1.x0, box1.y0, box1.width, box1.height * 0.9])
+            axes[0].legend(loc='upper center', bbox_to_anchor=(0.5, 1.25), ncol=3)           
+            
+            #set time label x-ax
+            axes[-1].set_xlabel('Time')
+            
+        return self.optimize_info
+        
+    def plot_spread_diagram(self, variable, ax = None, marker='o', facecolor='none', 
+                             edgecolor = 'k'):
+        '''
+        Spread_diagram(axs,obs, mod, infobox = True, *args, **kwargs)
+                
+        '''
+        try:
+            self.optimize_info
+        except:
+            raise Exception('Run optimization first!')
+        
+        if variable not in self._data.get_measured_variables():
+            raise Exception('This variable is not listed as measurement')
+        
+        if ax == None:
+            fig,ax = plt.subplots(1,1)
+
+        #prepare dataframe
+        varModMeas = pd.concat((self.Data[variable],self.ModelOutput[variable]), axis=1, keys=['Measured','Modelled']) 
+        varModMeas = varModMeas.dropna()
+        
+        ax = Spread_diagram(ax,varModMeas['Measured'], 
+                            varModMeas['Modelled'], 
+                            infobox = True, marker='o', facecolor='none', 
+                            edgecolor = 'k')
+        ax.set_xlabel(r'measured')                     
+        ax.set_ylabel(r'modelled')
+        return ax  
  
         
-class OED(odegenerator):
+class ode_FIM(object):
     '''
     OED aimed class functioning
     
     Deliverables:
     - FIM calcluation based on odegenerator model sensitivities
-    - Error covariance options (relative and absolute)
-    - Measurement timestep selection to support FIM calclulations
-    - link with optimization algorithms for optimization of parameters/designs
+    - link with optimization algorithms for optimization of designs
     
     AIM:
     - Link with robust OED -> sequential design (paropt - exp-opt - paropt)
     '''
     
-    def __init__(self,System, Parameters, Modelname = 'MyModel'): #Measurements
+    def __init__(self, odeoptimizer): #Measurements
         '''
         Measurements: measurements-class instance
         '''
-        odegenerator.__init__(self, System, Parameters, Modelname = Modelname)
+        if isinstance(odeoptimizer, ode_optimizer):
+            self.odeoptimizer = odeoptimizer
+        else:
+            raise Exception('Input class is ode_optimizer instance!')
+        
+        self._model = odeoptimizer._model
+        self._data = odeoptimizer._data
+        self.Error_Covariance_Matrix = odeoptimizer._data._Error_Covariance_Matrix
         
         self.criteria_optimality_info = {'A':'min', 'modA': 'max', 'D': 'max', 
                                          'E':'max', 'modE':'min'}
-        
-        #measurements stuff
-        #___________________
-        #control for corresponding names with the model
-        #set measured timesteps, measured variables and self.Q
-
-    def get_mod_times(self):
-        '''view timesteps of model output
-        '''
-        return self._Time
-    
-    def control_measmod_time(self):
-        '''
-        '''
-        pass
-
 
     def get_FIM(self):
         '''
-        DEPRECIATED!!
-        Needs update to be able to manage different measurment length types
+        Needs update to be able to manage different measurement length types
         in order ot be combined with the current Error_Covariance_Method        
         
         Based on the measurement errors and timesteps to include evaluation,
         the FIM is calculated
         
+        calculate e FIM for each timestep and a combine FIM
+        
         Notes
         ------
         
         '''
-        
-        try:
-            self._measdata_ID
-        except:
-            self.set_measured_times('all')
-            print 'all model timesteps are included in FIM calculation'
-        
         #test for sensitivity
         try:
-            self.numerical_sensitivity
+            self.odeoptimizer._model.numerical_sensitivity
         except:
-            self.numeric_local_sensitivity()
+            self.odeoptimizer._model.numeric_local_sensitivity()
         
         
         self.FIM = np.zeros((len(self.Parameters),len(self.Parameters)))
@@ -163,7 +431,7 @@ class OED(odegenerator):
         self._check_for_FIM()
         print 'MAXIMIZE D criterium for OED'
         return np.linalg.det(self.FIM)          
-
+    
     def E_criterium(self):
         '''OED design E criterium
         The E-optimal design criterion maximizes the smallest eigenvalue of 
@@ -176,7 +444,7 @@ class OED(odegenerator):
         print 'MAXIMIZE E criterium for OED'
         w, v = np.linalg.eig(self.FIM)
         return min(w)
-
+    
     def modE_criterium(self):
         '''OED design modE criterium
         With this criterion, the focus is on the minimization of the condition 
@@ -190,6 +458,7 @@ class OED(odegenerator):
         print 'MINIMIZE modE criterium for OED'
         w, v = np.linalg.eig(self.FIM)
         return max(w)/min(w)
+
 
 
     def get_all_optimality_design_criteria(self):
