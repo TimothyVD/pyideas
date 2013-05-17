@@ -140,7 +140,7 @@ Modelname = 'Rivierlozing'
 M2 = odegenerator(System, Parameters, Modelname = Modelname)
 M2.set_measured_states(['BZV','DO'])
 M2.set_initial_conditions({'BZV':7.33,'DO':8.5})
-M2.set_time({'start':0,'end':25,'nsteps':2500})
+M2.set_time({'start':0,'end':25,'nsteps':25})
 Time2save = M2._Time.copy()
 #
 #M2.set_measured_errors({'DO':0.05, 'BZV':0.02}, method = 'relative')
@@ -159,6 +159,12 @@ data1 = ode_measurements(datatype1)
 datatype2 = {'time':[1,2,5,8,11], 'BZV': [6.1,5.8,4.1,4.0,3.6], 'DO': [7.8,7.4,7.45,7.9,8.3]}
 data2 = ode_measurements(datatype2)
 
+data_modsim = M2.solve_ode(plotit=False)['DO']
+data_modsim = ode_measurements(data_modsim)
+
+#data_modsim.add_measured_errors({'DO':0.05}, method = 'absolute')
+
+
 data1.add_measured_errors({'DO':0.05, 'BZV':0.02}, method = 'relative')
 #data2.add_measured_errors({'DO':0.05, 'BZV':0.02}, method = 'relative')
 #data2.add_measured_variable({'time':[0.5,2.,8.],'DO2':[5.,9.,2.]})
@@ -167,9 +173,9 @@ data1.add_measured_errors({'DO':0.05, 'BZV':0.02}, method = 'relative')
 
 #------------------------------------------------------------------------------
 #OPitmizaiotn stuff
-Modfit = ode_optimizer(M2,data1)
+Modfit = ode_optimizer(M2,data_modsim)
 #Modfit.plot_comp()
-#res = Modfit.local_parameter_optimize(method = 'Powell')
+res = Modfit.local_parameter_optimize(initial_parset = {'k1':0.28,'k2':0.37}, method = 'Nelder-Mead')
 #res = Modfit.local_parameter_optimize(initial_parset = {'k1':0.25}, method = 'Powell')
 #res = Modfit.local_parameter_optimize(initial_parset = {'k1':0.25,'k2':0.45}, method = 'Powell')
 #fig,ax = plt.subplots(1,2, figsize=(12,8))

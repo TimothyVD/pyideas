@@ -117,8 +117,10 @@ class ode_optimizer(object):
             #run model first with new parameters
             for par in self._get_fitting_parameters().keys():
                 self._model.Parameters[par] = parset[par]
-        
-        self._model._Time = np.concatenate((np.array([0.]),self._data.get_measured_times()))
+        if  self._data.get_measured_times()[0] == 0.:
+            self._model._Time = self._data.get_measured_times()
+        else:
+            self._model._Time = np.concatenate((np.array([0.]),self._data.get_measured_times()))
         self.ModelOutput = self._model.solve_ode(plotit=False)
 #        self.ModelOutput.columns = [var+'_model' for var in self.ModelOutput.columns]
         self._model.set_time(self._model._TimeDict)
@@ -163,7 +165,7 @@ class ode_optimizer(object):
         for timestep in self._data.get_measured_times():
             resid = np.matrix(self.residuals.ix[timestep].dropna().values)
             qerr = np.matrix(self._data._Error_Covariance_Matrix[timestep])
-            self.WSSE = self.WSSE + resid * np.linalg.inv(qerr)*resid.transpose()
+            self.WSSE += resid * np.linalg.inv(qerr)* resid.transpose()
         self.WSSE = np.array(self.WSSE)            
         return self.WSSE
 
@@ -187,22 +189,23 @@ class ode_optimizer(object):
         or dict + values
         '''
         if isinstance(parlist,list):
-            self._fitting_pars = {}
+            _fitting_pars = {}
             for par in parlist:
                 if par in self._model.Parameters:
-                    self._fitting_pars[par] = self._model.Parameters[par]
+                    _fitting_pars[par] = self._model.Parameters[par]
                 else:
                     raise Exception('Parameter %s is no model parameter.'%par)
         elif isinstance(parlist,dict):               
-            self._fitting_pars = {}
+            _fitting_pars = {}
             for par in parlist:
                 if par in self._model.Parameters:
-                    self._fitting_pars[par] = parlist[par]
+                    _fitting_pars[par] = parlist[par]
                     self._model.Parameters[par] = parlist[par]
                 else:
                     raise Exception('Parameter %s is no model parameter.'%par)            
         else:
             raise Exception('List or dictionary is needed!')
+        self._fitting_pars = collections.OrderedDict(sorted(_fitting_pars.items(), key=lambda t: t[0]))
 
     def _get_fitting_parameters(self):
         '''
@@ -256,26 +259,47 @@ class ode_optimizer(object):
         
         #comparison plot
         if add_plot == True:
-            fig,axes = plt.subplots(len(self.Data.columns),1)
-            fig.subplots_adjust(hspace=0.1)
-            for i,var in enumerate(self.Data.columns):
+            if len(self.Data.columns) == 1:
+                fig,axes = plt.subplots(1,1)
+                var = self.Data.columns[0]
                 #plot data
-                axes[i].plot(self.Data.index, self.Data[var], marker='o', linestyle='none', color='k', label='Measured')
+                axes.plot(self.Data.index, self.Data[var], marker='o', linestyle='none', color='k', label='Measured')
                 #plot output old
-                axes[i].plot(self._Pre_Optimize.visual_output.index, self._Pre_Optimize.visual_output[var], linestyle='-.', color='k', label='No optimization')            
+                axes.plot(self._Pre_Optimize.visual_output.index, self._Pre_Optimize.visual_output[var], linestyle='-.', color='k', label='No optimization')            
                 #plot output new
-                axes[i].plot(self._solve_for_visual().index, self._solve_for_visual()[var], linestyle='--', color='k', label='Optimized')
-                axes[i].set_ylabel(var)
-                axes[i].yaxis.set_major_locator(MaxNLocator(5, prune='lower'))
-   
-            axes[0].set_xticklabels([])
-            # resize for legend
-            box1 = axes[0].get_position()
-            axes[0].set_position([box1.x0, box1.y0, box1.width, box1.height * 0.9])
-            axes[0].legend(loc='upper center', bbox_to_anchor=(0.5, 1.25), ncol=3)           
-            
-            #set time label x-ax
-            axes[-1].set_xlabel('Time')
+                axes.plot(self._solve_for_visual().index, self._solve_for_visual()[var], linestyle='--', color='k', label='Optimized')
+                axes.set_ylabel(var)
+                axes.yaxis.set_major_locator(MaxNLocator(5, prune='lower'))
+       
+                axes.set_xticklabels([])
+                # resize for legend
+                box1 = axes.get_position()
+                axes.set_position([box1.x0, box1.y0, box1.width, box1.height * 0.9])
+                axes.legend(loc='upper center', bbox_to_anchor=(0.5, 1.25), ncol=3)           
+                
+                #set time label x-ax
+                axes.set_xlabel('Time')
+            else:
+                fig,axes = plt.subplots(len(self.Data.columns),1)
+                fig.subplots_adjust(hspace=0.1)
+                for i,var in enumerate(self.Data.columns):
+                    #plot data
+                    axes[i].plot(self.Data.index, self.Data[var], marker='o', linestyle='none', color='k', label='Measured')
+                    #plot output old
+                    axes[i].plot(self._Pre_Optimize.visual_output.index, self._Pre_Optimize.visual_output[var], linestyle='-.', color='k', label='No optimization')            
+                    #plot output new
+                    axes[i].plot(self._solve_for_visual().index, self._solve_for_visual()[var], linestyle='--', color='k', label='Optimized')
+                    axes[i].set_ylabel(var)
+                    axes[i].yaxis.set_major_locator(MaxNLocator(5, prune='lower'))
+       
+                axes[0].set_xticklabels([])
+                # resize for legend
+                box1 = axes[0].get_position()
+                axes[0].set_position([box1.x0, box1.y0, box1.width, box1.height * 0.9])
+                axes[0].legend(loc='upper center', bbox_to_anchor=(0.5, 1.25), ncol=3)           
+                
+                #set time label x-ax
+                axes[-1].set_xlabel('Time')
             
         return self.optimize_info
         
@@ -349,7 +373,12 @@ class ode_FIM(object):
         self.set_variables_for_FIM(self.get_measured_variables())
         
         #Run sensitivity
-        self._model._Time = np.concatenate((np.array([0.]),self._data.get_measured_times()))
+        if  self._data.get_measured_times()[0] == 0.:
+            self._model._Time = self._data.get_measured_times()
+        else:
+            self._model._Time = np.concatenate((np.array([0.]),self._data.get_measured_times()))
+        
+#        self._model._Time = np.concatenate((np.array([0.]),self._data.get_measured_times()))
         if sensmethod == 'analytical':
             self._model.analytic_local_sensitivity()
             self.sensitivities = self._model.analytical_sensitivity

@@ -65,14 +65,18 @@ class ode_measurements(object):
 
         elif isinstance(measdata, pd.DataFrame):            
             #check if time is a column name
-            if 'time' in t1.columns:
+            if 'time' in measdata.columns:
                 if 'variables' in measdata:
                     self.Data = measdata.pivot(index='time', columns='variables', values='values')
                 else:
                     self.Data = measdata.set_index('time')                                
             else:
+                self.Data = measdata
                 print 'index of dataframe is seen as measurement time steps, and colnames are the measured variables'
-    
+                
+        elif isinstance(measdata, pd.Series):
+            self.Data = pd.DataFrame(measdata)
+        
         else:
             raise Exception('Measured Data must be added as pandas DataFrame or dictionary of np arrays')
         
