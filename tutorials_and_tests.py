@@ -49,8 +49,15 @@ from measurements import *
 #M1.set_initial_conditions({'SA':5.,'SB':0.,'En':1.,'EP':0.,'Es':0.,'EsQ':0.,'PP':0.,'PQ':0.})
 ###M1.set_initial_conditions({'SA':5.,'SB':4.,'En':1.,'EP':6.,'Es':2.5,'EsQ':1.,'PP':1.5,'PQ':0.})
 #M1.set_time({'start':0,'end':20,'nsteps':1000})
+#
+##M1.write_model_to_file(with_sens=False)
+#
+##optimizer model
+#datatype2 = {'time':[1,2,5,8,11], 'Es': [6.1,5.8,4.1,4.0,3.6], 'EP': [7.8,7.4,7.45,7.9,8.3]}
+#data_M1 = ode_measurements(datatype2)
+#Fitit = ode_optimizer(M1,data_M1)
+#Fitit.set_pars_GUI()
 
-#M1.write_model_to_file(with_sens=False)
 #------------------------------------------------------------------------------
 #EXAMPLE SET FOR SEMINAR
 #------------------------------------------------------------------------------
@@ -159,10 +166,10 @@ data1 = ode_measurements(datatype1)
 datatype2 = {'time':[1,2,5,8,11], 'BZV': [6.1,5.8,4.1,4.0,3.6], 'DO': [7.8,7.4,7.45,7.9,8.3]}
 data2 = ode_measurements(datatype2)
 
-data_modsim = M2.solve_ode(plotit=False)['DO']
+data_modsim = M2.solve_ode(plotit=False)['DO']+0.2*np.random.uniform(-1,1,M2.solve_ode(plotit=False)['DO'].shape[0])
 data_modsim = ode_measurements(data_modsim)
 
-#data_modsim.add_measured_errors({'DO':0.05}, method = 'absolute')
+data_modsim.add_measured_errors({'DO':0.05}, method = 'absolute')
 
 
 data1.add_measured_errors({'DO':0.05, 'BZV':0.02}, method = 'relative')
@@ -174,8 +181,11 @@ data1.add_measured_errors({'DO':0.05, 'BZV':0.02}, method = 'relative')
 #------------------------------------------------------------------------------
 #OPitmizaiotn stuff
 Modfit = ode_optimizer(M2,data_modsim)
+Modfit.set_pars_GUI()
 #Modfit.plot_comp()
-res = Modfit.local_parameter_optimize(initial_parset = {'k1':0.28,'k2':0.37}, method = 'Nelder-Mead')
+
+#res = Modfit.local_parameter_optimize(initial_parset = {'k1':0.22,'k2':0.27}, method = 'Nelder-Mead')
+
 #res = Modfit.local_parameter_optimize(initial_parset = {'k1':0.25}, method = 'Powell')
 #res = Modfit.local_parameter_optimize(initial_parset = {'k1':0.25,'k2':0.45}, method = 'Powell')
 #fig,ax = plt.subplots(1,2, figsize=(12,8))

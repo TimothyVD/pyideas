@@ -106,6 +106,26 @@ class ode_optimizer(object):
         for i, key in enumerate(pardict):
             pararray[i] = pardict[key]
         return pararray
+
+    def set_pars_GUI(self):
+        '''GUI based parameter adaption
+        '''
+        try:
+            from formlayout import fedit
+        except:
+            raise Exception("Module formlayout is needed to do interactive adjustment")
+        
+        parlist = []
+        for key in self._model.Parameters:
+            parlist.append((key,self._model.Parameters[key]))
+        
+        newparlist = fedit(parlist, title="Update your aprameter values",
+                               comment="Give your new <b>parameter values</b>")
+        
+#        print "result:", newparlist
+        newparlistdict = self._parmapper(newparlist)
+        for par in newparlistdict:
+            self._model.Parameters[par] = newparlistdict[par]        
         
 
     def _solve_for_opt(self, parset=None):
