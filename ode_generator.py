@@ -172,6 +172,11 @@ class odegenerator(object):
         
         Help function for getting the values one can measure in the lab
         '''
+        try:
+            self._MeasuredList
+        except:
+            print 'All variables are assumed measured, since no selection was set'
+            self.set_measured_states(self._Variables)
         return self._MeasuredList
     
     def get_time(self):
@@ -441,7 +446,7 @@ class odegenerator(object):
                     self.Parameter_Identifiability[h,i,j] = min([min(self.Identifiability_Pairwise[h,i,j,:]),min(self.Identifiability_Pairwise[h,i,:,j])])
         return self.Parameter_Identifiability
 
-    def plot_taylor_ghost(self, ax1, order = 0, redgreen = False):
+    def plot_taylor_ghost(self, ax = 'none', order = 0, redgreen = False):
         '''Taylor identifiability plot
         
         Creates an overview plot of the identifiable parameters, given
@@ -475,6 +480,12 @@ class odegenerator(object):
         >>> ax2.set_title('Second order derivative')
         
         '''
+        if ax1 == 'none':
+            fig, ax1 = plt.subplots()
+        else:
+            ax1 = ax
+        
+        
         mat_to_plot = self.Identifiability_Ghostparameter[:,order,:]
               
         xplaces=np.arange(0,mat_to_plot.shape[1],1)
@@ -669,6 +680,7 @@ class odegenerator(object):
         file.write('    return '+str(self.System.keys()).replace("'","")+'+ list(dxdtheta.reshape(-1,))'+'\n')
                 
         file.close()
+        print '...done!'
 
     def solve_ode(self, TimeStepsDict = False, Initial_Conditions = False, 
                   plotit = True, with_sens = False):
@@ -693,7 +705,7 @@ class odegenerator(object):
         set_initial_conditions, set_time
                 
         '''
-        print 'Current parameters', self.Parameters.values()
+#        print 'Current parameters', self.Parameters.values()
         self._check_for_time(TimeStepsDict)
         self._check_for_init(Initial_Conditions)        
         
@@ -791,7 +803,7 @@ class odegenerator(object):
         
         for parameter in self.Parameters:
             value2save = self.Parameters[parameter]
-            print 'sensitivity for parameter ', parameter
+#            print 'sensitivity for parameter ', parameter
             #run model with parameter value plus perturbation 
             self.Parameters[parameter] = value2save + perturbation_factor*value2save
             modout_plus = self.solve_ode(plotit = False)
