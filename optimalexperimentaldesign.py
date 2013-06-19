@@ -191,11 +191,17 @@ class ode_optimizer(object):
 
     def plot_ModMeas(self):
         '''plot outputs
-        '''        
-        fig,axes = plt.subplots(len(self.Data.columns),1)
-        for i,var in enumerate(self.Data.columns):
-            axes[i].plot(self.Data.index, self.Data[var], marker='o', linestyle='none', color='k')
-            axes[i].plot(self._solve_for_visual().index, self._solve_for_visual()[var], linestyle='--', color='k')
+        '''
+        if len(self.Data.columns)>1:
+            fig,axes = plt.subplots(len(self.Data.columns),1)
+            for i,var in enumerate(self.Data.columns):
+                axes[i].plot(self.Data.index, self.Data[var], marker='o', linestyle='none', color='k')
+                axes[i].plot(self._solve_for_visual().index, self._solve_for_visual()[var], linestyle='--', color='k')
+        else:
+            var = self.Data.columns[0]
+            fig,axs = plt.subplots(1,1)
+            axs.plot(self.Data.index, self.Data[var], marker='o', linestyle='none', color='k')
+            axs.plot(self._solve_for_visual().index, self._solve_for_visual()[var], linestyle='--', color='k')            
         
     def get_all_parameters(self):
         '''get all model parameters of the current model
