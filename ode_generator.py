@@ -726,8 +726,11 @@ class odegenerator(object):
             
         #plotfunction
         if plotit == True:
-            df.plot(subplots = True)
-            
+            if len(self._Variables) == 1:
+                df.plot(subplots = False)
+            else:
+                df.plot(subplots = True)
+               
         self.ode_solved = df
                
         return df
