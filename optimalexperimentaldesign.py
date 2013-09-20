@@ -441,6 +441,30 @@ class ode_FIM(object):
                 raise Exception('Variabel %s not measured')
         self._FIMvariables = varlist
 
+    def test_extra_measured_timesteps(self, variable, timesteps):
+        '''
+        input Dictionary: {'variables':[var of measurement], 'time': [timeindex of measurement]}
+        '''        
+#        newdata = pd.DataFrame(vartimedict).pivot(index='time', columns='variables')
+        
+        #The timesteps for these measurements need to be used and new FIM calculated
+        # First, an update of sensitivities and error covariance matrix 
+        # second, new FIM + criteria
+        
+        #combine with current data
+        olddata = self._data.Data.copy()
+        for timestep in timesteps:
+            if timestep in olddata.index:
+                if np.isnan(olddata[variable][timestep]):
+                    olddata[variable][timestep] == -99.
+                else:
+                    raise Exception('Timestep ',timestep, 'already addressed as measurement')
+            else:
+                olddata #concatanate!!!
+            
+        
+        
+
     def _get_nonFIM(self):
         '''
         '''

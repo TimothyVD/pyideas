@@ -480,7 +480,7 @@ class odegenerator(object):
         >>> ax2.set_title('Second order derivative')
         
         '''
-        if ax1 == 'none':
+        if ax == 'none':
             fig, ax1 = plt.subplots()
         else:
             ax1 = ax

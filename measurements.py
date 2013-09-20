@@ -28,7 +28,7 @@ class ode_measurements(object):
     
     Input possibilities (cfr. FME package R):
         
-        1. Dictionary: {'variables':[var of measurement], 'time': [timeindex of measurement], 'values':[measurements], 'errors':[errors of meas]}
+        1. Dictionary: {'variables':[var of measurement], 'time': [timeindex of measurement], 'values':[measurements]}
         2. DataFrame of the above Dictionary
         3. Dictionary: {'time': [time indices], 'var1': [meas for the timesteps of var1], 'var2':[meas for the timesteps of var2]}
         4. DataFrame of the above  
@@ -106,7 +106,7 @@ class ode_measurements(object):
         Parameters
         ------------
         newdata :  pd.DataFrame or dict
-            Variable and the corresponding timesteps meadured
+            Variable and the corresponding timesteps measured
         
         Notes
         -----
@@ -121,7 +121,8 @@ class ode_measurements(object):
 
         #update the datadictionary
         self._data2dictsystem()  
-        self.get_measured_variables()                  
+        self.get_measured_variables() 
+
 
     def get_measured_times(self):
         '''

@@ -179,8 +179,11 @@ data1.add_measured_errors({'DO':0.05, 'BZV':0.02}, method = 'relative')
 #t1.pivot(index='time', columns='name', values='val')
 
 #------------------------------------------------------------------------------
-#OPitmizaiotn stuff
-Modfit = ode_optimizer(M2,data_modsim)
+#OPitmizaion stuff
+#------------------------------------------------------------------------------
+
+Modfit = ode_optimizer(M2,data1)
+
 Modfit.set_pars_GUI()
 #Modfit.plot_comp()
 
