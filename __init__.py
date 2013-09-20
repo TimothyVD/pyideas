@@ -8,6 +8,7 @@ E-mail: stvhoey.vanhoey@ugent.be
 
 from ode_generator import odegenerator
 from optimalexperimentaldesign import *
+from ode_optimization import *
 
 from plotfunctions import *
 from measurements import *
