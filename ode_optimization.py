@@ -244,7 +244,7 @@ class ode_optimizer(object):
         
         initial_parset: dict!!
         
-        method options: Nelder-Mead, 
+        method options: Nelder-Mead, Powell
         
         '''
         #first save the output with the 'old' parameters

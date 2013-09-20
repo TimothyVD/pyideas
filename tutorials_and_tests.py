@@ -19,10 +19,8 @@ import matplotlib.pyplot as plt
 from matplotlib import colors
 
 #bio-intense custom developments
-from plotfunctions import *
-from ode_generator import odegenerator
-from optimalexperimentaldesign import *
-from measurements import *
+sys.path.append(os.path.abspath(os.pardir))
+from biointense import *
 
 ##------------------------------------------------------------------------------
 ##EXAMPLE MODEL
@@ -136,19 +134,19 @@ from measurements import *
 #------------------------------------------------------------------------------
 #EXAMPLE OED test -> MODSIM voorbeeld
 #------------------------------------------------------------------------------
-Parameters = {'k1':0.2980,'k2':0.3979}
-              
-System =    {'dBZV':'1. - k1*BZV',
-             'dDO':'k2*11. - k2*DO - k1*BZV'}
-                        
-Modelname = 'Rivierlozing'
-
-##INITIATE MODEL
-M2 = odegenerator(System, Parameters, Modelname = Modelname)
-M2.set_measured_states(['BZV','DO'])
-M2.set_initial_conditions({'BZV':7.33,'DO':8.5})
-M2.set_time({'start':0,'end':25,'nsteps':25})
-Time2save = M2._Time.copy()
+#Parameters = {'k1':0.2980,'k2':0.3979}
+#              
+#System =    {'dBZV':'1. - k1*BZV',
+#             'dDO':'k2*11. - k2*DO - k1*BZV'}
+#                        
+#Modelname = 'Rivierlozing'
+#
+###INITIATE MODEL
+#M2 = odegenerator(System, Parameters, Modelname = Modelname)
+#M2.set_measured_states(['BZV','DO'])
+#M2.set_initial_conditions({'BZV':7.33,'DO':8.5})
+#M2.set_time({'start':0,'end':25,'nsteps':25})
+#Time2save = M2._Time.copy()
 #
 #M2.set_measured_errors({'DO':0.05, 'BZV':0.02}, method = 'relative')
 #M2.numeric_local_sensitivity(perturbation_factor=1e-5)
@@ -160,31 +158,31 @@ Time2save = M2._Time.copy()
 #MEASURED DATA INPUT TYPES
 #------------------------------------------------------------------------------
 
-datatype1 = {'variables':['BZV','BZV','BZV', 'DO','DO'], 'time':[1,2,5,1,2], 'values': [6.1,5.8,4.1,7.8,7.4]}
-data1 = ode_measurements(datatype1)
-
-datatype2 = {'time':[1,2,5,8,11], 'BZV': [6.1,5.8,4.1,4.0,3.6], 'DO': [7.8,7.4,7.45,7.9,8.3]}
-data2 = ode_measurements(datatype2)
-
-data_modsim = M2.solve_ode(plotit=False)['DO']+0.2*np.random.uniform(-1,1,M2.solve_ode(plotit=False)['DO'].shape[0])
-data_modsim = ode_measurements(data_modsim)
-
-data_modsim.add_measured_errors({'DO':0.05}, method = 'absolute')
-
-
-data1.add_measured_errors({'DO':0.05, 'BZV':0.02}, method = 'relative')
+#datatype1 = {'variables':['BZV','BZV','BZV', 'DO','DO'], 'time':[1,2,5,1,2], 'values': [6.1,5.8,4.1,7.8,7.4]}
+#data1 = ode_measurements(datatype1)
+#
+#datatype2 = {'time':[1,2,5,8,11], 'BZV': [6.1,5.8,4.1,4.0,3.6], 'DO': [7.8,7.4,7.45,7.9,8.3]}
+#data2 = ode_measurements(datatype2)
+#
+#data_modsim = M2.solve_ode(plotit=False)['DO']+0.2*np.random.uniform(-1,1,M2.solve_ode(plotit=False)['DO'].shape[0])
+#data_modsim = ode_measurements(data_modsim)
+#
+#data_modsim.add_measured_errors({'DO':0.05}, method = 'absolute')
+#
+#
+#data1.add_measured_errors({'DO':0.05, 'BZV':0.02}, method = 'relative')
 #data2.add_measured_errors({'DO':0.05, 'BZV':0.02}, method = 'relative')
 #data2.add_measured_variable({'time':[0.5,2.,8.],'DO2':[5.,9.,2.]})
 #t1 = pd.DataFrame(tt1)
 #t1.pivot(index='time', columns='name', values='val')
 
 #------------------------------------------------------------------------------
-#OPitmizaion stuff
+#Opitmizaion stuff
 #------------------------------------------------------------------------------
 
-Modfit = ode_optimizer(M2,data1)
+#Modfit = ode_optimizer(M2,data1)
 
-Modfit.set_pars_GUI()
+#Modfit.set_pars_GUI()
 #Modfit.plot_comp()
 
 #res = Modfit.local_parameter_optimize(initial_parset = {'k1':0.22,'k2':0.27}, method = 'Nelder-Mead')
@@ -197,10 +195,35 @@ Modfit.set_pars_GUI()
 #Modfit.plot_spread_diagram('DO',ax[1])
 #ax[1].set_title('DO')
 
-FIMwork = ode_FIM(Modfit)
+#FIMwork = ode_FIM(Modfit)
+
+#------------------------------------------------------------------------------
+## COUPLING WITH BIO-INSPYRED GLOBAL OPTIMIZATION
+#------------------------------------------------------------------------------
+Parameters = {'k1':0.2980,'k2':0.3979}              
+System =    {'dBZV':'1. - k1*BZV',
+             'dDO':'k2*11. - k2*DO - k1*BZV'}            
+Modelname = 'Rivierlozing'
+
+##INITIATE MODEL
+M2 = odegenerator(System, Parameters, Modelname = Modelname)
+M2.set_measured_states(['BZV','DO'])
+M2.set_initial_conditions({'BZV':7.33,'DO':8.5})
+M2.set_time({'start':0,'end':25,'nsteps':250})
+##INITIATE DATA
+datatype2 = {'time':[1,2,5,8,11], 'BZV': [6.1,5.8,4.1,4.0,3.6], 'DO': [7.8,7.4,7.45,7.9,8.3]}
+data2 = ode_measurements(datatype2)
+##INITIATE OPTIMIZATION
+Modfit = ode_optimizer(M2,data2)
 
 
+
+
+#------------------------------------------------------------------------------
 ## EASY example
+#------------------------------------------------------------------------------
+
+
 #System = {'dX1':'-p1*X1-p2*(1-p3*X2)*X1',
 #          'dX2':'p2*(1-p3*X2)*X1-p4*X2'}
 #          
