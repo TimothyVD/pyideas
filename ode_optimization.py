@@ -283,51 +283,58 @@ class ode_optimizer(object):
         self.optimize_info = optimize.minimize(self.get_WSSE, parray, method= method, *args, **kwargs)
         print self.optimize_info.message
         
-        #comparison plot
         if add_plot == True:
-            if len(self.Data.columns) == 1:
-                fig,axes = plt.subplots(1,1)
-                var = self.Data.columns[0]
-                #plot data
-                axes.plot(self.Data.index, self.Data[var], marker='o', linestyle='none', color='k', label='Measured')
-                #plot output old
-                axes.plot(self._Pre_Optimize.visual_output.index, self._Pre_Optimize.visual_output[var], linestyle='-.', color='k', label='No optimization')            
-                #plot output new
-                axes.plot(self._solve_for_visual().index, self._solve_for_visual()[var], linestyle='--', color='k', label='Optimized')
-                axes.set_ylabel(var)
-                axes.yaxis.set_major_locator(MaxNLocator(5, prune='lower'))
-       
-                axes.set_xticklabels([])
-                # resize for legend
-                box1 = axes.get_position()
-                axes.set_position([box1.x0, box1.y0, box1.width, box1.height * 0.9])
-                axes.legend(loc='upper center', bbox_to_anchor=(0.5, 1.25), ncol=3)           
-                
-                #set time label x-ax
-                axes.set_xlabel('Time')
-            else:
-                fig,axes = plt.subplots(len(self.Data.columns),1)
-                fig.subplots_adjust(hspace=0.1)
-                for i,var in enumerate(self.Data.columns):
-                    #plot data
-                    axes[i].plot(self.Data.index, self.Data[var], marker='o', linestyle='none', color='k', label='Measured')
-                    #plot output old
-                    axes[i].plot(self._Pre_Optimize.visual_output.index, self._Pre_Optimize.visual_output[var], linestyle='-.', color='k', label='No optimization')            
-                    #plot output new
-                    axes[i].plot(self._solve_for_visual().index, self._solve_for_visual()[var], linestyle='--', color='k', label='Optimized')
-                    axes[i].set_ylabel(var)
-                    axes[i].yaxis.set_major_locator(MaxNLocator(5, prune='lower'))
-       
-                axes[0].set_xticklabels([])
-                # resize for legend
-                box1 = axes[0].get_position()
-                axes[0].set_position([box1.x0, box1.y0, box1.width, box1.height * 0.9])
-                axes[0].legend(loc='upper center', bbox_to_anchor=(0.5, 1.25), ncol=3)           
-                
-                #set time label x-ax
-                axes[-1].set_xlabel('Time')
-            
+            self._add_optimize_plot()
+
         return self.optimize_info
+
+
+
+    def _add_optimize_plot(self):  
+        '''
+        '''
+        if len(self.Data.columns) == 1:
+            fig,axes = plt.subplots(1,1)
+            var = self.Data.columns[0]
+            #plot data
+            axes.plot(self.Data.index, self.Data[var], marker='o', linestyle='none', color='k', label='Measured')
+            #plot output old
+            axes.plot(self._Pre_Optimize.visual_output.index, self._Pre_Optimize.visual_output[var], linestyle='-.', color='k', label='No optimization')            
+            #plot output new
+            axes.plot(self._solve_for_visual().index, self._solve_for_visual()[var], linestyle='--', color='k', label='Optimized')
+            axes.set_ylabel(var)
+            axes.yaxis.set_major_locator(MaxNLocator(5, prune='lower'))
+   
+            axes.set_xticklabels([])
+            # resize for legend
+            box1 = axes.get_position()
+            axes.set_position([box1.x0, box1.y0, box1.width, box1.height * 0.9])
+            axes.legend(loc='upper center', bbox_to_anchor=(0.5, 1.25), ncol=3)           
+            
+            #set time label x-ax
+            axes.set_xlabel('Time')
+        else:
+            fig,axes = plt.subplots(len(self.Data.columns),1)
+            fig.subplots_adjust(hspace=0.1)
+            for i,var in enumerate(self.Data.columns):
+                #plot data
+                axes[i].plot(self.Data.index, self.Data[var], marker='o', linestyle='none', color='k', label='Measured')
+                #plot output old
+                axes[i].plot(self._Pre_Optimize.visual_output.index, self._Pre_Optimize.visual_output[var], linestyle='-.', color='k', label='No optimization')            
+                #plot output new
+                axes[i].plot(self._solve_for_visual().index, self._solve_for_visual()[var], linestyle='--', color='k', label='Optimized')
+                axes[i].set_ylabel(var)
+                axes[i].yaxis.set_major_locator(MaxNLocator(5, prune='lower'))
+   
+            axes[0].set_xticklabels([])
+            # resize for legend
+            box1 = axes[0].get_position()
+            axes[0].set_position([box1.x0, box1.y0, box1.width, box1.height * 0.9])
+            axes[0].legend(loc='upper center', bbox_to_anchor=(0.5, 1.25), ncol=3)           
+            
+            #set time label x-ax
+            axes[-1].set_xlabel('Time')
+            
         
     def plot_spread_diagram(self, variable, ax = None, marker='o', facecolor='none', 
                              edgecolor = 'k'):

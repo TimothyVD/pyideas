@@ -215,7 +215,8 @@ datatype2 = {'time':[1,2,5,8,11], 'BZV': [6.1,5.8,4.1,4.0,3.6], 'DO': [7.8,7.4,7
 data2 = ode_measurements(datatype2)
 ##INITIATE OPTIMIZATION
 Modfit = ode_optimizer(M2,data2)
-
+res = Modfit.local_parameter_optimize(initial_parset = {'k1':0.25,'k2':0.45}, method = 'Powell')
+print res
 
 
 
