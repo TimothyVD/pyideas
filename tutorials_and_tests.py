@@ -218,6 +218,9 @@ Modfit = ode_optimizer(M2,data2)
 res = Modfit.local_parameter_optimize(initial_parset = {'k1':0.25,'k2':0.45}, method = 'Powell')
 print res
 
+par1=ModPar('k1',0.0,3.0,'randomUniform')
+par2=ModPar('k2',0.0,1.0,'randomUniform')
+Modfit.set_fitting_par_distributions([par1,par2])
 
 
 #------------------------------------------------------------------------------

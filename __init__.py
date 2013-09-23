@@ -12,6 +12,7 @@ from ode_optimization import *
 
 from plotfunctions import *
 from measurements import *
+from parameterdistribution import *
 
 __version__ = "0.01"
 

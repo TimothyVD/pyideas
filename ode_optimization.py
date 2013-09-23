@@ -26,6 +26,7 @@ from plotfunctions import *
 from matplotlib.ticker import MaxNLocator
 from ode_generator import odegenerator
 from measurements import ode_measurements
+from parameterdistribution import *
 
 class ode_optim_saver():
     '''
@@ -76,6 +77,8 @@ class ode_optimizer(object):
         self.get_WSSE()
         #All parameters are set as fitting
         self.set_fitting_parameters(self._model.Parameters)
+        
+        self._distributions_set = False
 
     def _parmapper(self, pararray):
         '''converts parameter array for minimize function in dict
@@ -158,6 +161,7 @@ class ode_optimizer(object):
             for par in self._get_fitting_parameters().keys():
                 self._model.Parameters[par] = parset[par]
                 
+                
         visual_ModelOutput = self._model.solve_ode(plotit=False)
         return visual_ModelOutput     
         
@@ -235,20 +239,14 @@ class ode_optimizer(object):
 
     def _get_fitting_parameters(self):
         '''
+        returns the parameters currently set as fitting
         '''
         return self._fitting_pars
 
-    
-    def local_parameter_optimize(self, initial_parset=None, add_plot=True, method = 'Nelder-Mead', *args, **kwargs):
-        '''find parameters for optimal fit
-        
-        initial_parset: dict!!
-        
-        method options: Nelder-Mead, Powell
-        
-        '''
-        #first save the output with the 'old' parameters
-        #if initial parameter set given, use this, run and save   
+
+    def _pre_optimize_save(self, initial_parset=None):
+        """
+        """
         self._Pre_Optimize = ode_optim_saver()
         if initial_parset != None:
             #control for similarity and update the fitting pars 
@@ -275,7 +273,22 @@ class ode_optimizer(object):
         self._Pre_Optimize.ModMeas = self.ModMeas
         self._Pre_Optimize.WSSE = self.WSSE
         self._Pre_Optimize.unweigthed_SSE = self.unweigthed_SSE
-
+        
+        return parray
+        
+    
+    def local_parameter_optimize(self, initial_parset=None, add_plot=True, method = 'Nelder-Mead', *args, **kwargs):
+        '''find parameters for optimal fit
+        
+        initial_parset: dict!!
+        
+        method options: Nelder-Mead, Powell
+        
+        '''
+        #first save the output with the 'old' parameters
+        #if initial parameter set given, use this, run and save   
+        parray = self._pre_optimize_save(initial_parset=initial_parset)
+        
         #OPTIMIZATION
         #TODO: ADD OPTION FOR SAVING THE PARSETS (IN GETWSSE!!)
         #different algorithms: but implementation  Anneal and CG are not working 
@@ -288,10 +301,126 @@ class ode_optimizer(object):
 
         return self.optimize_info
 
+    def set_fitting_par_distributions(self,pardistrlist):
+        """
+        For each parameter set as fitting parameter, the information
+        of the distribution is set.
+        
+        Parameters
+        ------------
+        pardistrlist : list
+            List of ModPar instances
+        optguess : boolean
+            Put this True if you want to update the currently saved optimal 
+            guess value for the parameters
+        
+        """
+        #Checking if distirbutions are already set
+        if not self._distributions_set:
+            self.pardistributions={}
+            self._distributions_set = True
+            
+        if isinstance(pardistrlist,ModPar): #one parameter
+            if len(self._get_fitting_parameters()) > 1:
+                raise Exception("""Only one parameterdistirbution is given, 
+                whereas the number of fitting parameters is %d
+                """ %len(self._get_fitting_parameters()))
+            else:
+                if pardistrlist.name in self._fitting_pars:
+
+                        
+                    if pardistrlist.name in self.pardistributions:
+                        print 'Parameter distribution info updated for %s' %pardistrlist.name
+                        self.pardistributions[pardistrlist.name] = pardistrlist
+                    else:
+                        self.pardistributions[pardistrlist.name] = pardistrlist
+                else:
+                    raise Exception('Parameter is not listed as fitting parameter')       
+        
+        elif isinstance(pardistrlist,list):
+            #A list of ModPar instances
+            for parameter in pardistrlist:
+                if parameter.name in self._fitting_pars:
+                    if not parameter.min<self._fitting_pars[parameter.name]<parameter.max:
+                        raise Exception('Current guess is not between min and max value of the parameter!')
+                    if parameter.name in self.pardistributions:
+                        print 'Parameter distribution info updated for %s' %parameter.name
+                        self.pardistributions[parameter.name] = parameter
+                    else:
+                        self.pardistributions[parameter.name] = parameter
+                else:
+                    raise Exception('Parameter %s is not listed as fitting parameter' %parameter.name)                
+        else:
+            raise Exception("Bad input type, give list of ModPar instances.")
+
+    def get_fitting_par_distributions_from_file(self,parinfofile):
+        """
+        For each parameter set as fitting parameter, the information
+        of the distribution is taken from an ASCII file
+        
+        Parameters
+        ------------
+        parinfofile : file
+            ASCII file with the parameter information
+
+        Notes
+        ------        
+        The file need to be setup according to following format, with each
+        parameter filling one line:
+        
+        parametername minvalue maxalue distributionname optarg1 optarg2 ...
+        
+        """
+        parlist=[]
+        f = open(parinfofile)
+        cnt=1
+        for line in f:
+            sline = line.strip().split(' ')
+            if len(sline) == 4:
+                print sline
+                par = ModPar(sline[0],float(sline[1]),float(sline[2]),sline[3])
+            elif len(sline) == 5:
+                par = ModPar(sline[0],float(sline[1]),float(sline[2]),sline[3],float(sline[4]))              
+            elif len(sline) == 6:
+                print sline
+                par = ModPar(sline[0],float(sline[1]),float(sline[2]),sline[3],float(sline[4]),float(sline[5]))
+            else:
+                raise Exception('Too much arguments on line %d' %cnt)
+            parlist.append(par)
+            cnt+=1
+        f.close()
+        
+        self.set_fitting_par_distributions(parlist)      
+
+
+    def bioinspyred_optimize(self, initial_parset=None, add_plot=True):
+        """
+        
+        Notes
+        ------
+        A working version of Bio_inspyred is needed to get this optimization 
+        running!
+        """
+        from time import time
+        from random import Random
+        from inspyred import ec
+        from inspyred.ec import terminators
+        
+        #FIRST SAVE THE CURRENT STATE
+        parray = self._pre_optimize_save(initial_parset=initial_parset)
+        
+        #OPTIMIZATION
+        
+        
+        
+
 
 
     def _add_optimize_plot(self):  
-        '''
+        '''quick evaluation plot function
+        Quick visualisation of the performed optimization function
+              
+        
         '''
         if len(self.Data.columns) == 1:
             fig,axes = plt.subplots(1,1)
