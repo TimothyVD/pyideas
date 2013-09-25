@@ -301,6 +301,7 @@ class ode_optimizer(object):
 
         return self.optimize_info
 
+
     def set_fitting_par_distributions(self,pardistrlist):
         """
         For each parameter set as fitting parameter, the information
@@ -327,8 +328,8 @@ class ode_optimizer(object):
                 """ %len(self._get_fitting_parameters()))
             else:
                 if pardistrlist.name in self._fitting_pars:
-
-                        
+                    if not pardistrlist.min<self._fitting_pars[pardistrlist.name]<pardistrlist.max:
+                        raise Exception('Current parvalue is not between min and max value of the parameter!')
                     if pardistrlist.name in self.pardistributions:
                         print 'Parameter distribution info updated for %s' %pardistrlist.name
                         self.pardistributions[pardistrlist.name] = pardistrlist
@@ -342,7 +343,7 @@ class ode_optimizer(object):
             for parameter in pardistrlist:
                 if parameter.name in self._fitting_pars:
                     if not parameter.min<self._fitting_pars[parameter.name]<parameter.max:
-                        raise Exception('Current guess is not between min and max value of the parameter!')
+                        raise Exception('Current parvalue is not between min and max value of the parameter!')
                     if parameter.name in self.pardistributions:
                         print 'Parameter distribution info updated for %s' %parameter.name
                         self.pardistributions[parameter.name] = parameter
@@ -392,6 +393,45 @@ class ode_optimizer(object):
         
         self.set_fitting_par_distributions(parlist)      
 
+    def _sample_generator(self,random,args):
+        '''
+        '''
+        samples = []
+        #use get_fitting_parameters, since this is ordered dict!!
+        for parameter in self._get_fitting_parameters().keys():
+            samples.append(self.pardistributions[parameter].aValue())
+        return samples
+
+    def _bounder_generator(self):
+        '''
+        Genere
+        '''
+        minsample = []
+        maxsample = []
+        #use get_fitting_parameters, since this is ordered dict!!
+        for parameter in self._get_fitting_parameters().keys():
+            minsample.append(self.pardistributions[parameter].min)
+            maxsample.append(self.pardistributions[parameter].max)
+        return minsample, maxsample       
+        
+    def _get_objective(self,candidates, args):
+        '''
+        '''
+        fitness = []
+        for c in candidates:
+            fitness.append(self.get_WSSE(c))
+            
+        return fitness
+
+    def _get_multi_objective(self,candidates, args):
+        '''
+        '''
+        from inspyred.ec import emo
+        fitness = []
+        for c in candidates:
+            fitness.append(emo.Pareto([self.get_WSSE(c), self.residuals['BZV'].sum()]))
+            
+        return fitness        
 
     def bioinspyred_optimize(self, initial_parset=None, add_plot=True):
         """
@@ -410,8 +450,82 @@ class ode_optimizer(object):
         parray = self._pre_optimize_save(initial_parset=initial_parset)
         
         #OPTIMIZATION
+        rand = Random()
+        rand.seed(int(time()))
+#        es = ec.ES(rand)
+#        es.terminator = terminators.evaluation_termination
+#        final_pop = es.evolve(generator=self._sample_generator,
+#                              evaluator=self.get_WSSE,
+#                              pop_size=100,
+#                              maximize=False,
+#                              bounder=ec.Bounder(self._bounder_generator()),
+#                              max_evaluations=20000,
+#                              mutation_rate=0.25,
+#                              num_inputs=1)
+        ea = ec.DEA(rand)
+        ea.terminator = ec.terminators.evaluation_termination
+        final_pop = ea.evolve(generator=self._sample_generator, 
+                              evaluator=self._get_objective, 
+                              pop_size=50, 
+                              bounder=ec.Bounder(self._bounder_generator()),
+                              maximize=False,
+                              max_evaluations=3000)        
+        # Sort and print the best individual, who will be at index 0.
+        final_pop.sort(reverse=True)
+        return final_pop[0]
+        
+        #TODO: ATTENTION: the best fit needs to get into the self.parameters
+        #+ WSSE also in the self.WSSE!!!
         
         
+        
+        
+        
+    def bioinspyred_multioptimize(self, initial_parset=None, add_plot=True):  
+        """
+        """
+        
+
+        from time import time
+        from random import Random
+        from inspyred import ec
+        from inspyred.ec import terminators
+        
+        #FIRST SAVE THE CURRENT STATE
+        parray = self._pre_optimize_save(initial_parset=initial_parset)
+        
+        #OPTIMIZATION
+        rand = Random()
+        rand.seed(int(time()))
+        
+        ea = ec.emo.PAES(rand)
+        ea.terminator = ec.terminators.evaluation_termination
+        final_pop = ea.evolve(generator=self._sample_generator, 
+                              evaluator=self._get_multi_objective, 
+                              bounder=ec.Bounder(self._bounder_generator()),
+                              maximize=False,
+                              max_evaluations=1000,
+                              max_archive_size=100,
+                              num_grid_divisions=4)
+        
+        if add_plot:
+            final_arc = ea.archive
+            print('Best Solutions: \n')
+            for f in final_arc:
+                print(f)
+            import pylab
+            x = []
+            y = []
+            for f in final_arc:
+                x.append(f.fitness[0])
+                y.append(f.fitness[1])
+            pylab.scatter(x, y, color='b')
+#            pylab.savefig('{0} Example ({1}).pdf'.format(ea.__class__.__name__, 
+#                                                         problem.__class__.__name__), 
+#                          format='pdf')
+            pylab.show()
+        return ea
+
         
 
 
