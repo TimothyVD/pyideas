@@ -211,22 +211,24 @@ M2.set_measured_states(['BZV','DO'])
 M2.set_initial_conditions({'BZV':7.33,'DO':8.5})
 M2.set_time({'start':0,'end':25,'nsteps':250})
 ##INITIATE DATA
-datatype2 = {'time':[1,2,5,8,11], 'BZV': [6.1,5.8,4.1,4.0,3.6], 'DO': [7.8,7.4,7.45,7.9,8.3]}
-data2 = ode_measurements(datatype2)
+#datatype2 = {'time':[1,2,5,8,11], 'BZV': [6.1,5.8,4.1,4.0,3.6], 'DO': [7.8,7.4,7.45,7.9,8.3]}
+#data2 = ode_measurements(datatype2)
+data2 = M2.solve_ode(plotit=False)['DO']+0.2*np.random.uniform(-1,1,M2.solve_ode(plotit=False)['DO'].shape[0])
+data2 = ode_measurements(data2[::4])
 ##INITIATE OPTIMIZATION
 Modfit = ode_optimizer(M2,data2)
-res = Modfit.local_parameter_optimize(initial_parset = {'k1':0.25,'k2':0.45}, method = 'Powell', add_plot=False)
-print res
+#res = Modfit.local_parameter_optimize(initial_parset = {'k1':0.25,'k2':0.45}, method = 'Powell', add_plot=False)
+#print res
 
 par1=ModPar('k1',0.0,3.0,'randomUniform')
 par2=ModPar('k2',0.0,1.0,'randomTriangular', 0.3)
 Modfit.set_fitting_par_distributions([par1,par2])
 
-#final_pop = Modfit.bioinspyred_optimize(initial_parset = {'k1':0.25,'k2':0.45})
-final_pop = Modfit.bioinspyred_multioptimize(initial_parset = {'k1':0.25,'k2':0.45})
+final_pop,ea = Modfit.bioinspyred_optimize(initial_parset = {'k1':0.25,'k2':0.45})
+#final_pop = Modfit.bioinspyred_multioptimize(initial_parset = {'k1':0.25,'k2':0.45})
 
 
-#------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------c
 ## EASY example
 #------------------------------------------------------------------------------
 

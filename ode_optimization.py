@@ -420,7 +420,6 @@ class ode_optimizer(object):
         fitness = []
         for c in candidates:
             fitness.append(self.get_WSSE(c))
-            
         return fitness
 
     def _get_multi_objective(self,candidates, args):
@@ -463,16 +462,25 @@ class ode_optimizer(object):
 #                              mutation_rate=0.25,
 #                              num_inputs=1)
         ea = ec.DEA(rand)
+        #ea.observer = ec.observers.plot_observer
         ea.terminator = ec.terminators.evaluation_termination
         final_pop = ea.evolve(generator=self._sample_generator, 
                               evaluator=self._get_objective, 
                               pop_size=50, 
                               bounder=ec.Bounder(self._bounder_generator()),
                               maximize=False,
-                              max_evaluations=3000)        
+                              max_evaluations=2000)#3000
+
+        #put the best of the last population into the class attributes (WSSE, pars)
+
+                              
         # Sort and print the best individual, who will be at index 0.
+        if add_plot == True:
+            self._add_optimize_plot()
+
+                              
         final_pop.sort(reverse=True)
-        return final_pop[0]
+        return final_pop, ea
         
         #TODO: ATTENTION: the best fit needs to get into the self.parameters
         #+ WSSE also in the self.WSSE!!!
