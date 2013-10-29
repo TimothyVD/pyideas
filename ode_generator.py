@@ -721,7 +721,9 @@ class odegenerator(object):
             df = pd.DataFrame(res[:,0:len(self._Variables)], index=self._Time,columns = self._Variables)
             analytical_sens = {}
             for i in range(len(self._Variables)):
-                analytical_sens[self._Variables[i]] = pd.DataFrame(res[:,len(self._Variables)*(1+i):len(self._Variables)*(1+i)+len(self.Parameters)], index=self._Time,columns = self.Parameters.keys())
+                #Comment was bug!
+                #analytical_sens[self._Variables[i]] = pd.DataFrame(res[:,len(self._Variables)*(1+i):len(self._Variables)*(1+i)+len(self.Parameters)], index=self._Time,columns = self.Parameters.keys())
+                analytical_sens[self._Variables[i]] = pd.DataFrame(res[:,len(self._Variables)+len(self.Parameters)*(i):len(self._Variables)+len(self.Parameters)*(1+i)], index=self._Time,columns = self.Parameters.keys())
             self.analytical_sensitivity = analytical_sens        
             
         #plotfunction
