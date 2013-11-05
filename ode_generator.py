@@ -669,16 +669,16 @@ class odegenerator(object):
         # Calculate number of states by using inputs
         file.write('    state_len = len(ODES)/(len(Parameters)+1)\n')
         # Reshape ODES input to array with right dimensions in order to perform matrix multiplication
-        file.write('    dxdtheta = np.array(ODES[state_len:].reshape(state_len,len(Parameters)))\n\n')
+        file.write('    dxdtheta = array(ODES[state_len:].reshape(state_len,len(Parameters)))\n\n')
         
         # Write dfdtheta as symbolic array
-        file.write('    dfdtheta = np.')
+        file.write('    dfdtheta = ')
         pprint.pprint(self.dfdtheta,file)
         # Write dfdx as symbolic array
-        file.write('\n    dfdx = np.')
+        file.write('\n    dfdx = ')
         pprint.pprint(self.dfdx,file)
         # Calculate derivative in order to integrate this
-        file.write('\n    dxdtheta = dfdtheta + np.dot(dfdx,dxdtheta)\n')
+        file.write('\n    dxdtheta = dfdtheta + dot(dfdx,dxdtheta)\n')
 
         file.write('    return '+str(self.System.keys()).replace("'","")+'+ list(dxdtheta.reshape(-1,))'+'\n')
                 
