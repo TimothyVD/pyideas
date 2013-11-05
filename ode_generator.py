@@ -635,7 +635,7 @@ class odegenerator(object):
         
         file.write('#'+self.modelname+'\n')
         
-        file.write('import numpy\n\n')
+        file.write('from numpy import *\n\n')
         
         # Write function for solving ODEs only
         file.write('def system(ODES,t,Parameters):\n')
