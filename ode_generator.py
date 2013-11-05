@@ -105,7 +105,8 @@ class odegenerator(object):
         '''
         if timedict['start'] > timedict['end']:
             raise Exception('End timestep must be smaller then start!')
-        if timedict['nsteps'] < (timedict['end'] - timedict['start']):
+        #if timedict['nsteps'] < (timedict['end'] - timedict['start']):
+        if timedict['nsteps'] < 10:
             raise Exception('Step too small')
         
         self._TimeDict = timedict
@@ -211,6 +212,8 @@ class odegenerator(object):
         _write_model_to_file
         
         '''
+        # t is always the symbol for time and is initialised here
+        t = sympy.symbols('t')        
         
         # Symbolify system states
         for i in range(len(self.System)):
@@ -711,6 +714,8 @@ class odegenerator(object):
         
         #        import MODEL_Halfreaction
         exec('import '+self.modelname)
+        exec(self.modelname + ' = ' + 'reload('+self.modelname+')')
+        	
         if with_sens == False:
             res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,))
             #put output in pandas dataframe
