@@ -15,29 +15,16 @@ Contents:
 This biointense model environment is an object oriented python implementation for model building and analysis, 
 focussing on sensitivity and identifiability analysis. 
 
-ODE-Generator
----------------     
-ODE-generator class is a simplified version of a ODE creation environment, together with functions for 
-sensitivity and distinguishability/identifiability analysis
+Contents:
 
-.. autoclass:: ode_generator.odegenerator
-   :members: 
-
-OED
------
-OED class gives the functionalities for FIM-based experimental design for parameter estimation.
-
-.. autoclass:: optimalexperimentaldesign.OED
-   :members:   
-
+.. toctree::
+   :maxdepth: 2
    
-Support Functions
--------------------
-
-.. autofunction:: plotfunctions.scatterplot_matrix
-
-
-
+   odegenerator
+   measurements
+   odeoptimization
+   optimalexperimentaldesign
+   utilities
 
 Indices and tables
 ==================
