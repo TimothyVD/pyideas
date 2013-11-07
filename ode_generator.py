@@ -307,7 +307,7 @@ class odegenerator(object):
         Taylor Series Approach for verification of identification.
         
         Parameters
-        ----------
+        -----------
         iterations : int
             Number of derivatives the algorithm has to calculate (TaylorSeries!)
         Measurable_States : list or False
