@@ -644,7 +644,7 @@ class odegenerator(object):
             file.write('    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n")
         file.write('\n')
         for i in range(len(self.System)):
-            file.write('    '+str(self.System.keys()[i]).replace("d","") + ' = ODES['+str(i)+']\n')
+            file.write('    '+str(self.System.keys()[i])[1:] + ' = ODES['+str(i)+']\n')
         file.write('\n')    
         for i in range(len(self.System)):
             file.write('    '+str(self.System.keys()[i]) + ' = ' + str(self.System.values()[i])+'\n')
@@ -658,7 +658,7 @@ class odegenerator(object):
             file.write('    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n")
         file.write('\n')
         for i in range(len(self.System)):
-            file.write('    '+str(self.System.keys()[i]).replace("d","") + ' = ODES['+str(i)+']\n')
+            file.write('    '+str(self.System.keys()[i])[1:] + ' = ODES['+str(i)+']\n')
         file.write('\n')    
         for i in range(len(self.System)):
             file.write('    '+str(self.System.keys()[i]) + ' = ' + str(self.System.values()[i])+'\n')
