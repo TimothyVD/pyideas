@@ -71,15 +71,21 @@ class odegenerator(object):
     >>>  M1.taylor_series_approach(2)
     '''
     
-    def __init__(self, System, Parameters, Modelname = 'MyModel'):
+    def __init__(self, System, Parameters, Modelname = 'MyModel',*args,**kwargs):
         '''
 
         '''
         
         self.Parameters = collections.OrderedDict(sorted(Parameters.items(), key=lambda t: t[0]))
         self.System = collections.OrderedDict(sorted(System.items(), key=lambda t: t[0]))    
-        self.modelname = Modelname        
         
+        self.modelname = Modelname
+        
+        try:
+            self.Algebraic =  collections.OrderedDict(sorted(kwargs.get('Algebraic').items(),key=lambda t: t[0]))
+        except:
+            print 'No Algebraic equations defined. Continuing...'
+             
         self._Variables = [i[1:] for i in self.System.keys()]
         
         self._analytic_local_sensitivity()
@@ -222,6 +228,16 @@ class odegenerator(object):
         # Symbolify parameters
         for i in range(len(self.Parameters)):
             exec(self.Parameters.keys()[i]+" = sympy.symbols('"+self.Parameters.keys()[i]+"')")
+        #TODO!
+            
+        # Symbolify algebraics
+        try:
+            self.Algebraic
+            raise Exception('Analytical sensitivity should not be used with algebraic equations (Implementation will follow)')            
+            #for i in range(len(self.Algebraic)):
+             #  exec(self.Algebraic.keys()[i]+" = sympy.symbols('"+self.Algebraic.keys()[i]+"')")
+        except AttributeError:
+            pass
                     
         self._system_matrix = sympy.zeros(len(self.System),1)
         self._states_matrix = sympy.zeros(len(self._Variables),1)
@@ -232,6 +248,7 @@ class odegenerator(object):
             self._states_matrix[i,0] = eval(self._Variables[i])
         
         self._parameter_matrix = sympy.zeros(len(self.Parameters),1)
+        
         # Set up symbolic matrix of parameters
         for i in range(len(self.Parameters)):
             self._parameter_matrix[i,0] = eval(self.Parameters.keys()[i])
@@ -645,7 +662,14 @@ class odegenerator(object):
         file.write('\n')
         for i in range(len(self.System)):
             file.write('    '+str(self.System.keys()[i])[1:] + ' = ODES['+str(i)+']\n')
-        file.write('\n')    
+        file.write('\n')   
+        try:
+            self.Algebraic
+            for i in range(len(self.Algebraic)):
+                file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
+            file.write('\n')
+        except AttributeError:
+            pass
         for i in range(len(self.System)):
             file.write('    '+str(self.System.keys()[i]) + ' = ' + str(self.System.values()[i])+'\n')
         
@@ -659,10 +683,17 @@ class odegenerator(object):
         file.write('\n')
         for i in range(len(self.System)):
             file.write('    '+str(self.System.keys()[i])[1:] + ' = ODES['+str(i)+']\n')
-        file.write('\n')    
+        file.write('\n')
+        try:
+            self.Algebraic
+            for i in range(len(self.Algebraic)):
+                file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
+            file.write('\n')
+        except AttributeError:
+            pass
         for i in range(len(self.System)):
             file.write('    '+str(self.System.keys()[i]) + ' = ' + str(self.System.values()[i])+'\n')
-        
+            
         print 'Sensitivities are printed to the file....'
         file.write('\n    #Sensitivities\n\n')
         
@@ -680,8 +711,26 @@ class odegenerator(object):
         # Calculate derivative in order to integrate this
         file.write('\n    dxdtheta = dfdtheta + dot(dfdx,dxdtheta)\n')
 
-        file.write('    return '+str(self.System.keys()).replace("'","")+'+ list(dxdtheta.reshape(-1,))'+'\n')
+        file.write('    return '+str(self.System.keys()).replace("'","")+'+ list(dxdtheta.reshape(-1,))'+'\n\n\n')
+        
+        try:
+            self.Algebraic
+            file.write('def Algebraic_outputs(ODES,t,Parameters):\n')
+            for i in range(len(self.Parameters)):
+                #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
+                file.write('    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n")
+            file.write('\n')
+            for i in range(len(self.System)):
+                file.write('    '+str(self.System.keys()[i])[1:] + ' = ODES['+str(i)+']\n')
+            file.write('\n')
+            if self.Algebraic != None:
+                for i in range(len(self.Algebraic)):
+                    file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
+            file.write('\n')
                 
+            file.write('    return '+str(self.Algebraic.keys()).replace("'","")+'\n\n\n')
+        except AttributeError:
+            pass
         file.close()
         print '...done!'
 
