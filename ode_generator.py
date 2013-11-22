@@ -81,10 +81,14 @@ class odegenerator(object):
         
         self.modelname = Modelname
         
+        
         try:
             self.Algebraic =  collections.OrderedDict(sorted(kwargs.get('Algebraic').items(),key=lambda t: t[0]))
+            self._has_algebraic = True
         except:
             print 'No Algebraic equations defined. Continuing...'
+            self._has_algebraic = False
+            
              
         self._Variables = [i[1:] for i in self.System.keys()]
         
@@ -218,6 +222,14 @@ class odegenerator(object):
         _write_model_to_file
         
         '''
+        
+        if self._has_algebraic:
+            message = 'Analytic local sensitivity is not provided for \
+                        models with algebraic functions, so use the\
+                        numerical version'
+            return message
+        
+        
         # t is always the symbol for time and is initialised here
         t = sympy.symbols('t')        
         
@@ -637,13 +649,14 @@ class odegenerator(object):
         -----------
         
         '''
+                
         try:
             self.dfdtheta
         except:
             print 'Running symbolic calculation of analytic sensitivity ...'
             self._analytic_local_sensitivity()
             print '... Done!'
-             
+            
         temp_path = os.path.join(os.getcwd(),self.modelname+'.py')
         print 'File is printed to: ', temp_path
         print 'Filename used is: ', self.modelname
@@ -693,25 +706,26 @@ class odegenerator(object):
             pass
         for i in range(len(self.System)):
             file.write('    '+str(self.System.keys()[i]) + ' = ' + str(self.System.values()[i])+'\n')
+        
+        if not self._has_algebraic:
+            print 'Sensitivities are printed to the file....'
+            file.write('\n    #Sensitivities\n\n')
             
-        print 'Sensitivities are printed to the file....'
-        file.write('\n    #Sensitivities\n\n')
-        
-        # Calculate number of states by using inputs
-        file.write('    state_len = len(ODES)/(len(Parameters)+1)\n')
-        # Reshape ODES input to array with right dimensions in order to perform matrix multiplication
-        file.write('    dxdtheta = array(ODES[state_len:].reshape(state_len,len(Parameters)))\n\n')
-        
-        # Write dfdtheta as symbolic array
-        file.write('    dfdtheta = ')
-        pprint.pprint(self.dfdtheta,file)
-        # Write dfdx as symbolic array
-        file.write('\n    dfdx = ')
-        pprint.pprint(self.dfdx,file)
-        # Calculate derivative in order to integrate this
-        file.write('\n    dxdtheta = dfdtheta + dot(dfdx,dxdtheta)\n')
-
-        file.write('    return '+str(self.System.keys()).replace("'","")+'+ list(dxdtheta.reshape(-1,))'+'\n\n\n')
+            # Calculate number of states by using inputs
+            file.write('    state_len = len(ODES)/(len(Parameters)+1)\n')
+            # Reshape ODES input to array with right dimensions in order to perform matrix multiplication
+            file.write('    dxdtheta = array(ODES[state_len:].reshape(state_len,len(Parameters)))\n\n')
+            
+            # Write dfdtheta as symbolic array
+            file.write('    dfdtheta = ')
+            pprint.pprint(self.dfdtheta,file)
+            # Write dfdx as symbolic array
+            file.write('\n    dfdx = ')
+            pprint.pprint(self.dfdx,file)
+            # Calculate derivative in order to integrate this
+            file.write('\n    dxdtheta = dfdtheta + dot(dfdx,dxdtheta)\n')
+    
+            file.write('    return '+str(self.System.keys()).replace("'","")+'+ list(dxdtheta.reshape(-1,))'+'\n\n\n')
         
         try:
             self.Algebraic
