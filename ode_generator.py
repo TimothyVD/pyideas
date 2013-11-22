@@ -748,6 +748,21 @@ class odegenerator(object):
         file.close()
         print '...done!'
 
+
+    def _rerun_for_algebraic(self):
+        """
+        """
+        exec('import '+self.modelname)
+
+        algeb_out = np.empty((self.ode_solved.index.size, len(self.Algebraic.keys())))
+
+        for i, timestep in enumerate(self.ode_solved.index):
+            temp = eval(self.modelname+'.Algebraic_outputs'+'(self.ode_solved.ix[timestep], timestep, self.Parameters)')
+            algeb_out[i,:] = temp[:]
+     
+        self.algeb_solved = pd.DataFrame(algeb_out, columns=self.Algebraic.keys(), 
+                                 index = self.ode_solved.index)
+
     def solve_ode(self, TimeStepsDict = False, Initial_Conditions = False, 
                   plotit = True, with_sens = False):
         '''Solve the differential equation
@@ -802,6 +817,8 @@ class odegenerator(object):
                 df.plot(subplots = True)
                
         self.ode_solved = df
+        if self._has_algebraic:
+            self._rerun_for_algebraic()
                
         return df
         
