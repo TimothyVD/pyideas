@@ -860,7 +860,8 @@ class odegenerator(object):
 
     def numeric_local_sensitivity(self, perturbation_factor = 0.0001, 
                                   TimeStepsDict = False, 
-                                  Initial_Conditions = False):
+                                  Initial_Conditions = False,
+                                  Sensitivity = 'CAS'):
         '''Calculates numerical based local sensitivity 
         
         For every parameter calcluate the sensitivity of the output variables.
@@ -882,7 +883,8 @@ class odegenerator(object):
             
         '''
         self._check_for_time(TimeStepsDict)
-        self._check_for_init(Initial_Conditions) 
+        self._check_for_init(Initial_Conditions)
+        
         
         #create a dictionary with everye key the variable and the values a dataframe
         numerical_sens = {}
@@ -908,22 +910,31 @@ class odegenerator(object):
             #calculate sensitivity for this parameter, all outputs    
             #sensitivity indices:
 #            CAS = (modout_plus-modout_min)/(2.*perturbation_factor*value2save) #dy/dp         
-            CAS = (modout_plus-modout)/(perturbation_factor*value2save) #dy/dp
+            #CAS
+            sensitivity_out = (modout_plus-modout)/(perturbation_factor*value2save) #dy/dp
             
             #we use now CPRS, but later on we'll adapt to CTRS
-#            CPRS = CAS*value2save    
-#            average_out = (modout_plus+modout_min)/2.
-#            CTRS = CAS*value2save/average_out
+            if Sensitivity == 'CPRS':
+                #CPRS = CAS*parameter
+                sensitivity_out = sensitivity_out*value2save
+            elif Sensitivity == 'CTRS':
+                #CTRS
+                average_out = (modout_plus+modout_min)/2.
+                sensitivity_out = sensitivity_out*value2save/average_out
+            elif Sensitivity != 'CAS':
+                raise Exception('You have to choose one of the sensitivity\
+                 methods which are available: CAS, CPRS or CTRS')
             
             #put on the rigth spot in the dictionary
             for var in self._Variables:
-#                numerical_sens[var][parameter] = CPRS[var][:].copy()
+                numerical_sens[var][parameter] = sensitivity_out[var][:].copy()
 #                numerical_sens[var][parameter] = CTRS[var][:].copy()
-                numerical_sens[var][parameter] = CAS[var][:].copy()
+#                numerical_sens[var][parameter] = CAS[var][:].copy()
                 
             #put back original value
             self.Parameters[parameter] = value2save
-            
+        print 'The ' + Sensitivity + ' sensitivity method is used, do not\
+                forget to check whether outputs can be compared!'
         self.numerical_sensitivity = numerical_sens
 
         return numerical_sens
