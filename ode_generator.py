@@ -859,22 +859,35 @@ class odegenerator(object):
     def analytic_local_sensitivity(self, Sensitivity = 'CAS'):
         df, analytical_sens = self.solve_ode(with_sens = True, plotit = False)
         
-        #we use now CPRS, but later on we'll adapt to CTRS
         if Sensitivity == 'CPRS':
             #CPRS = CAS*parameter
             for i in self._Variables:
                  analytical_sens[i] = analytical_sens[i]*self.Parameters.values()
         elif Sensitivity == 'CTRS':
             #CTRS
-            for i in self._Variables:
-                 analytical_sens[i] = analytical_sens[i]*self.Parameters.values()/df[i]
+            if min(df.mean()) == 0 or max(df.mean()) == 0:
+                raise Exception('ANASENS: It is not possible to use the CTRS method for\
+                    calculating sensitivity, because one or more variables are\
+                    fixed at zero. Try to use another method or to change the\
+                    initial conditions!')
+            elif min(df.min()) == 0 or max(df.max()) == 0:
+                print 'ANASENS: Using AVERAGE of output values'
+                for i in self._Variables:
+                     analytical_sens[i] = analytical_sens[i]*self.Parameters.values()/df[i].mean()
+            else:
+                print 'ANASENS: Using EVOLUTION of output values'
+                for i in self._Variables:
+                     analytical_sens[i] = analytical_sens[i]*self.Parameters.values()/df[i]
         elif Sensitivity != 'CAS':
             raise Exception('You have to choose one of the sensitivity\
              methods which are available: CAS, CPRS or CTRS')
         
         self.analytical_sensitivity = analytical_sens
+
+        print 'ANASENS: The ' + Sensitivity + ' sensitivity method is used, do not\
+                forget to check whether outputs can be compared!'
         
-        return df, analytical_sens
+        return analytical_sens
         
 
     def numeric_local_sensitivity(self, perturbation_factor = 0.0001, 
@@ -912,7 +925,7 @@ class odegenerator(object):
             dummy = np.empty((self._Time.size,len(self.Parameters)))
             numerical_sens[key] = pd.DataFrame(dummy, index=self._Time, columns = self.Parameters.keys())
         
-        for parameter in self.Parameters:
+        for i,parameter in enumerate(self.Parameters):
             value2save = self.Parameters[parameter]
 #            print 'sensitivity for parameter ', parameter
             #run model with parameter value plus perturbation 
@@ -939,7 +952,19 @@ class odegenerator(object):
             elif Sensitivity == 'CTRS':
                 #CTRS
                 average_out = (modout_plus+modout_min)/2.
-                sensitivity_out = sensitivity_out*value2save/average_out
+                if min(abs(average_out.mean())) < 1e-10:
+                    raise Exception('NUMSENS: It is not possible to use the CTRS method for\
+                        calculating sensitivity, because one or more variables are\
+                        fixed at zero. Try to use another method or to change the\
+                        initial conditions!')
+                elif min(average_out.abs().min()) < 1e-10:
+                    if i==0:
+                        print 'NUMSENS: Using AVERAGE of output values'
+                    sensitivity_out = sensitivity_out*value2save/average_out.mean()
+                else:
+                    if i==0:
+                        print 'NUMSENS: Using EVOLUTION of output values'
+                    sensitivity_out = sensitivity_out*value2save/average_out
             elif Sensitivity != 'CAS':
                 raise Exception('You have to choose one of the sensitivity\
                  methods which are available: CAS, CPRS or CTRS')
@@ -947,12 +972,10 @@ class odegenerator(object):
             #put on the rigth spot in the dictionary
             for var in self._Variables:
                 numerical_sens[var][parameter] = sensitivity_out[var][:].copy()
-#                numerical_sens[var][parameter] = CTRS[var][:].copy()
-#                numerical_sens[var][parameter] = CAS[var][:].copy()
-                
+               
             #put back original value
             self.Parameters[parameter] = value2save
-        print 'The ' + Sensitivity + ' sensitivity method is used, do not\
+        print 'NUMSENS: The ' + Sensitivity + ' sensitivity method is used, do not\
                 forget to check whether outputs can be compared!'
         self.numerical_sensitivity = numerical_sens
 
