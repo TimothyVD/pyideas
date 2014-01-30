@@ -95,6 +95,9 @@ class odegenerator(object):
         self._analytic_local_sensitivity()
         self._write_model_to_file()
 
+        #Sensitivity stuff
+        self.LSA_type = None
+
     def _reset_parameters(self, Parameters):
         '''Parameter stuff
         
@@ -269,7 +272,7 @@ class odegenerator(object):
         # dfdtheta
         dfdtheta = self._system_matrix.jacobian(self._parameter_matrix)
         self.dfdtheta = np.array(dfdtheta)
-        # fdx
+        # dfdx
         dfdx = self._system_matrix.jacobian(self._states_matrix)
         self.dfdx = np.array(dfdx)
         # dxdtheta
@@ -833,20 +836,25 @@ class odegenerator(object):
         TODO adapt to new analyical sens, will possibly be deleted?
         '''
         try:
-            self.analytic_sens
+            self.analytical_sensitivity
         except:
-            print 'Running Analytical sensitvity analysis'
-            self.analytic_local_sensitivity()
+            print 'Running Analytical sensitivity analysis'
+            self.analytic_local_sensitivity(Sensitivity = 'CTRS')
             print '... Done!'
-        
+
+        if self.LSA_type != 'CTRS':
+            raise Exception('The collinearity_check function is only useful for Total Relative Sensitivity!')
+     
         # Make matrix for storing collinearities per two parameters
         Collinearity_pairwise = np.zeros([len(self.Parameters),len(self.Parameters)])
-        for i in range(len(self.Parameters)):
-            for j in range(i+1,len(self.Parameters)):
+        for i,parname1 in enumerate(self.Parameters):
+            for j,parname2 in enumerate(self.Parameters.keys()[i:]):
                 # Transpose is performed on second array because by selecting only one column, python automatically converts the column to a row!
-                # Klopt enkel voor genormaliseerde sensitiviteiten                
-                #Collinearity_index_pairwise[i,j] = np.sqrt(1/min(np.linalg.eigvals(np.array(np.matrix(np.vstack([self.analytic_sens[variable][self.Parameters.keys()[i]],self.analytic_sens[variable][self.Parameters.keys()[j]]]))*(np.vstack([self.analytic_sens[variable][self..Parameters.keys()[i]],self.analytic_sens[variable][self.Parameters.keys()[j]])).transpose()))))
-                print 'Nothing interesting to calculate!'
+                # Klopt enkel voor genormaliseerde sensitiviteiten
+                # collinearity = |X.X'|
+                X = np.matrix(np.vstack([self.analytical_sensitivity[variable][parname1],self.analytical_sensitivity[variable][parname2]]))
+                Collinearity_pairwise[i,i+j] = np.sqrt(1/min(np.linalg.eigvals(np.array(X*X.transpose()))))
+
         x = pd.DataFrame(Collinearity_pairwise, index=self.Parameters.keys(), columns = self.Parameters.keys())
         
         try:
@@ -857,6 +865,25 @@ class odegenerator(object):
         
         
     def analytic_local_sensitivity(self, Sensitivity = 'CAS'):
+        '''Calculates analytic based local sensitivity 
+        
+        For every parameter calculate the sensitivity of the output variables.
+        
+        Parameters
+        -----------
+        Sensitivity : string
+            String should refer to one of the three possible sensitivity\
+            measures: Absolute Sensitivity (CAS), Parameter Relative Sensitivity (CPRS) or
+            Total Relative Sensitivity (CTRS)'         
+        
+        Returns
+        --------
+        analytical_sens : dict
+            each variable gets a t timesteps x k par DataFrame
+            
+        '''
+        self.LSA_type = Sensitivity
+
         df, analytical_sens = self.solve_ode(with_sens = True, plotit = False)
         
         if Sensitivity == 'CPRS':
@@ -866,6 +893,7 @@ class odegenerator(object):
         elif Sensitivity == 'CTRS':
             #CTRS
             if min(df.mean()) == 0 or max(df.mean()) == 0:
+                self.LSA_type = None
                 raise Exception('ANASENS: It is not possible to use the CTRS method for\
                     calculating sensitivity, because one or more variables are\
                     fixed at zero. Try to use another method or to change the\
@@ -879,6 +907,7 @@ class odegenerator(object):
                 for i in self._Variables:
                      analytical_sens[i] = analytical_sens[i]*self.Parameters.values()/df[i]
         elif Sensitivity != 'CAS':
+            self.LSA_type = None
             raise Exception('You have to choose one of the sensitivity\
              methods which are available: CAS, CPRS or CTRS')
         
@@ -896,7 +925,7 @@ class odegenerator(object):
                                   Sensitivity = 'CAS'):
         '''Calculates numerical based local sensitivity 
         
-        For every parameter calcluate the sensitivity of the output variables.
+        For every parameter calculate the sensitivity of the output variables.
         
         Parameters
         -----------
@@ -906,7 +935,11 @@ class odegenerator(object):
         TimeStepsDict : False|dict
             If False, the time-attribute is checked for and used. 
         Initial_Conditions : False|dict
-            If False, the initial conditions  attribute is checked for and used.         
+            If False, the initial conditions  attribute is checked for and used.
+        Sensitivity : string
+            String should refer to one of the three possible sensitivity\
+            measures: Absolute Sensitivity (CAS), Parameter Relative Sensitivity (CPRS) or
+            Total Relative Sensitivity (CTRS)'        
         
         Returns
         --------
@@ -916,8 +949,8 @@ class odegenerator(object):
         '''
         self._check_for_time(TimeStepsDict)
         self._check_for_init(Initial_Conditions)
-        
-        
+        self.LSA_type = Sensitivity
+         
         #create a dictionary with everye key the variable and the values a dataframe
         numerical_sens = {}
         for key in self._Variables:
@@ -953,6 +986,7 @@ class odegenerator(object):
                 #CTRS
                 average_out = (modout_plus+modout_min)/2.
                 if min(abs(average_out.mean())) < 1e-10:
+                    self.LSA_type = None
                     raise Exception('NUMSENS: It is not possible to use the CTRS method for\
                         calculating sensitivity, because one or more variables are\
                         fixed at zero. Try to use another method or to change the\
@@ -966,6 +1000,7 @@ class odegenerator(object):
                         print 'NUMSENS: Using EVOLUTION of output values'
                     sensitivity_out = sensitivity_out*value2save/average_out
             elif Sensitivity != 'CAS':
+                self.LSA_type = None
                 raise Exception('You have to choose one of the sensitivity\
                  methods which are available: CAS, CPRS or CTRS')
             
