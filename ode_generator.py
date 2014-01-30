@@ -807,8 +807,7 @@ class odegenerator(object):
                 #Comment was bug!
                 #analytical_sens[self._Variables[i]] = pd.DataFrame(res[:,len(self._Variables)*(1+i):len(self._Variables)*(1+i)+len(self.Parameters)], index=self._Time,columns = self.Parameters.keys())
                 analytical_sens[self._Variables[i]] = pd.DataFrame(res[:,len(self._Variables)+len(self.Parameters)*(i):len(self._Variables)+len(self.Parameters)*(1+i)], index=self._Time,columns = self.Parameters.keys())
-            self.analytical_sensitivity = analytical_sens        
-            
+           
         #plotfunction
         if plotit == True:
             if len(self._Variables) == 1:
@@ -819,8 +818,11 @@ class odegenerator(object):
         self.ode_solved = df
         if self._has_algebraic:
             self._rerun_for_algebraic()
-               
-        return df
+
+        if with_sens == False:
+            return df
+        else:
+            return df, analytical_sens
         
     def collinearity_check(self,variable):
         '''
@@ -854,9 +856,26 @@ class odegenerator(object):
             self.Collinearity_Pairwise[variable] = x
         
         
+    def analytic_local_sensitivity(self, Sensitivity = 'CAS'):
+        df, analytical_sens = self.solve_ode(with_sens = True, plotit = False)
         
-    def analytic_local_sensitivity(self):
-        self.solve_ode(with_sens = True, plotit = False)
+        #we use now CPRS, but later on we'll adapt to CTRS
+        if Sensitivity == 'CPRS':
+            #CPRS = CAS*parameter
+            for i in self._Variables:
+                 analytical_sens[i] = analytical_sens[i]*self.Parameters.values()
+        elif Sensitivity == 'CTRS':
+            #CTRS
+            for i in self._Variables:
+                 analytical_sens[i] = analytical_sens[i]*self.Parameters.values()/df[i]
+        elif Sensitivity != 'CAS':
+            raise Exception('You have to choose one of the sensitivity\
+             methods which are available: CAS, CPRS or CTRS')
+        
+        self.analytical_sensitivity = analytical_sens
+        
+        return df, analytical_sens
+        
 
     def numeric_local_sensitivity(self, perturbation_factor = 0.0001, 
                                   TimeStepsDict = False, 
