@@ -833,7 +833,20 @@ class odegenerator(object):
         Change to total relative sensitivity instead of relative sensitivity 
         to parameter
         
-        TODO adapt to new analyical sens, will possibly be deleted?
+        Parameters
+        -----------
+        variable : string
+            Give the variable for which the collinearity check has to be performed. 
+        
+        Returns
+        ---------
+        df : pandas DataFrame
+            DataFrame with in the columns and rows the different parameters and there
+            corresponding collinearity values.
+        
+        See Also
+        ---------
+        analytical_sensitivity
         '''
         try:
             self.analytical_sensitivity
