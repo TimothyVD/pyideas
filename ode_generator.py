@@ -830,8 +830,12 @@ class odegenerator(object):
     def collinearity_check(self,variable):
         '''
         
-        Change to total relative sensitivity instead of relative sensitivity 
-        to parameter
+        Collinearity check calculates whether variables show collinear behaviour or not.
+        Collinearity is only useful when using Total Relative Sensitivity, because it is
+        the relative change which is important. One should bear in mind that collinearity
+        measures vary between 0 and infinity. At the internet I found that for values
+        between 15-30 you need to watch out. Above 30 you are in trouble and above 100 is 
+        a real disaster :-)
         
         Parameters
         -----------
