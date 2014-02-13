@@ -5,4 +5,4 @@ Utilities
 Support Functions
 -------------------
 
-.. autofunction:: plotfunctions.scatterplot_matrix
+.. autofunction:: biointense.scatterplot_matrix

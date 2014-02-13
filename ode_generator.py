@@ -95,6 +95,9 @@ class odegenerator(object):
         self._analytic_local_sensitivity()
         self._write_model_to_file()
 
+        #Sensitivity stuff
+        self.LSA_type = None
+
     def _reset_parameters(self, Parameters):
         '''Parameter stuff
         
@@ -269,7 +272,7 @@ class odegenerator(object):
         # dfdtheta
         dfdtheta = self._system_matrix.jacobian(self._parameter_matrix)
         self.dfdtheta = np.array(dfdtheta)
-        # fdx
+        # dfdx
         dfdx = self._system_matrix.jacobian(self._states_matrix)
         self.dfdx = np.array(dfdx)
         # dxdtheta
@@ -807,8 +810,7 @@ class odegenerator(object):
                 #Comment was bug!
                 #analytical_sens[self._Variables[i]] = pd.DataFrame(res[:,len(self._Variables)*(1+i):len(self._Variables)*(1+i)+len(self.Parameters)], index=self._Time,columns = self.Parameters.keys())
                 analytical_sens[self._Variables[i]] = pd.DataFrame(res[:,len(self._Variables)+len(self.Parameters)*(i):len(self._Variables)+len(self.Parameters)*(1+i)], index=self._Time,columns = self.Parameters.keys())
-            self.analytical_sensitivity = analytical_sens        
-            
+           
         #plotfunction
         if plotit == True:
             if len(self._Variables) == 1:
@@ -819,32 +821,57 @@ class odegenerator(object):
         self.ode_solved = df
         if self._has_algebraic:
             self._rerun_for_algebraic()
-               
-        return df
+
+        if with_sens == False:
+            return df
+        else:
+            return df, analytical_sens
         
     def collinearity_check(self,variable):
         '''
         
-        Change to total relative sensitivity instead of relative sensitivity 
-        to parameter
+        Collinearity check calculates whether variables show collinear behaviour or not.
+        Collinearity is only useful when using Total Relative Sensitivity, because it is
+        the relative change which is important. One should bear in mind that collinearity
+        measures vary between 0 and infinity. At the internet I found that for values
+        between 15-30 you need to watch out. Above 30 you are in trouble and above 100 is 
+        a real disaster :-)
         
-        TODO adapt to new analyical sens, will possibly be deleted?
+        Parameters
+        -----------
+        variable : string
+            Give the variable for which the collinearity check has to be performed. 
+        
+        Returns
+        ---------
+        df : pandas DataFrame
+            DataFrame with in the columns and rows the different parameters and there
+            corresponding collinearity values.
+        
+        See Also
+        ---------
+        analytical_sensitivity
         '''
         try:
-            self.analytic_sens
+            self.analytical_sensitivity
         except:
-            print 'Running Analytical sensitvity analysis'
-            self.analytic_local_sensitivity()
+            print 'Running Analytical sensitivity analysis'
+            self.analytic_local_sensitivity(Sensitivity = 'CTRS')
             print '... Done!'
-        
+
+        if self.LSA_type != 'CTRS':
+            raise Exception('The collinearity_check function is only useful for Total Relative Sensitivity!')
+     
         # Make matrix for storing collinearities per two parameters
         Collinearity_pairwise = np.zeros([len(self.Parameters),len(self.Parameters)])
-        for i in range(len(self.Parameters)):
-            for j in range(i+1,len(self.Parameters)):
+        for i,parname1 in enumerate(self.Parameters):
+            for j,parname2 in enumerate(self.Parameters.keys()[i:]):
                 # Transpose is performed on second array because by selecting only one column, python automatically converts the column to a row!
-                # Klopt enkel voor genormaliseerde sensitiviteiten                
-                #Collinearity_index_pairwise[i,j] = np.sqrt(1/min(np.linalg.eigvals(np.array(np.matrix(np.vstack([self.analytic_sens[variable][self.Parameters.keys()[i]],self.analytic_sens[variable][self.Parameters.keys()[j]]]))*(np.vstack([self.analytic_sens[variable][self..Parameters.keys()[i]],self.analytic_sens[variable][self.Parameters.keys()[j]])).transpose()))))
-                print 'Nothing interesting to calculate!'
+                # Klopt enkel voor genormaliseerde sensitiviteiten
+                # collinearity = |X.X'|
+                X = np.matrix(np.vstack([self.analytical_sensitivity[variable][parname1],self.analytical_sensitivity[variable][parname2]]))
+                Collinearity_pairwise[i,i+j] = np.sqrt(1/min(np.linalg.eigvals(np.array(X*X.transpose()))))
+
         x = pd.DataFrame(Collinearity_pairwise, index=self.Parameters.keys(), columns = self.Parameters.keys())
         
         try:
@@ -854,16 +881,68 @@ class odegenerator(object):
             self.Collinearity_Pairwise[variable] = x
         
         
+    def analytic_local_sensitivity(self, Sensitivity = 'CAS'):
+        '''Calculates analytic based local sensitivity 
         
-    def analytic_local_sensitivity(self):
-        self.solve_ode(with_sens = True, plotit = False)
+        For every parameter calculate the sensitivity of the output variables.
+        
+        Parameters
+        -----------
+        Sensitivity : string
+            String should refer to one of the three possible sensitivity\
+            measures: Absolute Sensitivity (CAS), Parameter Relative Sensitivity (CPRS) or
+            Total Relative Sensitivity (CTRS)'         
+        
+        Returns
+        --------
+        analytical_sens : dict
+            each variable gets a t timesteps x k par DataFrame
+            
+        '''
+        self.LSA_type = Sensitivity
+
+        df, analytical_sens = self.solve_ode(with_sens = True, plotit = False)
+        
+        if Sensitivity == 'CPRS':
+            #CPRS = CAS*parameter
+            for i in self._Variables:
+                 analytical_sens[i] = analytical_sens[i]*self.Parameters.values()
+        elif Sensitivity == 'CTRS':
+            #CTRS
+            if min(df.mean()) == 0 or max(df.mean()) == 0:
+                self.LSA_type = None
+                raise Exception('ANASENS: It is not possible to use the CTRS method for\
+                    calculating sensitivity, because one or more variables are\
+                    fixed at zero. Try to use another method or to change the\
+                    initial conditions!')
+            elif min(df.min()) == 0 or max(df.max()) == 0:
+                print 'ANASENS: Using AVERAGE of output values'
+                for i in self._Variables:
+                     analytical_sens[i] = analytical_sens[i]*self.Parameters.values()/df[i].mean()
+            else:
+                print 'ANASENS: Using EVOLUTION of output values'
+                for i in self._Variables:
+                     analytical_sens[i] = analytical_sens[i]*self.Parameters.values()/df[i]
+        elif Sensitivity != 'CAS':
+            self.LSA_type = None
+            raise Exception('You have to choose one of the sensitivity\
+             methods which are available: CAS, CPRS or CTRS')
+        
+        self.analytical_sensitivity = analytical_sens
+
+        print 'ANASENS: The ' + Sensitivity + ' sensitivity method is used, do not\
+                forget to check whether outputs can be compared!'
+        
+        return analytical_sens
+        
 
     def numeric_local_sensitivity(self, perturbation_factor = 0.0001, 
                                   TimeStepsDict = False, 
-                                  Initial_Conditions = False):
+                                  Initial_Conditions = False,
+                                  Sensitivity = 'CAS'):
         '''Calculates numerical based local sensitivity 
         
-        For every parameter calcluate the sensitivity of the output variables.
+        For every parameter calculate the sensitivity of the output variables.
         
         Parameters
         -----------
@@ -873,7 +952,11 @@ class odegenerator(object):
         TimeStepsDict : False|dict
             If False, the time-attribute is checked for and used. 
         Initial_Conditions : False|dict
-            If False, the initial conditions  attribute is checked for and used.         
+            If False, the initial conditions  attribute is checked for and used.
+        Sensitivity : string
+            String should refer to one of the three possible sensitivity\
+            measures: Absolute Sensitivity (CAS), Parameter Relative Sensitivity (CPRS) or
+            Total Relative Sensitivity (CTRS)'        
         
         Returns
         --------
@@ -882,8 +965,9 @@ class odegenerator(object):
             
         '''
         self._check_for_time(TimeStepsDict)
-        self._check_for_init(Initial_Conditions) 
-        
+        self._check_for_init(Initial_Conditions)
+        self.LSA_type = Sensitivity
+         
         #create a dictionary with everye key the variable and the values a dataframe
         numerical_sens = {}
         for key in self._Variables:
@@ -891,7 +975,7 @@ class odegenerator(object):
             dummy = np.empty((self._Time.size,len(self.Parameters)))
             numerical_sens[key] = pd.DataFrame(dummy, index=self._Time, columns = self.Parameters.keys())
         
-        for parameter in self.Parameters:
+        for i,parameter in enumerate(self.Parameters):
             value2save = self.Parameters[parameter]
 #            print 'sensitivity for parameter ', parameter
             #run model with parameter value plus perturbation 
@@ -908,22 +992,43 @@ class odegenerator(object):
             #calculate sensitivity for this parameter, all outputs    
             #sensitivity indices:
 #            CAS = (modout_plus-modout_min)/(2.*perturbation_factor*value2save) #dy/dp         
-            CAS = (modout_plus-modout)/(perturbation_factor*value2save) #dy/dp
+            #CAS
+            sensitivity_out = (modout_plus-modout)/(perturbation_factor*value2save) #dy/dp
             
             #we use now CPRS, but later on we'll adapt to CTRS
-#            CPRS = CAS*value2save    
-#            average_out = (modout_plus+modout_min)/2.
-#            CTRS = CAS*value2save/average_out
+            if Sensitivity == 'CPRS':
+                #CPRS = CAS*parameter
+                sensitivity_out = sensitivity_out*value2save
+            elif Sensitivity == 'CTRS':
+                #CTRS
+                average_out = (modout_plus+modout_min)/2.
+                if min(abs(average_out.mean())) < 1e-10:
+                    self.LSA_type = None
+                    raise Exception('NUMSENS: It is not possible to use the CTRS method for\
+                        calculating sensitivity, because one or more variables are\
+                        fixed at zero. Try to use another method or to change the\
+                        initial conditions!')
+                elif min(average_out.abs().min()) < 1e-10:
+                    if i==0:
+                        print 'NUMSENS: Using AVERAGE of output values'
+                    sensitivity_out = sensitivity_out*value2save/average_out.mean()
+                else:
+                    if i==0:
+                        print 'NUMSENS: Using EVOLUTION of output values'
+                    sensitivity_out = sensitivity_out*value2save/average_out
+            elif Sensitivity != 'CAS':
+                self.LSA_type = None
+                raise Exception('You have to choose one of the sensitivity\
+                 methods which are available: CAS, CPRS or CTRS')
             
             #put on the rigth spot in the dictionary
             for var in self._Variables:
-#                numerical_sens[var][parameter] = CPRS[var][:].copy()
-#                numerical_sens[var][parameter] = CTRS[var][:].copy()
-                numerical_sens[var][parameter] = CAS[var][:].copy()
-                
+                numerical_sens[var][parameter] = sensitivity_out[var][:].copy()
+               
             #put back original value
             self.Parameters[parameter] = value2save
-            
+        print 'NUMSENS: The ' + Sensitivity + ' sensitivity method is used, do not\
+                forget to check whether outputs can be compared!'
         self.numerical_sensitivity = numerical_sens
 
         return numerical_sens
