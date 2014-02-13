@@ -26,6 +26,7 @@ from plotfunctions import *
 from matplotlib.ticker import MaxNLocator
 from ode_generator import odegenerator
 from measurements import ode_measurements
+from ode_optimization import ode_optimizer
 
 class ode_FIM(object):
     '''
@@ -111,8 +112,10 @@ class ode_FIM(object):
 
     def test_extra_measured_timesteps(self, variable, timesteps):
         '''
+        to change...
         input Dictionary: {'variables':[var of measurement], 'time': [timeindex of measurement]}
-        '''        
+        '''      
+        raise Exception('not working yet!')
 #        newdata = pd.DataFrame(vartimedict).pivot(index='time', columns='variables')
         
         #The timesteps for these measurements need to be used and new FIM calculated
