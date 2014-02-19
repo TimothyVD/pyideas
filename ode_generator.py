@@ -334,7 +334,7 @@ class odegenerator(object):
             self.set_time(Timesteps)               
             print 'Updated initial conditions are used'
     
-    def makeStepFunction(self,array, accuracy=0.001):
+    def makeStepFunction(self,array_list, accuracy=0.001):
         '''makeStepFunction
         
         A function for making multiple steps or pulses, the function can be used
@@ -344,10 +344,10 @@ class odegenerator(object):
         
         Parameters
         -----------
-        array: numpy array
-            Contains 2 columns and an undefined number of rows. In the first column
-            the time at which a step is made. In the second column the value the 
-            function should go to.
+        array_list: list
+            Contains list of arrays with 2 columns and an undefined number of rows. 
+            In the first column of the individual arrays the time at which a step
+            is made. In the second column the value the function should go to.
         accuracy: float
             What is the maximal timestep for going from one value to another. By 
             increasing this value, less problems are expected with the solver. However
@@ -360,27 +360,33 @@ class odegenerator(object):
             Function which automatically interpolates in between the steps which
             were given. Can also be called as self.stepfunction
        
-        '''  
-        if array.shape[1] != 2:
-            raise Exception("The input array should have 2 columns!")
-        array_len = array.shape[0]
-        x = np.zeros(2*array_len)
-        y = np.zeros(2*array_len)
-        if array[0,0] != 0:
-            raise Exception("The first value of the stepfunction should be given at time 0!")
-        x[0] = array[0,0]
-        y[0] = array[0,1]
-        for i in range(array_len-1):
-            x[2*i+1] = array[i+1,0]-accuracy/2
-            y[2*i+1] = array[i,1]
-            x[2*(i+1)] = array[i+1,0]+accuracy/2
-            y[2*(i+1)] = array[i+1,1]
-        x[-1] = 1e15
-        y[-1] = array[-1,1]
+        '''
+        stepfunction = []        
         
-        stepfunction = spint.interp1d(x, y)
+        for n,array in enumerate(array_list):
+            if array.shape[1] != 2:
+                raise Exception("The input array should have 2 columns!")
+            array_len = array.shape[0]
+            x = np.zeros(2*array_len)
+            y = np.zeros(2*array_len)
+            if array[0,0] != 0:
+                raise Exception("The first value of the stepfunction should be given at time 0!")
+            x[0] = array[0,0]
+            y[0] = array[0,1]
+            for i in range(array_len-1):
+                x[2*i+1] = array[i+1,0]-accuracy/2
+                y[2*i+1] = array[i,1]
+                x[2*(i+1)] = array[i+1,0]+accuracy/2
+                y[2*(i+1)] = array[i+1,1]
+            x[-1] = 1e15
+            y[-1] = array[-1,1]
+            
+            if n is 0:
+                stepfunction = [spint.interp1d(x, y)]
+            else:
+                stepfunction.append(spint.interp1d(x, y))
+                
         self.stepfunction = stepfunction
-        
         self._write_model_to_file()
         return stepfunction
 
