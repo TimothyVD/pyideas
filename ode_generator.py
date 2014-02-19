@@ -335,6 +335,32 @@ class odegenerator(object):
             print 'Updated initial conditions are used'
     
     def makeStepFunction(self,array, accuracy=0.001):
+        '''makeStepFunction
+        
+        A function for making multiple steps or pulses, the function can be used
+        as an Algebraic equation. Just call stepfunction(t) for using the stepfunction 
+        functionality. At this moment only one stepfunction can be used at a time, but
+        can be included in multiple variables.
+        
+        Parameters
+        -----------
+        array: numpy array
+            Contains 2 columns and an undefined number of rows. In the first column
+            the time at which a step is made. In the second column the value the 
+            function should go to.
+        accuracy: float
+            What is the maximal timestep for going from one value to another. By 
+            increasing this value, less problems are expected with the solver. However
+            accuracy will be decreases. The standard value is 0.001, but depending 
+            on the system dynamics this can be altered.
+
+        Returns
+        -------
+        stepfunction: function
+            Function which automatically interpolates in between the steps which
+            were given. Can also be called as self.stepfunction
+       
+        '''  
         if array.shape[1] != 2:
             raise Exception("The input array should have 2 columns!")
         array_len = array.shape[0]
