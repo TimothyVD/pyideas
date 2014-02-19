@@ -10,6 +10,7 @@ import numpy as np
 from numpy import *
 from sympy import *
 import scipy.integrate as spin
+import scipy.interpolate as spint
 import sympy
 import sys
 if sys.hexversion > 0x02070000:
@@ -97,7 +98,7 @@ class odegenerator(object):
 
         #Sensitivity stuff
         self.LSA_type = None
-
+        
     def _reset_parameters(self, Parameters):
         '''Parameter stuff
         
@@ -166,6 +167,7 @@ class odegenerator(object):
         
         for measured in Measurable_States:
             dmeasured = 'd' + measured
+            print dmeasured
             if dmeasured in Measured_temp:
                 Measured_temp[dmeasured] = 1
                 self._MeasuredList.append(measured)
@@ -331,6 +333,30 @@ class odegenerator(object):
         else:
             self.set_time(Timesteps)               
             print 'Updated initial conditions are used'
+    
+    def makeStepFunction(self,array, accuracy=0.001):
+        if array.shape[1] != 2:
+            raise Exception("The input array should have 2 columns!")
+        array_len = array.shape[0]
+        x = np.zeros(2*array_len)
+        y = np.zeros(2*array_len)
+        if array[0,0] != 0:
+            raise Exception("The first value of the stepfunction should be given at time 0!")
+        x[0] = array[0,0]
+        y[0] = array[0,1]
+        for i in range(array_len-1):
+            x[2*i+1] = array[i+1,0]-accuracy/2
+            y[2*i+1] = array[i,1]
+            x[2*(i+1)] = array[i+1,0]+accuracy/2
+            y[2*(i+1)] = array[i+1,1]
+        x[-1] = 1e15
+        y[-1] = array[-1,1]
+        
+        stepfunction = spint.interp1d(x, y)
+        self.stepfunction = stepfunction
+        
+        self._write_model_to_file()
+        return stepfunction
 
     def taylor_series_approach(self, iterations, Measurable_States = False,
                              Initial_Conditions = False):
@@ -671,7 +697,11 @@ class odegenerator(object):
         file.write('from numpy import *\n\n')
         
         # Write function for solving ODEs only
-        file.write('def system(ODES,t,Parameters):\n')
+        try:
+            self.stepfunction
+            file.write('def system(ODES,t,Parameters,stepfunction):\n')
+        except:
+            file.write('def system(ODES,t,Parameters):\n')
         for i in range(len(self.Parameters)):
             #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
             file.write('    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n")
@@ -692,7 +722,11 @@ class odegenerator(object):
         file.write('    return '+str(self.System.keys()).replace("'","")+'\n\n\n')
         
         # Write function for solving ODEs of both system and analytical sensitivities
-        file.write('def system_with_sens(ODES,t,Parameters):\n')
+        try:
+            self.stepfunction
+            file.write('def system_with_sens(ODES,t,Parameters,stepfunction):\n')
+        except:
+            file.write('def system_with_sens(ODES,t,Parameters):\n')
         for i in range(len(self.Parameters)):
             #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
             file.write('    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n")
@@ -732,7 +766,11 @@ class odegenerator(object):
         
         try:
             self.Algebraic
-            file.write('def Algebraic_outputs(ODES,t,Parameters):\n')
+            try:
+                self.stepfunction
+                file.write('\ndef Algebraic_outputs(ODES,t,Parameters, stepfunction):\n')
+            except:
+                file.write('\ndef Algebraic_outputs(ODES,t,Parameters):\n')
             for i in range(len(self.Parameters)):
                 #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
                 file.write('    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n")
@@ -756,12 +794,19 @@ class odegenerator(object):
         """
         """
         exec('import '+self.modelname)
+        exec(self.modelname + ' = ' + 'reload('+self.modelname+')')
 
         algeb_out = np.empty((self.ode_solved.index.size, len(self.Algebraic.keys())))
-
-        for i, timestep in enumerate(self.ode_solved.index):
-            temp = eval(self.modelname+'.Algebraic_outputs'+'(self.ode_solved.ix[timestep], timestep, self.Parameters)')
-            algeb_out[i,:] = temp[:]
+        
+        try:
+            self.stepfunction
+            for i, timestep in enumerate(self.ode_solved.index):
+                temp = eval(self.modelname+'.Algebraic_outputs'+'(self.ode_solved.ix[timestep], timestep, self.Parameters, self.stepfunction)')
+                algeb_out[i,:] = temp[:]
+        except:
+            for i, timestep in enumerate(self.ode_solved.index):
+                temp = eval(self.modelname+'.Algebraic_outputs'+'(self.ode_solved.ix[timestep], timestep, self.Parameters)')
+                algeb_out[i,:] = temp[:]
      
         self.algeb_solved = pd.DataFrame(algeb_out, columns=self.Algebraic.keys(), 
                                  index = self.ode_solved.index)
@@ -798,7 +843,11 @@ class odegenerator(object):
         exec(self.modelname + ' = ' + 'reload('+self.modelname+')')
         	
         if with_sens == False:
-            res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,))
+            try:
+                self.stepfunction
+                res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,self.stepfunction,))
+            except:
+                res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,))
             #put output in pandas dataframe
             df = pd.DataFrame(res, index=self._Time, columns = self._Variables)
         else:
