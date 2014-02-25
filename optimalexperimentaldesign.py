@@ -15,7 +15,7 @@ import numpy as np
 import sympy
 
 import pandas as pd
-from scipy import optimize
+from scipy import optimize,stats
 
 if sys.hexversion > 0x02070000:
     import collections
@@ -40,15 +40,15 @@ class ode_FIM(object):
     - Link with robust OED -> sequential design (paropt - exp-opt - paropt)
     '''
     
-    def __init__(self, odeoptimizer, sensmethod = 'analytical'): #Measurements
+    def __init__(self, odeoptimizer, sensmethod = 'analytical',*args,**kwargs): #Measurements
         '''
         Measurements: measurements-class instance
         
         Parameters
         -----------
         sensmethod: analytical|numerical
-            analytical is ot always working, but more accurate, since not dependent
-            on a selected perturbation factor for sensitivity calcluation              
+            analytical is not always working, but more accurate, since not dependent
+            on a selected perturbation factor for sensitivity calculation              
         
         '''
         if isinstance(odeoptimizer, ode_optimizer):
@@ -78,7 +78,7 @@ class ode_FIM(object):
             self._model.analytic_local_sensitivity()
             self.sensitivities = self._model.analytical_sensitivity
         elif sensmethod == 'numerical':
-            self._model.numeric_local_sensitivity()
+            self._model.numeric_local_sensitivity(*args,**kwargs)
             self.sensitivities = self._model.numerical_sensitivity           
         self._model.set_time(self._model._TimeDict)
         #
@@ -279,6 +279,67 @@ class ode_FIM(object):
         self._all_crit = {'A':self.A_criterium(), 'modA': self.modA_criterium(), 
                           'D': self.D_criterium(), 'E':self.E_criterium(), 'modE':self.modE_criterium()}
         return self._all_crit
+        
+    def get_correlations(self):
+        '''Calculate correlations between parameters
+            
+        Returns
+        --------
+        R: pandas DataFrame
+            Contains for each parameter the correlation with all the other
+            parameters.
+        
+        '''
+        self._check_for_FIM()
+        ECM = self.FIM.I
+        self.ECM = ECM
+        
+        R = np.zeros(ECM.shape)
+        
+        for i in range(0,len(ECM)-1):
+            for j in range(i+1,len(ECM)):
+                R[i,j] = ECM[i,j]/(np.sqrt(ECM[i,i]*ECM[j,j]))
+        
+        R = pd.DataFrame(R,columns=self.Parameters.keys(),index=self.Parameters.keys())     
+        
+        self.correlation = R
+        return R
+        
+        
+    def get_confidence_intervals(self, alpha = 0.95):
+        '''Calculate confidence intervals for all parameters
+        
+        Parameters
+        -----------
+        alpha: float
+            confidence level of a two-sided student t-distribution (Do not divide 
+            the wanted alpha value by 2). For example for a confidence level of 
+            0.95, the lower and upper values of the interval are calculated at 0.025 
+            and 0.975.
+        
+        Returns
+        --------
+        CI: pandas DataFrame
+            Contains for each parameter the lower and upper value of the interval
+            and a delta values which represents half the interval.
+        
+        '''
+        self._check_for_FIM()
+        ECM = self.FIM.I
+        self.ECM = ECM
+    
+        CI = np.zeros([ECM.shape[1],3])    
+        
+        for i,var in enumerate(np.array(self.ECM.diagonal())[0,:]):
+            CI[i,0:2] =  stats.t.interval(alpha,self._data.Data.count()-len(self.Parameters),loc=self.Parameters.values()[i],scale=np.sqrt(var))
+            #print stats.t.interval(alpha,self._data.Data.count()-len(self.Parameters),scale=np.sqrt(var))[1][0]
+            CI[i,2] = stats.t.interval(alpha,self._data.Data.count()-len(self.Parameters),scale=np.sqrt(var))[1][0]
+            
+        CI = pd.DataFrame(CI,columns=['lower','upper','delta'],index=self.Parameters.keys())       
+        
+        self.confidence_intervals = CI
+        
+        return CI
 
     
     
