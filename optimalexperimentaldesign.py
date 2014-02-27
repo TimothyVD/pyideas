@@ -335,7 +335,7 @@ class ode_FIM(object):
             #TODO check whether sum or median or... should be used 
             CI[i,1:3] =  stats.t.interval(alpha,sum(self._data.Data.count())-len(self.Parameters),loc=self.Parameters.values()[i],scale=np.sqrt(par))
             #print stats.t.interval(alpha,self._data.Data.count()-len(self.Parameters),scale=np.sqrt(var))[1][0]
-            CI[i,3] = stats.t.interval(alpha,self._data.Data.count()-len(self.Parameters),scale=np.sqrt(par))[1][0]
+            CI[i,3] = stats.t.interval(alpha,sum(self._data.Data.count())-len(self.Parameters),scale=np.sqrt(par))[1]
         CI[:,4] = abs(CI[:,3]/self.Parameters.values())*100      
             
         CI = pd.DataFrame(CI,columns=['value','lower','upper','delta','percent'],index=self.Parameters.keys())       
