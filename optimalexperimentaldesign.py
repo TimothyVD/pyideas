@@ -296,8 +296,8 @@ class ode_FIM(object):
         
         R = np.zeros(ECM.shape)
         
-        for i in range(0,len(ECM)-1):
-            for j in range(i+1,len(ECM)):
+        for i in range(0,len(ECM)):
+            for j in range(0,len(ECM)):
                 R[i,j] = ECM[i,j]/(np.sqrt(ECM[i,i]*ECM[j,j]))
         
         R = pd.DataFrame(R,columns=self.Parameters.keys(),index=self.Parameters.keys())     
@@ -328,14 +328,17 @@ class ode_FIM(object):
         ECM = self.FIM.I
         self.ECM = ECM
     
-        CI = np.zeros([ECM.shape[1],3])    
+        CI = np.zeros([ECM.shape[1],5])    
         
-        for i,var in enumerate(np.array(self.ECM.diagonal())[0,:]):
-            CI[i,0:2] =  stats.t.interval(alpha,self._data.Data.count()-len(self.Parameters),loc=self.Parameters.values()[i],scale=np.sqrt(var))
+        CI[:,0] = self.Parameters.values()
+        for i,par in enumerate(np.array(self.ECM.diagonal())[0,:]):
+            #TODO check whether sum or median or... should be used 
+            CI[i,1:3] =  stats.t.interval(alpha,sum(self._data.Data.count())-len(self.Parameters),loc=self.Parameters.values()[i],scale=np.sqrt(par))
             #print stats.t.interval(alpha,self._data.Data.count()-len(self.Parameters),scale=np.sqrt(var))[1][0]
-            CI[i,2] = stats.t.interval(alpha,self._data.Data.count()-len(self.Parameters),scale=np.sqrt(var))[1][0]
+            CI[i,3] = stats.t.interval(alpha,self._data.Data.count()-len(self.Parameters),scale=np.sqrt(par))[1][0]
+        CI[:,4] = abs(CI[:,3]/self.Parameters.values())*100      
             
-        CI = pd.DataFrame(CI,columns=['lower','upper','delta'],index=self.Parameters.keys())       
+        CI = pd.DataFrame(CI,columns=['value','lower','upper','delta','percent'],index=self.Parameters.keys())       
         
         self.confidence_intervals = CI
         
