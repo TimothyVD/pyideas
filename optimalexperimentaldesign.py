@@ -397,7 +397,6 @@ class ode_FIM(object):
         '''
         time_len = len(self._data.get_measured_times())
         par_len = len(self.Parameters)
-        var_len = len(self.get_all_variables())
            
         sigma = {}
         np.zeros([time_len,5])        
@@ -436,9 +435,6 @@ class ode_FIM(object):
         
         '''
         time_len = len(self._data.get_measured_times())
-        par_len = len(self.Parameters)
-        var_len = len(self.get_all_variables())
-        number_comb = np.round(sp.misc.comb(var_len,2))
         
         comb_gen = list(combinations(self.get_all_variables(), 2))
         for i,comb in enumerate(comb_gen):

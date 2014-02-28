@@ -1003,7 +1003,7 @@ class odegenerator(object):
             else:
                 print 'ANASENS: Using EVOLUTION of output values'
                 for i in self._Variables:
-                     analytical_sens[i] = analytical_sens[i]*self.Parameters.values()/df[i]
+                     analytical_sens[i] = analytical_sens[i]*self.Parameters.values()/np.tile(np.array(df[i]),(len(self._Variables),1)).T
         elif Sensitivity != 'CAS':
             self.LSA_type = None
             raise Exception('You have to choose one of the sensitivity\
