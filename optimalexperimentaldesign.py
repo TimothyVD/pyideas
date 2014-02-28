@@ -362,13 +362,18 @@ class ode_FIM(object):
         var_len = len(self.get_all_variables())
            
         omega = np.zeros([time_len,var_len,var_len])
-
+        #Mask parameter correlations!
+        ECM = np.multiply(self.ECM,np.eye(par_len))
         sens_step = np.zeros([par_len,var_len])
         
         for timestep in self._data.get_measured_times():
             for i, var in enumerate(self.sensitivities.values()):
                 sens_step[:,i] = var.ix[timestep]
-            omega[timestep,:,:] = sens_step.T*self.ECM*sens_step
+                print var.ix[timestep]
+            omega[timestep,:,:] = sens_step.T*ECM*sens_step
+            print 'boe'
+            print sens_step.T*ECM*sens_step
+            print sens_step[:,0]*ECM[0,0]*sens_step[:,0] + sens_step[:,1]*ECM[1,1]*sens_step[:,1] 
               
         self.model_prediction_ECM = omega
         
