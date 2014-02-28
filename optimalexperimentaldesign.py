@@ -12,10 +12,12 @@ import sys
 import os
 import datetime
 import numpy as np
+import scipy as sp
 import sympy
 
 import pandas as pd
 from scipy import optimize,stats
+from itertools import combinations
 
 if sys.hexversion > 0x02070000:
     import collections
@@ -88,7 +90,7 @@ class ode_FIM(object):
         '''
         returns all model variables in the current model
         '''
-        return self._model._model.get_variables()
+        return self._model.get_variables()
 
     def get_measured_variables(self):
         '''
@@ -189,7 +191,7 @@ class ode_FIM(object):
         return self.FIM
 
     def _check_for_FIM(self):
-        ''' help function for FIM testing
+        ''' help function for FIM testingprint list(combinations(["hel", "lo", "bye"], 2))
         If FIM exists, ok, otherwise start FIM calculation
         '''  
         try:
@@ -243,7 +245,7 @@ class ode_FIM(object):
         self._check_for_FIM()
         print 'MAXIMIZE D criterium for OED'
         return np.linalg.det(self.FIM)          
-    
+
     def E_criterium(self):
         '''OED design E criterium
         The E-optimal design criterion maximizes the smallest eigenvalue of 
@@ -313,15 +315,16 @@ class ode_FIM(object):
         -----------
         alpha: float
             confidence level of a two-sided student t-distribution (Do not divide 
-            the wanted alpha value by 2). For example for a confidence level of 
+            the required alpha value by 2). For example for a confidence level of 
             0.95, the lower and upper values of the interval are calculated at 0.025 
             and 0.975.
         
         Returns
         --------
         CI: pandas DataFrame
-            Contains for each parameter the lower and upper value of the interval
-            and a delta values which represents half the interval.
+            Contains for each parameter the value of the variable, lower and 
+            upper value of the interval, the delta value which represents half 
+            the interval and the relative uncertainty in percent.
         
         '''
         self._check_for_FIM()
@@ -343,6 +346,116 @@ class ode_FIM(object):
         self.confidence_intervals = CI
         
         return CI
+    
+    def get_model_prediction_ECM(self):
+        '''Calculate model prediction error covariance matrix
+               
+        Returns
+        --------
+        model_prediction_ECM: pandas DataFrame
+            Contains for every timestep the corresponding model prediction
+            error covariance matrix.
+        
+        '''
+        time_len = len(self._data.get_measured_times())
+        par_len = len(self.Parameters)
+        var_len = len(self.get_all_variables())
+           
+        omega = np.zeros([time_len,var_len,var_len])
+
+        sens_step = np.zeros([par_len,var_len])
+        
+        for timestep in self._data.get_measured_times():
+            for i, var in enumerate(self.sensitivities.values()):
+                sens_step[:,i] = var.ix[timestep]
+            omega[timestep,:,:] = sens_step.T*self.ECM*sens_step
+              
+        self.model_prediction_ECM = omega
+        
+        return omega
+    
+    def get_model_confidence(self, alpha=0.95):
+        '''Calculate confidence intervals for variables
+        
+        Parameters
+        -----------
+        alpha: float
+            confidence level of a two-sided student t-distribution (Do not divide 
+            the required alpha value by 2). For example for a confidence level of 
+            0.95, the lower and upper values of the interval are calculated at 0.025 
+            and 0.975.
+        
+        Returns
+        --------
+        model_confidence: dict
+            Contains for each variable a pandas DataFrame which contains for 
+            every timestep the value of the variable,lower and upper value of 
+            the interval, the delta value which represents half the interval 
+            and the relative uncertainty in percent.
+        
+        '''
+        time_len = len(self._data.get_measured_times())
+        par_len = len(self.Parameters)
+        var_len = len(self.get_all_variables())
+           
+        sigma = {}
+        np.zeros([time_len,5])        
+
+        for i,var in enumerate(self.get_all_variables()):
+            sigma_var = np.zeros([time_len,5])
+            for timestep in self._data.get_measured_times()[1:]:
+                sigma_var[timestep,0] = self._model.ode_solved[var].ix[timestep]
+                sigma_var[timestep,1:3] = stats.t.interval(alpha,sum(self._data.Data.count())-par_len,loc=sigma_var[timestep,0],scale=np.sqrt(self.model_prediction_ECM[timestep,:,:].diagonal()[i]))
+                sigma_var[timestep,3] = abs((sigma_var[timestep,2]-sigma_var[timestep,0]))
+                sigma_var[timestep,4] = abs(sigma_var[timestep,3]/sigma_var[timestep,0])*100
+            sigma_var = pd.DataFrame(sigma_var,columns=['value','lower','upper','delta','percent'],index=self._data.get_measured_times())       
+            sigma[var] = sigma_var
+        
+        self.model_confidence = sigma
+        return sigma
+
+        
+    def get_model_correlation(self, alpha = 0.95):
+        '''Calculate correlation between variables
+        
+        Parameters
+        -----------
+        alpha: float
+            confidence level of a two-sided student t-distribution (Do not divide 
+            the required alpha value by 2). For example for a confidence level of 
+            0.95, the lower and upper values of the interval are calculated at 0.025 
+            and 0.975.
+        
+        Returns
+        --------
+        model_correlation: pandas DataFrame
+            For every possible combination of variables a column is made which
+            represents the correlation between the two variables.
+        
+        '''
+        time_len = len(self._data.get_measured_times())
+        par_len = len(self.Parameters)
+        var_len = len(self.get_all_variables())
+        number_comb = np.round(sp.misc.comb(var_len,2))
+        
+        comb_gen = list(combinations(self.get_all_variables(), 2))
+        for i,comb in enumerate(comb_gen):
+            if i is 0:
+                combin = [comb[0] + '-' +comb[1]]
+            else:
+                combin.append([comb[0] + '-' +comb[1]])
+        
+        corr = np.zeros([time_len, len(combin)])
+        for timestep in self._data.get_measured_times()[1:]:
+            tracker = 0
+            for i,var1 in enumerate(self.get_all_variables()[:-1]):
+                for j,var2 in enumerate(self.get_all_variables()[i+1:]):
+                    corr[timestep, tracker] = self.model_prediction_ECM[timestep,i,j+1]/np.sqrt(self.model_prediction_ECM[timestep,i,i]*self.model_prediction_ECM[timestep,j+1,j+1])
+                    tracker += 1            
+                    
+        corr = pd.DataFrame(corr, columns=combin,index=self._data.get_measured_times())                    
+        self.model_correlation = corr
+        return corr
 
     
     
