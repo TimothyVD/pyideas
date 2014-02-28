@@ -369,11 +369,7 @@ class ode_FIM(object):
         for timestep in self._data.get_measured_times():
             for i, var in enumerate(self.sensitivities.values()):
                 sens_step[:,i] = var.ix[timestep]
-                print var.ix[timestep]
             omega[timestep,:,:] = sens_step.T*ECM*sens_step
-            print 'boe'
-            print sens_step.T*ECM*sens_step
-            print sens_step[:,0]*ECM[0,0]*sens_step[:,0] + sens_step[:,1]*ECM[1,1]*sens_step[:,1] 
               
         self.model_prediction_ECM = omega
         
