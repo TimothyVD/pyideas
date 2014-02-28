@@ -191,7 +191,7 @@ class ode_FIM(object):
         return self.FIM
 
     def _check_for_FIM(self):
-        ''' help function for FIM testingprint list(combinations(["hel", "lo", "bye"], 2))
+        ''' help function for FIM testing
         If FIM exists, ok, otherwise start FIM calculation
         '''  
         try:
