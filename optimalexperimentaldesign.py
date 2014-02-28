@@ -404,6 +404,7 @@ class ode_FIM(object):
 
         for i,var in enumerate(self.get_all_variables()):
             sigma_var = np.zeros([time_len,5])
+            sigma_var[0,0:3] = self._model.ode_solved[var].ix[0]
             for timestep in self._data.get_measured_times()[1:]:
                 sigma_var[timestep,0] = self._model.ode_solved[var].ix[timestep]
                 sigma_var[timestep,1:3] = stats.t.interval(alpha,sum(self._data.Data.count())-par_len,loc=sigma_var[timestep,0],scale=np.sqrt(self.model_prediction_ECM[timestep,:,:].diagonal()[i]))
