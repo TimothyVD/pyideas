@@ -304,7 +304,7 @@ class ode_FIM(object):
         
         R = pd.DataFrame(R,columns=self.Parameters.keys(),index=self.Parameters.keys())     
         
-        self.correlation = R
+        self.parameter_correlation = R
         return R
         
         
@@ -343,7 +343,7 @@ class ode_FIM(object):
             
         CI = pd.DataFrame(CI,columns=['value','lower','upper','delta','percent'],index=self.Parameters.keys())       
         
-        self.confidence_intervals = CI
+        self.parameter_confidence = CI
         
         return CI
     
