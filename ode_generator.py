@@ -211,12 +211,9 @@ class odegenerator(object):
         '''Analytic derivation of the local sensitivities
         
         Sympy based implementation to get the analytic derivation of the
-        model sensitivities.
-        
-        Returns
-        --------
-        TODO
-        
+        model sensitivities. Algebraic variables in the ODE equations are replaced
+        by its equations to perform the analytical derivation.
+                
         Notes
         ------
         
@@ -226,59 +223,30 @@ class odegenerator(object):
         ---------
         _write_model_to_file
         
-        '''
+        '''    
         
-        if self._has_algebraic:
-            message = 'Analytic local sensitivity is not provided for \
-                        models with algebraic functions, so use the\
-                        numerical version'
-            return message
-        
-        
-        # t is always the symbol for time and is initialised here
-        t = sympy.symbols('t')        
-        
-        # Symbolify system states
-        for i in range(len(self.System)):
-            exec(self.System.keys()[i][1:]+" = sympy.symbols('"+self.System.keys()[i][1:]+"')")
-
-        # Symbolify parameters
-        for i in range(len(self.Parameters)):
-            exec(self.Parameters.keys()[i]+" = sympy.symbols('"+self.Parameters.keys()[i]+"')")
-        #TODO!
-            
-        # Symbolify algebraics
-        try:
-            self.Algebraic
-            raise Exception('Analytical sensitivity should not be used with algebraic equations (Implementation will follow)')            
-            #for i in range(len(self.Algebraic)):
-             #  exec(self.Algebraic.keys()[i]+" = sympy.symbols('"+self.Algebraic.keys()[i]+"')")
-        except AttributeError:
-            pass
-                    
-        self._system_matrix = sympy.zeros(len(self.System),1)
-        self._states_matrix = sympy.zeros(len(self._Variables),1)
-        
-        # Set up symbolic matrix of ODE system and states
-        for i in range(len(self.System)):
-            self._system_matrix[i,0] = eval(self.System.values()[i])
-            self._states_matrix[i,0] = eval(self._Variables[i])
-        
-        self._parameter_matrix = sympy.zeros(len(self.Parameters),1)
-        
+        # Set up symbolic matrix of system states
+        system_matrix = sympy.Matrix(sympy.sympify(self.System.values()))
+        # Set up symbolic matrix of variables
+        states_matrix = sympy.Matrix(sympy.sympify(self._Variables))
         # Set up symbolic matrix of parameters
-        for i in range(len(self.Parameters)):
-            self._parameter_matrix[i,0] = eval(self.Parameters.keys()[i])
+        parameter_matrix = sympy.Matrix(sympy.sympify(self.Parameters.keys()))
         
+        # Replace algebraic stuff in system_matrix to perform LSA
+        if self._has_algebraic:
+            for j in range(0,2):
+                for i, alg in enumerate(self.Algebraic.keys()):
+                    system_matrix = system_matrix.replace(alg, self.Algebraic.values()[i])
+                         
         # Initialize and calculate matrices for analytic sensitivity calculation
         # dfdtheta
-        dfdtheta = self._system_matrix.jacobian(self._parameter_matrix)
+        dfdtheta = system_matrix.jacobian(parameter_matrix)
         self.dfdtheta = np.array(dfdtheta)
         # dfdx
-        dfdx = self._system_matrix.jacobian(self._states_matrix)
+        dfdx = system_matrix.jacobian(states_matrix)
         self.dfdx = np.array(dfdx)
         # dxdtheta
-        dxdtheta = np.zeros([len(self._states_matrix),len(self.Parameters)])
+        dxdtheta = np.zeros([len(states_matrix),len(self.Parameters)])
         self.dxdtheta = np.asmatrix(dxdtheta)
         
 #        #dgdtheta
@@ -776,25 +744,24 @@ class odegenerator(object):
         for i in range(len(self.System)):
             file.write('    '+str(self.System.keys()[i]) + ' = ' + str(self.System.values()[i])+'\n')
         
-        if not self._has_algebraic:
-            print 'Sensitivities are printed to the file....'
-            file.write('\n    #Sensitivities\n\n')
-            
-            # Calculate number of states by using inputs
-            file.write('    state_len = len(ODES)/(len(Parameters)+1)\n')
-            # Reshape ODES input to array with right dimensions in order to perform matrix multiplication
-            file.write('    dxdtheta = array(ODES[state_len:].reshape(state_len,len(Parameters)))\n\n')
-            
-            # Write dfdtheta as symbolic array
-            file.write('    dfdtheta = ')
-            pprint.pprint(self.dfdtheta,file)
-            # Write dfdx as symbolic array
-            file.write('\n    dfdx = ')
-            pprint.pprint(self.dfdx,file)
-            # Calculate derivative in order to integrate this
-            file.write('\n    dxdtheta = dfdtheta + dot(dfdx,dxdtheta)\n')
-    
-            file.write('    return '+str(self.System.keys()).replace("'","")+'+ list(dxdtheta.reshape(-1,))'+'\n\n\n')
+        print 'Sensitivities are printed to the file....'
+        file.write('\n    #Sensitivities\n\n')
+        
+        # Calculate number of states by using inputs
+        file.write('    state_len = len(ODES)/(len(Parameters)+1)\n')
+        # Reshape ODES input to array with right dimensions in order to perform matrix multiplication
+        file.write('    dxdtheta = array(ODES[state_len:].reshape(state_len,len(Parameters)))\n\n')
+        
+        # Write dfdtheta as symbolic array
+        file.write('    dfdtheta = ')
+        pprint.pprint(self.dfdtheta,file)
+        # Write dfdx as symbolic array
+        file.write('\n    dfdx = ')
+        pprint.pprint(self.dfdx,file)
+        # Calculate derivative in order to integrate this
+        file.write('\n    dxdtheta = dfdtheta + dot(dfdx,dxdtheta)\n')
+
+        file.write('    return '+str(self.System.keys()).replace("'","")+'+ list(dxdtheta.reshape(-1,))'+'\n\n\n')
         
         try:
             self.Algebraic
