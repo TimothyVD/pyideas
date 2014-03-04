@@ -306,7 +306,7 @@ class odegenerator(object):
         else:
             self.set_time(Timesteps)               
             print 'Updated initial conditions are used'
-    
+              
     def makeStepFunction(self,array_list, accuracy=0.001):
         '''makeStepFunction
         
@@ -821,8 +821,9 @@ class odegenerator(object):
     def _rerun_for_algebraic(self):
         """
         """
-        exec('import '+self.modelname)
-        exec(self.modelname + ' = ' + 'reload('+self.modelname+')')
+        exec('import ' + self.modelname)
+        os.system('rm ' + self.modelname + '.pyc')
+        exec('reload('+self.modelname+')')
 
         algeb_out = np.empty((self.ode_solved.index.size, len(self.Algebraic.keys())))
                 
@@ -865,9 +866,9 @@ class odegenerator(object):
         self._check_for_time(TimeStepsDict)
         self._check_for_init(Initial_Conditions)        
         
-        #        import MODEL_Halfreaction
-        exec('import '+self.modelname)
-        exec(self.modelname + ' = ' + 'reload('+self.modelname+')')
+        exec('import ' + self.modelname)
+        os.system('rm ' + self.modelname + '.pyc')
+        exec('reload('+self.modelname+')')
         	
         if with_sens == False:
             try:
