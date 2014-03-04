@@ -360,10 +360,9 @@ class odegenerator(object):
                 stepfunction.append(spint.interp1d(x, y))
                 
         self.stepfunction = stepfunction
-        self._write_model_to_file()
-        
         self._has_stepfunction = True  
-        
+        self._write_model_to_file()
+               
         return stepfunction
 
     def taylor_series_approach(self, iterations, Measurable_States = False,
@@ -705,10 +704,9 @@ class odegenerator(object):
         file.write('from numpy import *\n\n')
         
         # Write function for solving ODEs only
-        try:
-            self.stepfunction
+        if self._has_stepfunction:
             file.write('def system(ODES,t,Parameters,stepfunction):\n')
-        except:
+        else:
             file.write('def system(ODES,t,Parameters):\n')
         for i in range(len(self.Parameters)):
             #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
@@ -737,10 +735,9 @@ class odegenerator(object):
         file.write('    return '+str(self.System.keys()).replace("'","")+'\n\n\n')
         
         # Write function for solving ODEs of both system and analytical sensitivities
-        try:
-            self.stepfunction
+        if self._has_stepfunction:
             file.write('def system_with_sens(ODES,t,Parameters,stepfunction):\n')
-        except:
+        else:
             file.write('def system_with_sens(ODES,t,Parameters):\n')
         for i in range(len(self.Parameters)):
             #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
@@ -787,10 +784,9 @@ class odegenerator(object):
         
         try:
             self.Algebraic
-            try:
-                self.stepfunction
+            if self._has_stepfunction:
                 file.write('\ndef Algebraic_outputs(ODES,t,Parameters, stepfunction):\n')
-            except:
+            else:
                 file.write('\ndef Algebraic_outputs(ODES,t,Parameters):\n')
             for i in range(len(self.Parameters)):
                 #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
@@ -823,7 +819,7 @@ class odegenerator(object):
         """
         exec('import ' + self.modelname)
         os.system('rm ' + self.modelname + '.pyc')
-        exec('reload('+self.modelname+')')
+        exec(self.modelname+' = reload('+self.modelname+')')
 
         algeb_out = np.empty((self.ode_solved.index.size, len(self.Algebraic.keys())))
                 
@@ -875,10 +871,9 @@ class odegenerator(object):
                 #                res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,))
                 #                #put output in pandas dataframe
                 #                df = pd.DataFrame(res, index=self._Time, columns = self._Variables)
-                try:
-                    self.stepfunction
+                if self._has_stepfunction:
                     res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,self.stepfunction,))
-                except:
+                else:
                     res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,))
                 #put output in pandas dataframe
                 df = pd.DataFrame(res, index=self._Time, columns = self._Variables)                
@@ -910,8 +905,11 @@ class odegenerator(object):
                                   columns = self._Variables)          
         else:
             #odeint procedure
-            if procedure == "odeint":                
-                res = spin.odeint(eval(self.modelname+'.system_with_sens'), np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,))
+            if procedure == "odeint":
+                if self._has_stepfunction:
+                    res = spin.odeint(eval(self.modelname+'.system_with_sens'), np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,self.stepfunction,))
+                else:
+                    res = spin.odeint(eval(self.modelname+'.system_with_sens'), np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,))
                 #put output in pandas dataframe
                 df = pd.DataFrame(res[:,0:len(self._Variables)], index=self._Time,columns = self._Variables)
                 analytical_sens = {}
@@ -923,10 +921,13 @@ class odegenerator(object):
             elif procedure == "ode":
                 print "going for generic methodology"
                 #ode procedure-generic
-                f = eval(self.modelname+'.system')
+                f = eval(self.modelname+'.system_with_sens')
                 r = ode(f).set_integrator('vode', method='bdf', 
                                                     with_jacobian = False)
-                r.set_initial_value(self.Initial_Conditions.values(), 0).set_f_params(self.Parameters)
+                if self._has_stepfunction:
+                    r.set_initial_value(self.Initial_Conditions.values(), 0).set_f_params(self.Parameters,self.stepfunction)                    
+                else:
+                    r.set_initial_value(self.Initial_Conditions.values(), 0).set_f_params(self.Parameters)
                 dt = 0.01
                 moutput = []
                 toutput = []
@@ -1011,7 +1012,7 @@ class odegenerator(object):
             self.Collinearity_Pairwise[variable] = x
         
         
-    def analytic_local_sensitivity(self, Sensitivity = 'CAS'):
+    def analytic_local_sensitivity(self, Sensitivity = 'CAS', procedure = 'odeint'):
         '''Calculates analytic based local sensitivity 
         
         For every parameter calculate the sensitivity of the output variables.
@@ -1031,7 +1032,7 @@ class odegenerator(object):
         '''
         self.LSA_type = Sensitivity
 
-        df, analytical_sens = self.solve_ode(with_sens = True, plotit = False)
+        df, analytical_sens = self.solve_ode(with_sens = True, plotit = False, procedure = 'odeint')
         
         if Sensitivity == 'CPRS':
             #CPRS = CAS*parameter
