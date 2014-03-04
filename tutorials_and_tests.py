@@ -134,26 +134,38 @@ from biointense import *
 #------------------------------------------------------------------------------
 #EXAMPLE OED test -> MODSIM voorbeeld
 #------------------------------------------------------------------------------
-#Parameters = {'k1':0.2980,'k2':0.3979}
-#              
-#System =    {'dBZV':'1. - k1*BZV',
-#             'dDO':'k2*11. - k2*DO - k1*BZV'}
-#                        
-#Modelname = 'Rivierlozing'
-#
-###INITIATE MODEL
-#M2 = odegenerator(System, Parameters, Modelname = Modelname)
-#M2.set_measured_states(['BZV','DO'])
-#M2.set_initial_conditions({'BZV':7.33,'DO':8.5})
-#M2.set_time({'start':0,'end':25,'nsteps':25})
-#Time2save = M2._Time.copy()
-#
-#M2.set_measured_errors({'DO':0.05, 'BZV':0.02}, method = 'relative')
-#M2.numeric_local_sensitivity(perturbation_factor=1e-5)
-##
-#M2.Qerr[0,0] = 1./(0.05**2)
-#M2.get_FIM()
+Parameters = {'k1':0.2980,'k2':0.3979}
+              
+System =    {'dBZV':'1. - k1*BZV',
+             'dDO':'k2*11. - k2*DO - k1*BZV'}
+                        
+Modelname = 'Rivierlozing'
 
+##INITIATE MODEL
+M2 = odegenerator(System, Parameters, Modelname = Modelname)
+M2.set_measured_states(['BZV','DO'])
+M2.set_initial_conditions({'BZV':7.33,'DO':8.5})
+M2.set_time({'start':0,'end':25,'nsteps':25})
+Time2save = M2._Time.copy()
+
+M2.numeric_local_sensitivity(perturbation_factor=1e-5)
+
+
+datatype1 = {'variables':['BZV','BZV','BZV', 'DO','DO'], 'time':[1,2,5,1,2], 'values': [6.1,5.8,4.1,7.8,7.4]}
+data1 = ode_measurements(datatype1)
+Modfit = ode_optimizer(M2,data1)
+
+
+res = Modfit.local_parameter_optimize(initial_parset = {'k1':0.22,'k2':0.27}, 
+                                      method = 'Nelder-Mead')
+
+#res = Modfit.local_parameter_optimize(initial_parset = {'k1':0.25}, method = 'Powell')
+#res = Modfit.local_parameter_optimize(initial_parset = {'k1':0.25,'k2':0.45}, method = 'Powell')
+fig,ax = plt.subplots(1,2, figsize=(12,8))
+Modfit.plot_spread_diagram('BZV',ax[0])
+ax[0].set_title('BZV')
+Modfit.plot_spread_diagram('DO',ax[1])
+ax[1].set_title('DO')
 
 #MEASURED DATA INPUT TYPES
 #------------------------------------------------------------------------------
@@ -200,33 +212,33 @@ from biointense import *
 #------------------------------------------------------------------------------
 ## COUPLING WITH BIO-INSPYRED GLOBAL OPTIMIZATION
 #------------------------------------------------------------------------------
-Parameters = {'k1':0.2980,'k2':0.3979}              
-System =    {'dBZV':'1. - k1*BZV',
-             'dDO':'k2*11. - k2*DO - k1*BZV'}            
-Modelname = 'Rivierlozing'
-
-##INITIATE MODEL
-M2 = odegenerator(System, Parameters, Modelname = Modelname)
-M2.set_measured_states(['BZV','DO'])
-M2.set_initial_conditions({'BZV':7.33,'DO':8.5})
-M2.set_time({'start':0,'end':25,'nsteps':250})
-##INITIATE DATA
-#datatype2 = {'time':[1,2,5,8,11], 'BZV': [6.1,5.8,4.1,4.0,3.6], 'DO': [7.8,7.4,7.45,7.9,8.3]}
-#data2 = ode_measurements(datatype2)
-data2 = M2.solve_ode(plotit=False)['DO']+0.2*np.random.uniform(-1,1,M2.solve_ode(plotit=False)['DO'].shape[0])
-data2 = ode_measurements(data2[::4])
-##INITIATE OPTIMIZATION
-Modfit = ode_optimizer(M2,data2)
-#res = Modfit.local_parameter_optimize(initial_parset = {'k1':0.25,'k2':0.45}, method = 'Powell', add_plot=False)
-#print res
-
-par1=ModPar('k1',0.0,3.0,'randomUniform')
-par2=ModPar('k2',0.0,1.0,'randomTriangular', 0.3)
-Modfit.set_fitting_par_distributions([par1,par2])
-
-final_pop,ea = Modfit.bioinspyred_optimize(initial_parset = {'k1':0.25,'k2':0.45})
-#final_pop = Modfit.bioinspyred_multioptimize(initial_parset = {'k1':0.25,'k2':0.45})
-
+#Parameters = {'k1':0.2980,'k2':0.3979}              
+#System =    {'dBZV':'1. - k1*BZV',
+#             'dDO':'k2*11. - k2*DO - k1*BZV'}            
+#Modelname = 'Rivierlozing'
+#
+###INITIATE MODEL
+#M2 = odegenerator(System, Parameters, Modelname = Modelname)
+#M2.set_measured_states(['BZV','DO'])
+#M2.set_initial_conditions({'BZV':7.33,'DO':8.5})
+#M2.set_time({'start':0,'end':25,'nsteps':250})
+###INITIATE DATA
+##datatype2 = {'time':[1,2,5,8,11], 'BZV': [6.1,5.8,4.1,4.0,3.6], 'DO': [7.8,7.4,7.45,7.9,8.3]}
+##data2 = ode_measurements(datatype2)
+#data2 = M2.solve_ode(plotit=False)['DO']+0.2*np.random.uniform(-1,1,M2.solve_ode(plotit=False)['DO'].shape[0])
+#data2 = ode_measurements(data2[::4])
+###INITIATE OPTIMIZATION
+#Modfit = ode_optimizer(M2,data2)
+##res = Modfit.local_parameter_optimize(initial_parset = {'k1':0.25,'k2':0.45}, method = 'Powell', add_plot=False)
+##print res
+#
+#par1=ModPar('k1',0.0,3.0,'randomUniform')
+#par2=ModPar('k2',0.0,1.0,'randomTriangular', 0.3)
+#Modfit.set_fitting_par_distributions([par1,par2])
+#
+#final_pop,ea = Modfit.bioinspyred_optimize(initial_parset = {'k1':0.25,'k2':0.45})
+##final_pop = Modfit.bioinspyred_multioptimize(initial_parset = {'k1':0.25,'k2':0.45})
+#
 
 #-----------------------------------------------------------------------------c
 ## EASY example

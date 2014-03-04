@@ -39,8 +39,8 @@ class ModPar(object):
     >>> 'randomUniform'
     """
     def __init__(self,name,minval,maxval,pardistribution,*kargs):
-        if not isinstance(pardistribution,str):
-            raise ValueError('Parameter name must be a string')
+        if not isinstance(pardistribution, str):
+            raise ValueError('distribution name must be a string')
         else:
             self.name=name
         if not isinstance(minval,float):

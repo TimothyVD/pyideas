@@ -671,7 +671,8 @@ class odegenerator(object):
         file.write('from numpy import *\n\n')
         
         # Write function for solving ODEs only
-        file.write('def system(ODES,t,Parameters):\n')
+        file.write('def system(t, ODES,Parameters):\n')
+        #        file.write('def system(ODES,t,Parameters):\n')
         for i in range(len(self.Parameters)):
             #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
             file.write('    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n")
@@ -767,7 +768,7 @@ class odegenerator(object):
                                  index = self.ode_solved.index)
 
     def solve_ode(self, TimeStepsDict = False, Initial_Conditions = False, 
-                  plotit = True, with_sens = False):
+                  plotit = True, with_sens = False, procedure = "ode"):
         '''Solve the differential equation
         
         Solves the ode model with the given properties and model configuration
@@ -798,26 +799,78 @@ class odegenerator(object):
         exec(self.modelname + ' = ' + 'reload('+self.modelname+')')
         	
         if with_sens == False:
-            res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,))
-            #put output in pandas dataframe
-            df = pd.DataFrame(res, index=self._Time, columns = self._Variables)
+            if procedure == "odeint":    
+                res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,))
+                #put output in pandas dataframe
+                df = pd.DataFrame(res, index=self._Time, columns = self._Variables)
+
+
+            elif procedure == "ode":
+                print "going for generic methodology"
+                #ode procedure-generic
+                #                f = eval(self.modelname+'.system')
+                print eval(self.modelname+'.system')
+                r = spin.ode(eval(self.modelname+'.system')).set_integrator('dopri5') #   method='bdf', with_jacobian = False
+                    #                                                    nsteps = 300000)
+                r.set_initial_value(self.Initial_Conditions.values(), 0).set_f_params(self.Parameters)
+                dt = 0.0001
+                moutput = []
+                toutput = []
+                while r.successful() and r.t < self._Time[-1]:
+                    r.integrate(r.t + dt)
+                    print "This integration worked well?", r.successful()
+                    #print("%g %g" % (r.t, r.y[0]))
+                    #                    print "t: ", r.t
+                    #                    print "y: ", r.y
+
+                    moutput.append(r.y)
+                    toutput.append(r.t)
+                
+                #make df
+                df = pd.DataFrame(moutput, index = toutput, 
+                                  columns = self._Variables)
+                print "df is: ", df             
         else:
-            res = spin.odeint(eval(self.modelname+'.system_with_sens'), np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,))
-            #put output in pandas dataframe
-            df = pd.DataFrame(res[:,0:len(self._Variables)], index=self._Time,columns = self._Variables)
-            analytical_sens = {}
-            for i in range(len(self._Variables)):
-                #Comment was bug!
-                #analytical_sens[self._Variables[i]] = pd.DataFrame(res[:,len(self._Variables)*(1+i):len(self._Variables)*(1+i)+len(self.Parameters)], index=self._Time,columns = self.Parameters.keys())
-                analytical_sens[self._Variables[i]] = pd.DataFrame(res[:,len(self._Variables)+len(self.Parameters)*(i):len(self._Variables)+len(self.Parameters)*(1+i)], index=self._Time,columns = self.Parameters.keys())
-           
-        #plotfunction
-        if plotit == True:
-            if len(self._Variables) == 1:
-                df.plot(subplots = False)
-            else:
-                df.plot(subplots = True)
-               
+            #odeint procedure
+            if procedure == "odeint":
+                res = spin.odeint(eval(self.modelname+'.system_with_sens'), np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,))
+
+                #put output in pandas dataframe
+                df = pd.DataFrame(res[:,0:len(self._Variables)], index=self._Time,columns = self._Variables)
+                analytical_sens = {}
+                for i in range(len(self._Variables)):
+                    #Comment was bug!
+                    #analytical_sens[self._Variables[i]] = pd.DataFrame(res[:,len(self._Variables)*(1+i):len(self._Variables)*(1+i)+len(self.Parameters)], index=self._Time,columns = self.Parameters.keys())
+                    analytical_sens[self._Variables[i]] = pd.DataFrame(res[:,len(self._Variables)+len(self.Parameters)*(i):len(self._Variables)+len(self.Parameters)*(1+i)], index=self._Time,columns = self.Parameters.keys())
+
+                #plotfunction
+                if plotit == True:
+                    if len(self._Variables) == 1:
+                        df.plot(subplots = False)
+                    else:
+                        df.plot(subplots = True)
+                
+            elif procedure == "ode":
+                print "going for generic methodology"
+                #ode procedure-generic
+                f = eval(self.modelname+'.system')
+                r = ode(f).set_integrator('vode', method='bdf', 
+                                                    with_jacobian = False)
+                r.set_initial_value(self.Initial_Conditions.values(), 0).set_f_params(self.Parameters)
+                dt = 0.01
+                moutput = []
+                toutput = []
+                while r.successful() and r.t < self._Time[-1]:
+                    r.integrate(r.t+dt)
+                    print("%g %g" % (r.t, r.y))
+                    moutput.append(r.y)
+                    toutput.append(r.t)
+                
+                #make df
+                df = pd.DataFrame(moutput, index = toutput, 
+                                  columns = self._Variables)
+                print "df is: ", df
+              
         self.ode_solved = df
         if self._has_algebraic:
             self._rerun_for_algebraic()

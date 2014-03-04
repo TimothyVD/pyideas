@@ -177,7 +177,7 @@ class ode_FIM(object):
                 
                 sensmatrix = np.zeros((nbvar,len(self.Parameters)))
                 #create sensitivity amtrix
-                for i,var in enumerate(Qerr[timestep].columns):
+                for i, var in enumerate(Qerr[timestep].columns):
                     sensmatrix[i,:] = np.array(self.sensitivities[var].xs(timestep))
     
                 #calculate matrices

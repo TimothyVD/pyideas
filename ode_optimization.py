@@ -93,6 +93,8 @@ class ode_optimizer(object):
             
         pardict = self._get_fitting_parameters()
         for i, key in enumerate(pardict):
+#            print key, i
+            
             pardict[key] = pararray[i]
         return pardict
 
@@ -107,6 +109,7 @@ class ode_optimizer(object):
         
         pararray = np.zeros(len(self._get_fitting_parameters()))
         for i, key in enumerate(pardict):
+#            print key, i
             pararray[i] = pardict[key]
         return pararray
 
@@ -143,12 +146,14 @@ class ode_optimizer(object):
         if  self._data.get_measured_times()[0] == 0.:
             self._model._Time = self._data.get_measured_times()
         else:
-            self._model._Time = np.concatenate((np.array([0.]),self._data.get_measured_times()))
+            self._model._Time = np.concatenate((np.array([0.]), 
+                                                self._data.get_measured_times()))
         self.ModelOutput = self._model.solve_ode(plotit=False)
 #        self.ModelOutput.columns = [var+'_model' for var in self.ModelOutput.columns]
         self._model.set_time(self._model._TimeDict)
         #put ModMeas in set
-        self.ModMeas = pd.concat((self.Data,self.ModelOutput), axis=1, keys=['Measured','Modelled'])        
+        self.ModMeas = pd.concat((self.Data,self.ModelOutput), axis=1, 
+                                 keys=['Measured','Modelled'])        
         return self.ModelOutput
               
     def _solve_for_visual(self, parset=None):
@@ -190,7 +195,10 @@ class ode_optimizer(object):
             resid = np.matrix(self.residuals.ix[timestep].dropna().values)
             qerr = np.matrix(self._data._Error_Covariance_Matrix[timestep])
             self.WSSE += resid * np.linalg.inv(qerr)* resid.transpose()
-        self.WSSE = np.array(self.WSSE)            
+        self.WSSE = np.array(self.WSSE)   
+        print "current WSSE is", self.WSSE
+        print "current parameters are", self._model.Parameters
+
         return self.WSSE
 
     def plot_ModMeas(self):
