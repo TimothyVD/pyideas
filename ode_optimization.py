@@ -258,6 +258,7 @@ class ode_optimizer(object):
         self._Pre_Optimize = ode_optim_saver()
         if initial_parset != None:
             #control for similarity and update the fitting pars 
+            initial_parset = collections.OrderedDict(sorted(initial_parset.items(), key=lambda t: t[0]))
             if sorted(initial_parset.keys()) != sorted(self._get_fitting_parameters().keys()):
                 print 'Fitting parameters are updated...'
                 print 'Previous set of fitting parameters: ',
@@ -294,7 +295,7 @@ class ode_optimizer(object):
         
         '''
         #first save the output with the 'old' parameters
-        #if initial parameter set given, use this, run and save   
+        #if initial parameter set given, use this, run and save 
         parray = self._pre_optimize_save(initial_parset=initial_parset)
         
         #OPTIMIZATION
