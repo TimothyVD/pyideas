@@ -10,6 +10,7 @@ import numpy as np
 from numpy import *
 from sympy import *
 import scipy.integrate as spin
+import scipy.interpolate as spint
 import sympy
 import sys
 if sys.hexversion > 0x02070000:
@@ -89,6 +90,7 @@ class odegenerator(object):
             print 'No Algebraic equations defined. Continuing...'
             self._has_algebraic = False
             
+        self._has_stepfunction = False            
              
         self._Variables = [i[1:] for i in self.System.keys()]
         
@@ -97,7 +99,7 @@ class odegenerator(object):
 
         #Sensitivity stuff
         self.LSA_type = None
-
+        
     def _reset_parameters(self, Parameters):
         '''Parameter stuff
         
@@ -166,6 +168,7 @@ class odegenerator(object):
         
         for measured in Measurable_States:
             dmeasured = 'd' + measured
+            print dmeasured
             if dmeasured in Measured_temp:
                 Measured_temp[dmeasured] = 1
                 self._MeasuredList.append(measured)
@@ -209,12 +212,9 @@ class odegenerator(object):
         '''Analytic derivation of the local sensitivities
         
         Sympy based implementation to get the analytic derivation of the
-        model sensitivities.
-        
-        Returns
-        --------
-        TODO
-        
+        model sensitivities. Algebraic variables in the ODE equations are replaced
+        by its equations to perform the analytical derivation.
+                
         Notes
         ------
         
@@ -224,59 +224,34 @@ class odegenerator(object):
         ---------
         _write_model_to_file
         
-        '''
+        '''    
         
-        if self._has_algebraic:
-            message = 'Analytic local sensitivity is not provided for \
-                        models with algebraic functions, so use the\
-                        numerical version'
-            return message
-        
-        
-        # t is always the symbol for time and is initialised here
-        t = sympy.symbols('t')        
-        
-        # Symbolify system states
-        for i in range(len(self.System)):
-            exec(self.System.keys()[i][1:]+" = sympy.symbols('"+self.System.keys()[i][1:]+"')")
-
-        # Symbolify parameters
-        for i in range(len(self.Parameters)):
-            exec(self.Parameters.keys()[i]+" = sympy.symbols('"+self.Parameters.keys()[i]+"')")
-        #TODO!
-            
-        # Symbolify algebraics
-        try:
-            self.Algebraic
-            raise Exception('Analytical sensitivity should not be used with algebraic equations (Implementation will follow)')            
-            #for i in range(len(self.Algebraic)):
-             #  exec(self.Algebraic.keys()[i]+" = sympy.symbols('"+self.Algebraic.keys()[i]+"')")
-        except AttributeError:
-            pass
-                    
-        self._system_matrix = sympy.zeros(len(self.System),1)
-        self._states_matrix = sympy.zeros(len(self._Variables),1)
-        
-        # Set up symbolic matrix of ODE system and states
-        for i in range(len(self.System)):
-            self._system_matrix[i,0] = eval(self.System.values()[i])
-            self._states_matrix[i,0] = eval(self._Variables[i])
-        
-        self._parameter_matrix = sympy.zeros(len(self.Parameters),1)
-        
+        # Set up symbolic matrix of system states
+        system_matrix = sympy.Matrix(sympy.sympify(self.System.values()))
+        # Set up symbolic matrix of variables
+        states_matrix = sympy.Matrix(sympy.sympify(self._Variables))
         # Set up symbolic matrix of parameters
-        for i in range(len(self.Parameters)):
-            self._parameter_matrix[i,0] = eval(self.Parameters.keys()[i])
+        parameter_matrix = sympy.Matrix(sympy.sympify(self.Parameters.keys()))
+        # Set up symbolic matrix of algebraic
+        algebraic_matrix = sympy.Matrix(sympy.sympify(self.Algebraic.keys()))
         
+        # Replace algebraic stuff in system_matrix to perform LSA
+        if self._has_algebraic:
+            h = 0
+            while (np.sum(np.abs(system_matrix.jacobian(algebraic_matrix))) != 0) and (h <= len(self.Algebraic.keys())):
+                for i, alg in enumerate(self.Algebraic.keys()):
+                    system_matrix = system_matrix.replace(alg, self.Algebraic.values()[i])
+                h += 1
+                         
         # Initialize and calculate matrices for analytic sensitivity calculation
         # dfdtheta
-        dfdtheta = self._system_matrix.jacobian(self._parameter_matrix)
+        dfdtheta = system_matrix.jacobian(parameter_matrix)
         self.dfdtheta = np.array(dfdtheta)
         # dfdx
-        dfdx = self._system_matrix.jacobian(self._states_matrix)
+        dfdx = system_matrix.jacobian(states_matrix)
         self.dfdx = np.array(dfdx)
         # dxdtheta
-        dxdtheta = np.zeros([len(self._states_matrix),len(self.Parameters)])
+        dxdtheta = np.zeros([len(states_matrix),len(self.Parameters)])
         self.dxdtheta = np.asmatrix(dxdtheta)
         
 #        #dgdtheta
@@ -331,6 +306,65 @@ class odegenerator(object):
         else:
             self.set_time(Timesteps)               
             print 'Updated initial conditions are used'
+              
+    def makeStepFunction(self,array_list, accuracy=0.001):
+        '''makeStepFunction
+        
+        A function for making multiple steps or pulses, the function can be used
+        as an Algebraic equation. Just call stepfunction(t) for using the stepfunction 
+        functionality. At this moment only one stepfunction can be used at a time, but
+        can be included in multiple variables.
+        
+        Parameters
+        -----------
+        array_list: list
+            Contains list of arrays with 2 columns and an undefined number of rows. 
+            In the first column of the individual arrays the time at which a step
+            is made. In the second column the value the function should go to.
+        accuracy: float
+            What is the maximal timestep for going from one value to another. By 
+            increasing this value, less problems are expected with the solver. However
+            accuracy will be decreases. The standard value is 0.001, but depending 
+            on the system dynamics this can be altered.
+
+        Returns
+        -------
+        stepfunction: function
+            Function which automatically interpolates in between the steps which
+            were given. Can also be called as self.stepfunction
+       
+        '''
+        stepfunction = []        
+        
+        for n,array in enumerate(array_list):
+            if array.shape[1] != 2:
+                raise Exception("The input array should have 2 columns!")
+            array_len = array.shape[0]
+            x = np.zeros(2*array_len)
+            y = np.zeros(2*array_len)
+            if array[0,0] != 0:
+                raise Exception("The first value of the stepfunction should be given at time 0!")
+            x[0] = array[0,0]
+            y[0] = array[0,1]
+            for i in range(array_len-1):
+                x[2*i+1] = array[i+1,0]-accuracy/2
+                y[2*i+1] = array[i,1]
+                x[2*(i+1)] = array[i+1,0]+accuracy/2
+                y[2*(i+1)] = array[i+1,1]
+            x[-1] = 1e15
+            y[-1] = array[-1,1]
+            
+            if n is 0:
+                stepfunction = [spint.interp1d(x, y)]
+            else:
+                stepfunction.append(spint.interp1d(x, y))
+                
+        self.stepfunction = stepfunction
+        self._write_model_to_file()
+        
+        self._has_stepfunction = True  
+        
+        return stepfunction
 
     def taylor_series_approach(self, iterations, Measurable_States = False,
                              Initial_Conditions = False):
@@ -671,15 +705,25 @@ class odegenerator(object):
         file.write('from numpy import *\n\n')
         
         # Write function for solving ODEs only
-        file.write('def system(t, ODES,Parameters):\n')
-        #        file.write('def system(ODES,t,Parameters):\n')
+        try:
+            self.stepfunction
+            file.write('def system(ODES,t,Parameters,stepfunction):\n')
+        except:
+            file.write('def system(ODES,t,Parameters):\n')
         for i in range(len(self.Parameters)):
             #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
             file.write('    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n")
         file.write('\n')
         for i in range(len(self.System)):
             file.write('    '+str(self.System.keys()[i])[1:] + ' = ODES['+str(i)+']\n')
-        file.write('\n')   
+        file.write('\n')  
+        try:
+            self.stepfunction
+            for i, step in enumerate(self.stepfunction):
+                file.write('    step'+str(i) + ' = stepfunction['+str(i)+'](t)'+'\n')
+            file.write('\n')
+        except AttributeError:
+            pass
         try:
             self.Algebraic
             for i in range(len(self.Algebraic)):
@@ -693,7 +737,11 @@ class odegenerator(object):
         file.write('    return '+str(self.System.keys()).replace("'","")+'\n\n\n')
         
         # Write function for solving ODEs of both system and analytical sensitivities
-        file.write('def system_with_sens(ODES,t,Parameters):\n')
+        try:
+            self.stepfunction
+            file.write('def system_with_sens(ODES,t,Parameters,stepfunction):\n')
+        except:
+            file.write('def system_with_sens(ODES,t,Parameters):\n')
         for i in range(len(self.Parameters)):
             #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
             file.write('    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n")
@@ -701,6 +749,13 @@ class odegenerator(object):
         for i in range(len(self.System)):
             file.write('    '+str(self.System.keys()[i])[1:] + ' = ODES['+str(i)+']\n')
         file.write('\n')
+        try:
+            self.stepfunction
+            for i, step in enumerate(self.stepfunction):
+                file.write('    step'+str(i) + ' = stepfunction['+str(i)+'](t)'+'\n')
+            file.write('\n')
+        except AttributeError:
+            pass
         try:
             self.Algebraic
             for i in range(len(self.Algebraic)):
@@ -711,29 +766,32 @@ class odegenerator(object):
         for i in range(len(self.System)):
             file.write('    '+str(self.System.keys()[i]) + ' = ' + str(self.System.values()[i])+'\n')
         
-        if not self._has_algebraic:
-            print 'Sensitivities are printed to the file....'
-            file.write('\n    #Sensitivities\n\n')
-            
-            # Calculate number of states by using inputs
-            file.write('    state_len = len(ODES)/(len(Parameters)+1)\n')
-            # Reshape ODES input to array with right dimensions in order to perform matrix multiplication
-            file.write('    dxdtheta = array(ODES[state_len:].reshape(state_len,len(Parameters)))\n\n')
-            
-            # Write dfdtheta as symbolic array
-            file.write('    dfdtheta = ')
-            pprint.pprint(self.dfdtheta,file)
-            # Write dfdx as symbolic array
-            file.write('\n    dfdx = ')
-            pprint.pprint(self.dfdx,file)
-            # Calculate derivative in order to integrate this
-            file.write('\n    dxdtheta = dfdtheta + dot(dfdx,dxdtheta)\n')
-    
-            file.write('    return '+str(self.System.keys()).replace("'","")+'+ list(dxdtheta.reshape(-1,))'+'\n\n\n')
+        print 'Sensitivities are printed to the file....'
+        file.write('\n    #Sensitivities\n\n')
+        
+        # Calculate number of states by using inputs
+        file.write('    state_len = len(ODES)/(len(Parameters)+1)\n')
+        # Reshape ODES input to array with right dimensions in order to perform matrix multiplication
+        file.write('    dxdtheta = array(ODES[state_len:].reshape(state_len,len(Parameters)))\n\n')
+        
+        # Write dfdtheta as symbolic array
+        file.write('    dfdtheta = ')
+        pprint.pprint(self.dfdtheta,file)
+        # Write dfdx as symbolic array
+        file.write('\n    dfdx = ')
+        pprint.pprint(self.dfdx,file)
+        # Calculate derivative in order to integrate this
+        file.write('\n    dxdtheta = dfdtheta + dot(dfdx,dxdtheta)\n')
+
+        file.write('    return '+str(self.System.keys()).replace("'","")+'+ list(dxdtheta.reshape(-1,))'+'\n\n\n')
         
         try:
             self.Algebraic
-            file.write('def Algebraic_outputs(ODES,t,Parameters):\n')
+            try:
+                self.stepfunction
+                file.write('\ndef Algebraic_outputs(ODES,t,Parameters, stepfunction):\n')
+            except:
+                file.write('\ndef Algebraic_outputs(ODES,t,Parameters):\n')
             for i in range(len(self.Parameters)):
                 #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
                 file.write('    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n")
@@ -741,6 +799,13 @@ class odegenerator(object):
             for i in range(len(self.System)):
                 file.write('    '+str(self.System.keys()[i])[1:] + ' = ODES['+str(i)+']\n')
             file.write('\n')
+            try:
+                self.stepfunction
+                for i, step in enumerate(self.stepfunction):
+                    file.write('    step'+str(i) + ' = stepfunction['+str(i)+'](t)'+'\n')
+                file.write('\n')
+            except AttributeError:
+                pass
             if self.Algebraic != None:
                 for i in range(len(self.Algebraic)):
                     file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
@@ -756,19 +821,26 @@ class odegenerator(object):
     def _rerun_for_algebraic(self):
         """
         """
-        exec('import '+self.modelname)
+        exec('import ' + self.modelname)
+        os.system('rm ' + self.modelname + '.pyc')
+        exec('reload('+self.modelname+')')
 
         algeb_out = np.empty((self.ode_solved.index.size, len(self.Algebraic.keys())))
-
-        for i, timestep in enumerate(self.ode_solved.index):
-            temp = eval(self.modelname+'.Algebraic_outputs'+'(self.ode_solved.ix[timestep], timestep, self.Parameters)')
-            algeb_out[i,:] = temp[:]
+                
+        if self._has_stepfunction:
+            for i, timestep in enumerate(self.ode_solved.index):
+                temp = eval(self.modelname+'.Algebraic_outputs'+'(self.ode_solved.ix[timestep], timestep, self.Parameters, self.stepfunction)')
+                algeb_out[i,:] = temp[:]
+        else:
+            for i, timestep in enumerate(self.ode_solved.index):
+                temp = eval(self.modelname+'.Algebraic_outputs'+'(self.ode_solved.ix[timestep], timestep, self.Parameters)')
+                algeb_out[i,:] = temp[:]
      
         self.algeb_solved = pd.DataFrame(algeb_out, columns=self.Algebraic.keys(), 
                                  index = self.ode_solved.index)
 
     def solve_ode(self, TimeStepsDict = False, Initial_Conditions = False, 
-                  plotit = True, with_sens = False, procedure = "ode"):
+                  plotit = True, with_sens = False, procedure = "odeint"):
         '''Solve the differential equation
         
         Solves the ode model with the given properties and model configuration
@@ -790,21 +862,28 @@ class odegenerator(object):
         set_initial_conditions, set_time
                 
         '''
-#        print 'Current parameters', self.Parameters.values()
+        #        print 'Current parameters', self.Parameters.values()
         self._check_for_time(TimeStepsDict)
         self._check_for_init(Initial_Conditions)        
         
-        #        import MODEL_Halfreaction
-        exec('import '+self.modelname)
-        exec(self.modelname + ' = ' + 'reload('+self.modelname+')')
+        exec('import ' + self.modelname)
+        os.system('rm ' + self.modelname + '.pyc')
+        exec('reload('+self.modelname+')')
         	
         if with_sens == False:
             if procedure == "odeint":    
-                res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,))
+                #                res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,))
+                #                #put output in pandas dataframe
+                #                df = pd.DataFrame(res, index=self._Time, columns = self._Variables)
+                try:
+                    self.stepfunction
+                    res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,self.stepfunction,))
+                except:
+                    res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,))
                 #put output in pandas dataframe
-                df = pd.DataFrame(res, index=self._Time, columns = self._Variables)
-
-
+                df = pd.DataFrame(res, index=self._Time, columns = self._Variables)                
+    
+    
             elif procedure == "ode":
                 print "going for generic methodology"
                 #ode procedure-generic
@@ -813,7 +892,7 @@ class odegenerator(object):
                 r = spin.ode(eval(self.modelname+'.system')).set_integrator('dopri5') #   method='bdf', with_jacobian = False
                     #                                                    nsteps = 300000)
                 r.set_initial_value(self.Initial_Conditions.values(), 0).set_f_params(self.Parameters)
-                dt = 0.0001
+                dt = 0.0001 #needs genereic version
                 moutput = []
                 toutput = []
                 while r.successful() and r.t < self._Time[-1]:
@@ -822,19 +901,17 @@ class odegenerator(object):
                     #print("%g %g" % (r.t, r.y[0]))
                     #                    print "t: ", r.t
                     #                    print "y: ", r.y
-
+    
                     moutput.append(r.y)
                     toutput.append(r.t)
                 
                 #make df
                 df = pd.DataFrame(moutput, index = toutput, 
-                                  columns = self._Variables)
-                print "df is: ", df             
+                                  columns = self._Variables)          
         else:
             #odeint procedure
-            if procedure == "odeint":
+            if procedure == "odeint":                
                 res = spin.odeint(eval(self.modelname+'.system_with_sens'), np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,))
-
                 #put output in pandas dataframe
                 df = pd.DataFrame(res[:,0:len(self._Variables)], index=self._Time,columns = self._Variables)
                 analytical_sens = {}
@@ -842,13 +919,6 @@ class odegenerator(object):
                     #Comment was bug!
                     #analytical_sens[self._Variables[i]] = pd.DataFrame(res[:,len(self._Variables)*(1+i):len(self._Variables)*(1+i)+len(self.Parameters)], index=self._Time,columns = self.Parameters.keys())
                     analytical_sens[self._Variables[i]] = pd.DataFrame(res[:,len(self._Variables)+len(self.Parameters)*(i):len(self._Variables)+len(self.Parameters)*(1+i)], index=self._Time,columns = self.Parameters.keys())
-
-                #plotfunction
-                if plotit == True:
-                    if len(self._Variables) == 1:
-                        df.plot(subplots = False)
-                    else:
-                        df.plot(subplots = True)
                 
             elif procedure == "ode":
                 print "going for generic methodology"
@@ -869,8 +939,15 @@ class odegenerator(object):
                 #make df
                 df = pd.DataFrame(moutput, index = toutput, 
                                   columns = self._Variables)
-                print "df is: ", df
-              
+                #                print "df is: ", df
+
+        #plotfunction
+        if plotit == True:
+            if len(self._Variables) == 1:
+                df.plot(subplots = False)
+            else:
+                df.plot(subplots = True)
+               
         self.ode_solved = df
         if self._has_algebraic:
             self._rerun_for_algebraic()
@@ -975,7 +1052,7 @@ class odegenerator(object):
             else:
                 print 'ANASENS: Using EVOLUTION of output values'
                 for i in self._Variables:
-                     analytical_sens[i] = analytical_sens[i]*self.Parameters.values()/df[i]
+                     analytical_sens[i] = analytical_sens[i]*self.Parameters.values()/np.tile(np.array(df[i]),(len(self._Variables),1)).T
         elif Sensitivity != 'CAS':
             self.LSA_type = None
             raise Exception('You have to choose one of the sensitivity\
