@@ -1391,13 +1391,9 @@ class odegenerator(object):
                   'dEnSA':'k1*En*SA - k2*EnSA - kcat*EnSA',
                   'dSA':'-k1*En*SA + k2*EnSA',
                   'dPP':'kcat*EnSA'}
-
         >>> Parameters = {'k1':0,'k2':0,'kcat':0}
-                      
         >>> Modelname = 'QSSA_MM'
-                      
         >>> M1 = odegenerator(System, Parameters, Modelname = Modelname)
-        
         >>> M1.makeQSSA(enzyme = 'En', variable = 'PP')        
         '''
         
