@@ -19,9 +19,9 @@ class odemaker(object):
     
     Examples
     ----------
-    >>>input_list=[['SA + En <=> EnA','k1','k2'],
-                ['EnA ==> En + PP','kcat']]
-    >>> MM = odemaker(string_list, Modelname = 'Michaelis_Menten')
+    >>> input_list=[['SA + En <=> EnA','k1','k2'],
+                    ['EnA ==> En + PP','kcat']]
+    >>> MM = odemaker(input_list, Modelname = 'Michaelis_Menten')
     >>> MM.system
     >>> MM.system_list
     >>> MM.parameters

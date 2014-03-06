@@ -47,18 +47,18 @@ class odegenerator(object):
     
     Examples
     ----------
-    >>> Parameters = {'k1':1/10,'k1m':1/20,
-              'k2':1/20,'k2m':1/20,
-              'k3':1/200,'k3m':1/175,
-              'k4':1/200,'k4m':1/165}
-    >>> System =    {'dEn':'k1m*Es*PP + k4*EP + k2*Es*SB - k1*En*SA - k4*En*PP - k2m*En*PQ',
-                 'dEs':'- k1m*Es*PP + k3*EsQ - k2*Es*SB + k1*En*SA - k3*Es + k2m*En*PQ',
-                 'dSA':'- k1*En*SA + k1m*Es*PP',
-                 'dSB':'- k2*Es*SB + k2m*En*PQ',
-                 'dPP':'k1*En*SA - k1m*Es*PP - k4*En*PP + k4m*EP',
-                 'dPQ':'k2*En*SB - k2m*En*PQ - k3*Es*PQ + k3m*EsQ',
-                 'dEsQ':'k3*Es*PQ - k3m*EsQ',
-                 'dEP':'k4*En*PP - k4m*EP'}                            
+    >>> Parameters = {'k1':1/10, 'k1m':1/20,
+                      'k2':1/20, 'k2m':1/20,
+                      'k3':1/200,'k3m':1/175,
+                      'k4':1/200,'k4m':1/165}
+    >>> System = {'dEn':'k1m*Es*PP + k4*EP + k2*Es*SB - k1*En*SA - k4*En*PP - k2m*En*PQ',
+                  'dEs':'- k1m*Es*PP + k3*EsQ - k2*Es*SB + k1*En*SA - k3*Es + k2m*En*PQ',
+                  'dSA':'- k1*En*SA + k1m*Es*PP',
+                  'dSB':'- k2*Es*SB + k2m*En*PQ',
+                  'dPP':'k1*En*SA - k1m*Es*PP - k4*En*PP + k4m*EP',
+                  'dPQ':'k2*En*SB - k2m*En*PQ - k3*Es*PQ + k3m*EsQ',
+                  'dEsQ':'k3*Es*PQ - k3m*EsQ',
+                  'dEP':'k4*En*PP - k4m*EP'}                            
     >>> Modelname = 'MODEL_Halfreaction'
     >>> #INITIATE MODEL
     >>> M1 = odegenerator(System, Parameters, Modelname = Modelname)

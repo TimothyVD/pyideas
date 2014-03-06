@@ -282,7 +282,7 @@ class ode_FIM(object):
                           'D': self.D_criterium(), 'E':self.E_criterium(), 'modE':self.modE_criterium()}
         return self._all_crit
         
-    def get_correlations(self):
+    def get_parameter_correlation(self):
         '''Calculate correlations between parameters
             
         Returns
@@ -308,7 +308,7 @@ class ode_FIM(object):
         return R
         
         
-    def get_confidence_intervals(self, alpha = 0.95):
+    def get_parameter_confidence(self, alpha = 0.95):
         '''Calculate confidence intervals for all parameters
         
         Parameters
