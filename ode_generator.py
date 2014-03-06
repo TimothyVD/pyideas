@@ -232,11 +232,12 @@ class odegenerator(object):
         states_matrix = sympy.Matrix(sympy.sympify(self._Variables))
         # Set up symbolic matrix of parameters
         parameter_matrix = sympy.Matrix(sympy.sympify(self.Parameters.keys()))
-        # Set up symbolic matrix of algebraic
-        algebraic_matrix = sympy.Matrix(sympy.sympify(self.Algebraic.keys()))
         
         # Replace algebraic stuff in system_matrix to perform LSA
         if self._has_algebraic:
+            # Set up symbolic matrix of algebraic
+            algebraic_matrix = sympy.Matrix(sympy.sympify(self.Algebraic.keys()))
+            
             h = 0
             while (np.sum(np.abs(system_matrix.jacobian(algebraic_matrix))) != 0) and (h <= len(self.Algebraic.keys())):
                 for i, alg in enumerate(self.Algebraic.keys()):
@@ -1301,6 +1302,319 @@ class odegenerator(object):
         ax1.xaxis.set_ticks_position('top')
         ax1.yaxis.set_ticks_position('left')
         return ax1
+        
+    def _getCoefficients(self, enzyme):
+        '''Filter enzyme equations and forms out of ODE system and convert 
+            the filtered system to its canonical form.
+        
+        Parameters
+        -----------
+        enzyme : string
+            All enzyme forms have to start with the same letters, e.g. 'En' or
+            'E_'. This allows the algorithm to select the enzyme forms.
+
+        Returns
+        ---------
+        coeff_matrix : sympy Matrix
+            Contains the coefficients of the canonical system of enzyme_equations.
+        enzyme_forms : sympy Matrix
+            Contains all enzyme forms which are present in the system.
+        enzyme_equations: sympy Matrix
+            Contains the corresponding rate equation of the different enzyme
+            forms.
+        
+        Notes
+        ------
+        The conncection between the three returns is the matrix multiplication:
+        coeff_matrix*enzyme_forms = enzyme_equations
+        
+        '''
+        
+        enzyme_forms = []
+        
+        for var in self._Variables:
+            if var.startswith(enzyme):
+                enzyme_forms.append(var)
+
+        # Set up symbolic matrix of enzyme states
+        enzyme_equations = sympy.Matrix(sympy.sympify([self.System['d'+i] for i in enzyme_forms]))       
+        # Set up symbolic matrix of enzymes
+        enzyme_forms = sympy.Matrix(sympy.sympify(enzyme_forms))
+
+        coeff_matrix = sympy.zeros(len(enzyme_equations),len(enzyme_forms))        
+        
+        for i,sys in enumerate(enzyme_equations):
+            for j,state in enumerate(enzyme_forms):
+                coeff_matrix[i,j] = sys.coeff(state)
+                
+        return coeff_matrix, enzyme_forms, enzyme_equations      
+        
+    def makeQSSA(self, enzyme = 'En' , variable = 'PP'):
+        '''Calculate quasi steady-state equation out of ODE system 
+        
+        This function calculates the quasi steady-state equation for the 
+        variable of interest
+        
+        Parameters
+        -----------
+        enzyme : string
+            All enzyme forms have to start with the same letters, e.g. 'En' or
+            'E_'. This allows the algorithm to select the enzyme forms, otherwise
+            a reduction is not possible.
+        variable: string
+            Which rate equation has to be used to replace the enzyme forms with
+            the QSSA.
+
+        Returns
+        ---------
+        QSSA_var : sympy equation
+            Symbolic sympy equation of variable which obeys the QSSA.
+            
+        QSSA_enz : sympy equation
+            Symbolic sympy equation of all enzyme forms which obeys the QSSA.
+        
+        Notes
+        ------
+        The idea for the calculations is based on [1]_, where the system is
+        first transformed in its canonical form.
+        
+        References
+        -----------
+        .. [1] Ishikawa, H., Maeda, T., Hikita, H., Miyatake, K., The 
+            computerized derivation of rate equations for enzyme reactions on 
+            the basis of the pseudo-steady-state assumption and the 
+            rapid-equilibrium assumption (1988), Biochem J., 251, 175-181
+        
+        Examples
+        ---------
+        >>> System = {'dEn':'-k1*En*SA + k2*EnSA + kcat*EnSA',
+                  'dEnSA':'k1*En*SA - k2*EnSA - kcat*EnSA',
+                  'dSA':'-k1*En*SA + k2*EnSA',
+                  'dPP':'kcat*EnSA'}
+
+        >>> Parameters = {'k1':0,'k2':0,'kcat':0}
+                      
+        >>> Modelname = 'QSSA_MM'
+                      
+        >>> M1 = odegenerator(System, Parameters, Modelname = Modelname)
+        
+        >>> M1.makeQSSA(enzyme = 'En', variable = 'PP')        
+        '''
+        
+        # Run _getCoefficients to get filtered rate equations
+        coeff_matrix, enzyme_forms, enzyme_equations = self._getCoefficients(enzyme)
+        
+        # Add row with ones to set the sum of all enzymes equal to En0
+        coeff_matrix = coeff_matrix.col_join(sympy.ones([1,len(enzyme_forms)]))      
+        
+        # Make row matrix with zeros (QSSA!), but replace last element with
+        # En0 for fixing total som of enzymes
+        QSSA_matrix = sympy.zeros([coeff_matrix.shape[0],1])
+        QSSA_matrix[-1] = sympy.sympify('En0')
+        
+        # Add column with outputs to coeff_matrix
+        linear_system = coeff_matrix.row_join(QSSA_matrix)
+
+        # Find QSSE by using linear solver (throw away one line (system is closed!))
+        QSSE_enz = self._solve_linear_system(linear_system[1:,:], list(enzyme_forms))   
+        
+        # Replace enzyme forms by its QSSE in rate equation of variable of interest
+        QSSE_var = sympy.sympify(self.System['d' + variable])
+        for enz in enzyme_forms:
+            QSSE_var = QSSE_var.replace(enz,QSSE_enz[enz])
+        
+        # To simplify output expand all terms (=remove brackets) and afterwards
+        # simplify the equation
+        QSSE_var = sympy.simplify(sympy.expand(QSSE_var))
+        
+        self.QSSE_var = QSSE_var
+        self.QSSE_enz = QSSE_enz
+        
+        return QSSE_var, QSSE_enz
+        
+    def _solve_linear_system(self, system, symbols, **flags):
+        r"""
+        Solve system of N linear equations with M variables, which means
+        both under- and overdetermined systems are supported. The possible
+        number of solutions is zero, one or infinite. Respectively, this
+        procedure will return None or a dictionary with solutions. In the
+        case of underdetermined systems, all arbitrary parameters are skipped.
+        This may cause a situation in which an empty dictionary is returned.
+        In that case, all symbols can be assigned arbitrary values.
+    
+        Input to this functions is a Nx(M+1) matrix, which means it has
+        to be in augmented form. If you prefer to enter N equations and M
+        unknowns then use `solve(Neqs, *Msymbols)` instead. Note: a local
+        copy of the matrix is made by this routine so the matrix that is
+        passed will not be modified.
+    
+        The algorithm used here is fraction-free Gaussian elimination,
+        which results, after elimination, in an upper-triangular matrix.
+        Then solutions are found using back-substitution. This approach
+        is more efficient and compact than the Gauss-Jordan method.
+    
+        >>> from sympy import Matrix, solve_linear_system
+        >>> from sympy.abc import x, y
+    
+        Solve the following system::
+    
+               x + 4 y ==  2
+            -2 x +   y == 14
+    
+        >>> system = Matrix(( (1, 4, 2), (-2, 1, 14)))
+        >>> solve_linear_system(system, x, y)
+        {x: -6, y: 2}
+    
+        A degenerate system returns an empty dictionary.
+    
+        >>> system = Matrix(( (0,0,0), (0,0,0) ))
+        >>> solve_linear_system(system, x, y)
+        {}
+    
+        """
+        matrix = system[:, :]
+        syms = symbols
+        i, m = 0, matrix.cols - 1  # don't count augmentation
+    
+        while i < matrix.rows:
+            if i == m:
+                # an overdetermined system
+                if any(matrix[i:, m]):
+                    return None   # no solutions
+                else:
+                    # remove trailing rows
+                    matrix = matrix[:i, :]
+                    break
+    
+            if not matrix[i, i]:
+                # there is no pivot in current column
+                # so try to find one in other columns
+                for k in xrange(i + 1, m):
+                    if matrix[i, k]:
+                        break
+                else:
+                    if matrix[i, m]:
+                        # we need to know if this is always zero or not. We
+                        # assume that if there are free symbols that it is not
+                        # identically zero (or that there is more than one way
+                        # to make this zero. Otherwise, if there are none, this
+                        # is a constant and we assume that it does not simplify
+                        # to zero XXX are there better ways to test this?
+                        if not matrix[i, m].free_symbols:
+                            return None  # no solution
+    
+                        # zero row with non-zero rhs can only be accepted
+                        # if there is another equivalent row, so look for
+                        # them and delete them
+                        nrows = matrix.rows
+                        rowi = matrix.row(i)
+                        ip = None
+                        j = i + 1
+                        while j < matrix.rows:
+                            # do we need to see if the rhs of j
+                            # is a constant multiple of i's rhs?
+                            rowj = matrix.row(j)
+                            if rowj == rowi:
+                                matrix.row_del(j)
+                            elif rowj[:-1] == rowi[:-1]:
+                                if ip is None:
+                                    _, ip = rowi[-1].as_content_primitive()
+                                _, jp = rowj[-1].as_content_primitive()
+                                if not (simplify(jp - ip) or simplify(jp + ip)):
+                                    matrix.row_del(j)
+    
+                            j += 1
+    
+                        if nrows == matrix.rows:
+                            # no solution
+                            return None
+                    # zero row or was a linear combination of
+                    # other rows or was a row with a symbolic
+                    # expression that matched other rows, e.g. [0, 0, x - y]
+                    # so now we can safely skip it
+                    matrix.row_del(i)
+                    if not matrix:
+                        # every choice of variable values is a solution
+                        # so we return an empty dict instead of None
+                        return dict()
+                    continue
+    
+                # we want to change the order of colums so
+                # the order of variables must also change
+                syms[i], syms[k] = syms[k], syms[i]
+                matrix.col_swap(i, k)
+    
+            pivot_inv = S.One/matrix[i, i]
+    
+            # divide all elements in the current row by the pivot
+            matrix.row_op(i, lambda x, _: x * pivot_inv)
+    
+            for k in xrange(i + 1, matrix.rows):
+                if matrix[k, i]:
+                    coeff = matrix[k, i]
+    
+                    # subtract from the current row the row containing
+                    # pivot and multiplied by extracted coefficient
+                    matrix.row_op(k, lambda x, j: simplify(x - matrix[i, j]*coeff))
+    
+            i += 1
+    
+        # if there weren't any problems, augmented matrix is now
+        # in row-echelon form so we can check how many solutions
+        # there are and extract them using back substitution
+    
+        do_simplify = flags.get('simplify', True)
+    
+        if len(syms) == matrix.rows:
+            # this system is Cramer equivalent so there is
+            # exactly one solution to this system of equations
+            k, solutions = i - 1, {}
+    
+            while k >= 0:
+                content = matrix[k, m]
+    
+                # run back-substitution for variables
+                for j in xrange(k + 1, m):
+                    content -= matrix[k, j]*solutions[syms[j]]
+    
+                if do_simplify:
+                    solutions[syms[k]] = simplify(content)
+                else:
+                    solutions[syms[k]] = content
+    
+                k -= 1
+    
+            return solutions
+        elif len(syms) > matrix.rows:
+            # this system will have infinite number of solutions
+            # dependent on exactly len(syms) - i parameters
+            k, solutions = i - 1, {}
+    
+            while k >= 0:
+                content = matrix[k, m]
+    
+                # run back-substitution for variables
+                for j in xrange(k + 1, i):
+                    content -= matrix[k, j]*solutions[syms[j]]
+    
+                # run back-substitution for parameters
+                for j in xrange(i, m):
+                    content -= matrix[k, j]*syms[j]
+    
+                if do_simplify:
+                    solutions[syms[k]] = simplify(content)
+                else:
+                    solutions[syms[k]] = content
+    
+                k -= 1
+    
+            return solutions
+        else:
+            return []   # no solutions
+        
+        
+        
+        
             
 
         
