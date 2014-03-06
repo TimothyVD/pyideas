@@ -6,6 +6,7 @@ pySTAN: python STructure Analyst
 E-mail: stvhoey.vanhoey@ugent.be
 """
 
+from ode_maker import odemaker
 from ode_generator import odegenerator
 from optimalexperimentaldesign import *
 from ode_optimization import *
