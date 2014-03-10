@@ -706,9 +706,9 @@ class odegenerator(object):
         
         # Write function for solving ODEs only
         if self._has_stepfunction:
-            file.write('def system(ODES,t,Parameters,stepfunction):\n')
+            file.write('def system(t,ODES,Parameters,stepfunction):\n')
         else:
-            file.write('def system(ODES,t,Parameters):\n')
+            file.write('def system(t,ODES,Parameters):\n')
         for i in range(len(self.Parameters)):
             #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
             file.write('    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n")
@@ -837,7 +837,7 @@ class odegenerator(object):
                                  index = self.ode_solved.index)
 
     def solve_ode(self, TimeStepsDict = False, Initial_Conditions = False, 
-                  plotit = True, with_sens = False, procedure = "odeint"):
+                  plotit = True, with_sens = False, procedure = "ode"):
         '''Solve the differential equation
         
         Solves the ode model with the given properties and model configuration
@@ -1425,9 +1425,7 @@ class odegenerator(object):
         
         self.QSSE_var = QSSE_var
         self.QSSE_enz = QSSE_enz
-        
-        return QSSE_var, QSSE_enz
-        
+               
     def _solve_linear_system(self, system, symbols, **flags):
         r"""
         Solve system of N linear equations with M variables, which means
