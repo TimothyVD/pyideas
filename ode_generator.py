@@ -95,7 +95,10 @@ class odegenerator(object):
         self._Variables = [i[1:] for i in self.System.keys()]
         
         self._analytic_local_sensitivity()
-        self._write_model_to_file()
+        #self._write_model_to_file()
+        
+        self._wrote_model_to_file = False
+        self._ode_procedure = "ode"
 
         #Sensitivity stuff
         self.LSA_type = None
@@ -362,7 +365,7 @@ class odegenerator(object):
                 
         self.stepfunction = stepfunction
         self._has_stepfunction = True  
-        self._write_model_to_file()
+        #self._write_model_to_file()
                
         return stepfunction
 
@@ -676,7 +679,7 @@ class odegenerator(object):
         
         return H1,H2
 
-    def _write_model_to_file(self):
+    def _write_model_to_file(self, procedure = 'ode'):
         '''Write derivative of model as definition in file
         
         Writes a file with a derivative definition to run the model and
@@ -706,9 +709,15 @@ class odegenerator(object):
         
         # Write function for solving ODEs only
         if self._has_stepfunction:
-            file.write('def system(t,ODES,Parameters,stepfunction):\n')
+            if self._ode_procedure == "ode":
+                file.write('def system(t,ODES,Parameters,stepfunction):\n')
+            else:
+                file.write('def system(ODES,t,Parameters,stepfunction):\n')
         else:
-            file.write('def system(t,ODES,Parameters):\n')
+            if self._ode_procedure == "ode":
+                file.write('def system(t,ODES,Parameters):\n')
+            else:
+                file.write('def system(ODES,t,Parameters):\n')
         for i in range(len(self.Parameters)):
             #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
             file.write('    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n")
@@ -737,9 +746,15 @@ class odegenerator(object):
         
         # Write function for solving ODEs of both system and analytical sensitivities
         if self._has_stepfunction:
-            file.write('def system_with_sens(ODES,t,Parameters,stepfunction):\n')
+            if self._ode_procedure == "ode":
+                file.write('def system_with_sens(t,ODES,Parameters,stepfunction):\n')
+            else:
+                file.write('def system_with_sens(ODES,t,Parameters,stepfunction):\n')
         else:
-            file.write('def system_with_sens(ODES,t,Parameters):\n')
+            if self._ode_procedure == "ode":
+                file.write('def system_with_sens(t,ODES,Parameters):\n')
+            else:
+                file.write('def system_with_sens(ODES,t,Parameters):\n')
         for i in range(len(self.Parameters)):
             #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
             file.write('    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n")
@@ -815,11 +830,11 @@ class odegenerator(object):
         print '...done!'
 
 
-    def _rerun_for_algebraic(self):
+    def rerun_for_algebraic(self):
         """
         """
+        os.remove(self.modelname + '.pyc')
         exec('import ' + self.modelname)
-        os.system('rm ' + self.modelname + '.pyc')
         exec(self.modelname+' = reload('+self.modelname+')')
 
         algeb_out = np.empty((self.ode_solved.index.size, len(self.Algebraic.keys())))
@@ -861,17 +876,26 @@ class odegenerator(object):
         '''
         #        print 'Current parameters', self.Parameters.values()
         self._check_for_time(TimeStepsDict)
-        self._check_for_init(Initial_Conditions)        
+        self._check_for_init(Initial_Conditions)
         
+        if (self._wrote_model_to_file and self._ode_procedure is not procedure) or \
+                (self._wrote_model_to_file is False):
+            print "Writing model to file for '" + procedure + "' procedure..."
+            self._ode_procedure = procedure
+            self._write_model_to_file(procedure = procedure)
+            self._wrote_model_to_file = True
+            print '...Finished writing to file!'
+        else:
+            print "Model was already written to file! We are using the '" + \
+                procedure + "' procedure for solving ODEs"
+        
+        os.remove(self.modelname + '.pyc')
         exec('import ' + self.modelname)
-        os.system('rm ' + self.modelname + '.pyc')
         exec('reload('+self.modelname+')')
         	
         if with_sens == False:
-            if procedure == "odeint":    
-                #                res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,))
-                #                #put output in pandas dataframe
-                #                df = pd.DataFrame(res, index=self._Time, columns = self._Variables)
+            if procedure == "odeint": 
+                print "Going for odeint..."
                 if self._has_stepfunction:
                     res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,self.stepfunction,))
                 else:
@@ -881,25 +905,27 @@ class odegenerator(object):
     
     
             elif procedure == "ode":
-                print "going for generic methodology"
+                print "Going for generic methodology..."
                 #ode procedure-generic
                 #                f = eval(self.modelname+'.system')
-                print eval(self.modelname+'.system')
-                r = spin.ode(eval(self.modelname+'.system')).set_integrator('dopri5') #   method='bdf', with_jacobian = False
+                r = spin.ode(eval(self.modelname+'.system')).set_integrator('lsoda') #   method='bdf', with_jacobian = False
                     #                                                    nsteps = 300000)
                 r.set_initial_value(self.Initial_Conditions.values(), 0).set_f_params(self.Parameters)
-                dt = 0.0001 #needs genereic version
+                dt = (self._TimeDict['end']-self._TimeDict['start'])/self._TimeDict['nsteps'] #needs genereic version
                 moutput = []
                 toutput = []
-                while r.successful() and r.t < self._Time[-1]:
+                end_val = self._Time[-1]-self._TimeDict['end']/(10*self._TimeDict['nsteps'])             
+                print "Starting ODE loop..."
+                while r.successful() and r.t < end_val:          
                     r.integrate(r.t + dt)
-                    print "This integration worked well?", r.successful()
+                    #print "This integration worked well?", r.successful()
                     #print("%g %g" % (r.t, r.y[0]))
                     #                    print "t: ", r.t
                     #                    print "y: ", r.y
     
                     moutput.append(r.y)
                     toutput.append(r.t)
+                print "...Done!"
                 
                 #make df
                 df = pd.DataFrame(moutput, index = toutput, 
@@ -907,6 +933,7 @@ class odegenerator(object):
         else:
             #odeint procedure
             if procedure == "odeint":
+                print "Going for odeint..."
                 if self._has_stepfunction:
                     res = spin.odeint(eval(self.modelname+'.system_with_sens'), np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,self.stepfunction,))
                 else:
@@ -920,23 +947,25 @@ class odegenerator(object):
                     analytical_sens[self._Variables[i]] = pd.DataFrame(res[:,len(self._Variables)+len(self.Parameters)*(i):len(self._Variables)+len(self.Parameters)*(1+i)], index=self._Time,columns = self.Parameters.keys())
                 
             elif procedure == "ode":
-                print "going for generic methodology"
+                print "Going for generic methodology..."
                 #ode procedure-generic
-                f = eval(self.modelname+'.system_with_sens')
                 r = ode(f).set_integrator('vode', method='bdf', 
                                                     with_jacobian = False)
                 if self._has_stepfunction:
                     r.set_initial_value(self.Initial_Conditions.values(), 0).set_f_params(self.Parameters,self.stepfunction)                    
                 else:
                     r.set_initial_value(self.Initial_Conditions.values(), 0).set_f_params(self.Parameters)
-                dt = 0.01
+                dt = (self._TimeDict['end']-self._TimeDict['start'])/self._TimeDict['nsteps']
                 moutput = []
                 toutput = []
-                while r.successful() and r.t < self._Time[-1]:
+                end_val = self._Time[-1]-self._TimeDict['end']/(10*self._TimeDict['nsteps'])
+                print "Starting ODE loop..."
+                while r.successful() and r.t < end_val:
                     r.integrate(r.t+dt)
-                    print("%g %g" % (r.t, r.y))
+#                    print("%g %g" % (r.t, r.y))
                     moutput.append(r.y)
                     toutput.append(r.t)
+                print "...Done!"
                 
                 #make df
                 df = pd.DataFrame(moutput, index = toutput, 
@@ -952,7 +981,10 @@ class odegenerator(object):
                
         self.ode_solved = df
         if self._has_algebraic:
-            self._rerun_for_algebraic()
+            print "If you want the algebraic equations also, please rerun manually\
+             by using the 'self.rerun_for_algebraic()' function!"
+        
+            #self.rerun_for_algebraic()
 
         if with_sens == False:
             return df
