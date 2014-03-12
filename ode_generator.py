@@ -1458,6 +1458,42 @@ class odegenerator(object):
         self.QSSE_var = QSSE_var
         self.QSSE_enz = QSSE_enz
                
+    def checkMassBalance(self, enzyme = 'En'):
+        '''Check mass balance of enzyme forms
+        
+        This function checks whether the sum of all enzyme forms is equal to zero.
+        
+        Parameters
+        -----------
+        enzyme : string
+            All enzyme forms have to start with the same letters, e.g. 'En' or
+            'E_'. 
+            
+        Returns
+        ---------
+        massBalance : sympy symbolics
+            If this is zero then mass balance is closed, otherwise the remaining
+            terms are shown.
+            
+        '''
+        enzyme_forms = []
+        string = ''
+        
+        for var in self._Variables:
+            if var.startswith(enzyme):
+                enzyme_forms.append(var)
+                string = string + '+' + self.System['d'+var]
+        
+        massBalance = sympy.sympify(string)
+        
+        if massBalance == 0:
+            print "The mass balance of the enzyme forms of '" + enzyme + "' is closed!"
+        else:
+            print "The mass balance is NOT closed for the enzyme forms of '" + enzyme +"'! \
+                The following term(s) cannot be striked out: " + str(massBalance)
+        
+        return massBalance
+
     def _solve_linear_system(self, system, symbols, **flags):
         r"""
         Solve system of N linear equations with M variables, which means
