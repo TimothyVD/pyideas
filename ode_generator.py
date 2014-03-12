@@ -1375,9 +1375,9 @@ class odegenerator(object):
 
         coeff_matrix = sympy.zeros(len(enzyme_equations),len(enzyme_forms))        
         
-        for i,sys in enumerate(enzyme_equations):
+        for i,syst in enumerate(enzyme_equations):
             for j,state in enumerate(enzyme_forms):
-                coeff_matrix[i,j] = sys.coeff(state)
+                coeff_matrix[i,j] = syst.coeff(state)
                 
         return coeff_matrix, enzyme_forms, enzyme_equations      
         
@@ -1458,14 +1458,14 @@ class odegenerator(object):
         self.QSSE_var = QSSE_var
         self.QSSE_enz = QSSE_enz
                
-    def checkMassBalance(self, enzyme = 'En'):
+    def checkMassBalance(self, variables = 'En'):
         '''Check mass balance of enzyme forms
         
         This function checks whether the sum of all enzyme forms is equal to zero.
         
         Parameters
         -----------
-        enzyme : string
+        variables : string
             All enzyme forms have to start with the same letters, e.g. 'En' or
             'E_'. 
             
@@ -1476,20 +1476,38 @@ class odegenerator(object):
             terms are shown.
             
         '''
-        enzyme_forms = []
-        string = ''
         
-        for var in self._Variables:
-            if var.startswith(enzyme):
-                enzyme_forms.append(var)
-                string = string + '+' + self.System['d'+var]
+        variables = variables.replace(" ","")
+        len_var = len(variables.split('+'))
         
-        massBalance = sympy.sympify(string)
+        if len_var == 1:
+            var_forms = []
+            string = ''
+            
+            for var in self._Variables:
+                if var.startswith(variables):
+                    var_forms.append(var)
+                    string = string + '+' + self.System['d'+var]
+            massBalance = sympy.sympify(string)
+        
+        elif len_var > 1:
+            var_sym = sympy.sympify(variables)
+            # Set up symbolic matrix of system
+            system_matrix = sympy.Matrix(sympy.sympify(self.System.values()))
+            # Set up symbolic matrix of variables
+            states_matrix = sympy.Matrix(sympy.sympify(self._Variables))
+            
+            massBalance = 0
+            for i,var in enumerate(states_matrix):
+                massBalance += var_sym.coeff(var)*system_matrix[i]
+                
+        else:
+            raise Exception("The argument 'variables' need to be provided!")
         
         if massBalance == 0:
-            print "The mass balance of the enzyme forms of '" + enzyme + "' is closed!"
+            print "The mass balance is closed!"
         else:
-            print "The mass balance is NOT closed for the enzyme forms of '" + enzyme +"'! \
+            print "The mass balance is NOT closed for the enzyme forms of '" + variables +"'! \
                 The following term(s) cannot be striked out: " + str(massBalance)
         
         return massBalance
