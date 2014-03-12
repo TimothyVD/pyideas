@@ -1466,14 +1466,34 @@ class odegenerator(object):
         Parameters
         -----------
         variables : string
-            All enzyme forms have to start with the same letters, e.g. 'En' or
-            'E_'. 
+            There are two possibilies: First one can give just the first letters of
+            all enzyme forms, the algorithm is selecting all variables starting with
+            this combination. Second, one can give the symbolic mass balance himself
+            the algorithm will check the mass balance. See examples!
             
         Returns
         ---------
         massBalance : sympy symbolics
             If this is zero then mass balance is closed, otherwise the remaining
             terms are shown.
+            
+        Examples
+        ----------
+        >>>System = {'dEn':'-k1*En*SA + k2*EnSA + kcat*EnSA',
+                     'dEnSA':'k1*En*SA - k2*EnSA - kcat*EnSA',
+                     'dSA':'-k1*En*SA + k2*EnSA',
+                     'dPP':'kcat*EnSA'}
+        >>>Parameters = {'k1':0,'k2':0,'kcat':0}
+        >>>Modelname = 'QSSA_MM'
+        >>>#INITIATE MODEL
+        >>>M1 = odegenerator(System, Parameters, Modelname = Modelname)
+        >>>M1.checkMassBalance(variables='En')
+        >>>#Or one could also write
+        >>>M1.checkMassBalance(variables='En + EnSA')
+        >>>#One could also make linear combination of mass balances, this is
+        especially useful for systems like NO, NO2 and N2. In which the mass balance
+        for N is equal to NO + NO2 + 2*N2 = 0.
+        >>>M1.checkMassBalance(variables='En + 2*EnSA')
             
         '''
         
