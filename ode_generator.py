@@ -855,7 +855,7 @@ class odegenerator(object):
                                  index = self.ode_solved.index)
 
     def solve_ode(self, TimeStepsDict = False, Initial_Conditions = False, 
-                  plotit = True, with_sens = False, procedure = "ode"):
+                  plotit = True, with_sens = False, procedure = "odeint"):
         '''Solve the differential equation
         
         Solves the ode model with the given properties and model configuration
