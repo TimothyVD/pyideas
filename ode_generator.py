@@ -704,7 +704,7 @@ class odegenerator(object):
         file.seek(0,0)
         
         file.write('#'+self.modelname+'\n')
-        
+        file.write('from __future__ import division\n')
         file.write('from numpy import *\n\n')
         
         # Write function for solving ODEs only
@@ -955,7 +955,7 @@ class odegenerator(object):
             elif procedure == "ode":
                 print "Going for generic methodology..."
                 #ode procedure-generic
-                r = ode(f).set_integrator('vode', method='bdf', 
+                r = ode(eval(self.modelname+'.system_with_sens')).set_integrator('vode', method='bdf', 
                                                     with_jacobian = False)
                 if self._has_stepfunction:
                     r.set_initial_value(self.Initial_Conditions.values(), 0).set_f_params(self.Parameters,self.stepfunction)                    
