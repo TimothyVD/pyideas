@@ -704,7 +704,7 @@ class odegenerator(object):
         file.seek(0,0)
         
         file.write('#'+self.modelname+'\n')
-        
+        file.write('from __future__ import division\n')
         file.write('from numpy import *\n\n')
         
         # Write function for solving ODEs only
@@ -843,11 +843,11 @@ class odegenerator(object):
         algeb_out = np.empty((self.ode_solved.index.size, len(self.Algebraic.keys())))
                 
         if self._has_stepfunction:
-            for i, timestep in enumerate(self.ode_solved.index):
+            for i, timestep in enumerate(self.ode_solved.index[1:]):
                 temp = eval(self.modelname+'.Algebraic_outputs'+'(self.ode_solved.ix[timestep], timestep, self.Parameters, self.stepfunction)')
                 algeb_out[i,:] = temp[:]
         else:
-            for i, timestep in enumerate(self.ode_solved.index):
+            for i, timestep in enumerate(self.ode_solved.index[1:]):
                 temp = eval(self.modelname+'.Algebraic_outputs'+'(self.ode_solved.ix[timestep], timestep, self.Parameters)')
                 algeb_out[i,:] = temp[:]
      
@@ -955,7 +955,7 @@ class odegenerator(object):
             elif procedure == "ode":
                 print "Going for generic methodology..."
                 #ode procedure-generic
-                r = ode(f).set_integrator('vode', method='bdf', 
+                r = ode(eval(self.modelname+'.system_with_sens')).set_integrator('vode', method='bdf', 
                                                     with_jacobian = False)
                 if self._has_stepfunction:
                     r.set_initial_value(self.Initial_Conditions.values(), 0).set_f_params(self.Parameters,self.stepfunction)                    
