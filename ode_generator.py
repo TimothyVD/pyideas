@@ -833,7 +833,10 @@ class odegenerator(object):
     def rerun_for_algebraic(self):
         """
         """
-        os.remove(self.modelname + '.pyc')
+        try:
+            os.remove(self.modelname + '.pyc')
+        except:
+            pass
         exec('import ' + self.modelname)
         exec(self.modelname+' = reload('+self.modelname+')')
 
@@ -889,7 +892,10 @@ class odegenerator(object):
             print "Model was already written to file! We are using the '" + \
                 procedure + "' procedure for solving ODEs"
         
-        os.remove(self.modelname + '.pyc')
+        try:
+            os.remove(self.modelname + '.pyc')
+        except:
+            pass
         exec('import ' + self.modelname)
         exec('reload('+self.modelname+')')
         	
