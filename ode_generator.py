@@ -809,7 +809,8 @@ class odegenerator(object):
                 file.write('    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n")
             file.write('\n')
             for i in range(len(self.System)):
-                file.write('    '+str(self.System.keys()[i])[1:] + ' = ODES['+str(i)+']\n')
+                #file.write('    '+str(self.System.keys()[i])[1:] + ' = ODES['+str(i)+']\n')
+                file.write('    '+str(self.System.keys()[i])[1:] + ' = ODES[:,'+str(i)+']\n')
             file.write('\n')
             try:
                 self.stepfunction
@@ -822,14 +823,16 @@ class odegenerator(object):
                 for i in range(len(self.Algebraic)):
                     file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
             file.write('\n')
-                
-            file.write('    return '+str(self.Algebraic.keys()).replace("'","")+'\n\n\n')
+            
+            file.write('    algebraic = array('+str(self.Algebraic.keys()).replace("'","")+').T\n\n')
+            
+            #file.write('    return '+str(self.Algebraic.keys()).replace("'","")+'\n\n\n')
+            file.write('    return algebraic\n\n\n')
         except AttributeError:
             pass
         file.close()
         print '...done!'
-
-
+        
     def rerun_for_algebraic(self):
         """
         """
@@ -840,17 +843,11 @@ class odegenerator(object):
         exec('import ' + self.modelname)
         exec(self.modelname+' = reload('+self.modelname+')')
 
-        algeb_out = np.empty((self.ode_solved.index.size, len(self.Algebraic.keys())))
-                
         if self._has_stepfunction:
-            for i, timestep in enumerate(self.ode_solved.index):
-                temp = eval(self.modelname+'.Algebraic_outputs'+'(self.ode_solved.ix[timestep], timestep, self.Parameters, self.stepfunction)')
-                algeb_out[i,:] = temp[:]
+            algeb_out = eval(self.modelname+'.Algebraic_outputs'+'(np.array(self.ode_solved), self._Time, self.Parameters, self.stepfunction)')
         else:
-            for i, timestep in enumerate(self.ode_solved.index):
-                temp = eval(self.modelname+'.Algebraic_outputs'+'(self.ode_solved.ix[timestep], timestep, self.Parameters)')
-                algeb_out[i,:] = temp[:]
-     
+            algeb_out = eval(self.modelname+'.Algebraic_outputs'+'(np.array(self.ode_solved), self._Time, self.Parameters)')
+ 
         self.algeb_solved = pd.DataFrame(algeb_out, columns=self.Algebraic.keys(), 
                                  index = self.ode_solved.index)
 
@@ -1049,8 +1046,7 @@ class odegenerator(object):
         except:
             self.Collinearity_Pairwise = {}
             self.Collinearity_Pairwise[variable] = x
-        
-        
+    
     def analytic_local_sensitivity(self, Sensitivity = 'CAS', procedure = 'odeint'):
         '''Calculates analytic based local sensitivity 
         
