@@ -81,22 +81,20 @@ class odegenerator(object):
         self.System = collections.OrderedDict(sorted(System.items(), key=lambda t: t[0]))    
         
         self.modelname = Modelname
-        
+        self._Variables = [i[1:] for i in self.System.keys()]
         
         try:
             self.Algebraic =  collections.OrderedDict(sorted(kwargs.get('Algebraic').items(),key=lambda t: t[0]))
             self._has_algebraic = True
+            self._alg_LSA()
         except:
             print 'No Algebraic equations defined. Continuing...'
             self._has_algebraic = False
             
-        self._has_stepfunction = False            
-             
-        self._Variables = [i[1:] for i in self.System.keys()]
-        
-        self._analytic_local_sensitivity()
+        self._has_stepfunction = False
+        self._analytic_local_sensitivity()            
         #self._write_model_to_file()
-        
+                
         self._wrote_model_to_file = False
         self._ode_procedure = "ode"
 
@@ -265,6 +263,39 @@ class odegenerator(object):
 #        dgdx = np.eye(len(self.states_matrix))*self.Measurable_States.values()
 #        #Remove zero rows
 #        self.dgdx = np.array(dgdx[~np.all(dgdx == 0, axis=1)])
+        
+    def _alg_LSA(self):
+        '''Analytic derivation of the local sensitivities
+        
+        Sympy based implementation to get the analytic derivation of the
+        model sensitivities. Algebraic variables in the ODE equations are replaced
+        by its equations to perform the analytical derivation.
+                
+        Notes
+        ------
+        
+        The output is best viewed by the write_model_to_file method        
+        
+        See Also
+        ---------
+        _write_model_to_file
+        
+        '''    
+        
+        # Set up symbolic matrix of system states
+        algebraic_matrix = sympy.Matrix(sympy.sympify(self.Algebraic.values()))
+        # Set up symbolic matrix of variables
+        states_matrix = sympy.Matrix(sympy.sympify(self._Variables))
+        # Set up symbolic matrix of parameters
+        parameter_matrix = sympy.Matrix(sympy.sympify(self.Parameters.keys()))
+                                
+        # Initialize and calculate matrices for analytic sensitivity calculation
+        # dgdtheta
+        dgdtheta = algebraic_matrix.jacobian(parameter_matrix)
+        self.dgdtheta = np.array(dgdtheta)
+        # dgdx
+        dgdx = algebraic_matrix.jacobian(states_matrix)
+        self.dgdx = np.array(dgdx)
         
         
     def _check_for_meas(self, Measurable_States):
@@ -823,11 +854,55 @@ class odegenerator(object):
                 for i in range(len(self.Algebraic)):
                     file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
             file.write('\n')
-            
             file.write('    algebraic = array('+str(self.Algebraic.keys()).replace("'","")+').T\n\n')
-            
-            #file.write('    return '+str(self.Algebraic.keys()).replace("'","")+'\n\n\n')
             file.write('    return algebraic\n\n\n')
+            #Algebraic sens
+            if self._has_stepfunction:
+                file.write('\ndef Algebraic_sens(ODES,t,Parameters, stepfunction, dxdtheta):\n')
+            else:
+                file.write('\ndef Algebraic_sens(ODES,t,Parameters, dxdtheta):\n')
+            for i in range(len(self.Parameters)):
+                #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
+                file.write('    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n")
+            file.write('\n')
+            for i in range(len(self.System)):
+                file.write('    '+str(self.System.keys()[i])[1:] + ' = ODES['+str(i)+']\n')
+            file.write('\n')
+            try:
+                self.stepfunction
+                for i, step in enumerate(self.stepfunction):
+                    file.write('    step'+str(i) + ' = stepfunction['+str(i)+'](t)'+'\n')
+                file.write('\n')
+            except AttributeError:
+                pass
+            if self.Algebraic != None:
+                for i in range(len(self.Algebraic)):
+                    file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
+            file.write('\n')
+            print 'Sensitivities are printed to the file....'
+            file.write('\n    #Sensitivities\n\n')
+                       
+            # Write dgdtheta as symbolic array
+            file.write('    dgdtheta = ')
+            pprint.pprint(self.dgdtheta,file)
+            # Write dgdx as symbolic array
+            file.write('\n    dgdx = ')
+            pprint.pprint(self.dgdx,file)
+#            file.write('    dgdtheta = zeros('+str([self._TimeDict['nsteps'],self.dgdtheta.shape[0],self.dgdtheta.shape[1]])+')')
+#            for i,dg in enumerate(self.dgdtheta):
+#                for j,dg2 in enumerate(dg):
+#                    file.write('\n    dgdtheta[:,'+str(i)+','+str(j)+'] = ' + str(self.dgdtheta[i,j]))
+            # Write dgdx as symbolic array
+            
+#            file.write('\n\n    dgdx = zeros('+str([self._TimeDict['nsteps'],self.dgdx.shape[0],self.dgdx.shape[1]])+')')
+#            for i,dg in enumerate(self.dgdx):
+#                for j,dg2 in enumerate(dg):
+#                    file.write('\n    dgdx[:,'+str(i)+','+str(j)+'] = ' + str(self.dgdx[i,j]))
+            # Calculate derivative in order to integrate this
+            file.write('\n\n    dydtheta = dgdtheta + dot(dgdx,dxdtheta)\n')
+    
+            file.write('    return dydtheta'+'\n\n\n')
+        
         except AttributeError:
             pass
         file.close()
@@ -850,9 +925,36 @@ class odegenerator(object):
  
         self.algeb_solved = pd.DataFrame(algeb_out, columns=self.Algebraic.keys(), 
                                  index = self.ode_solved.index)
+                                 
+    def calcAlgLSA(self):
+        """
+        """
+        try:
+            self._ana_sens_matrix
+        except:
+            raise Exception('First run self.analytical_local_sensitivity()!')
+        
+        exec('import ' + self.modelname)
+        
+        algeb_out = np.empty((self.ode_solved.index.size, len(self.Algebraic.keys()) ,len(self.Parameters)))         
+        
+        if self._has_stepfunction:
+            for i,timestep in enumerate(self.ode_solved.index):
+                algeb_out[i,:,:] = eval(self.modelname+'.Algebraic_sens'+'(np.array(self.ode_solved.ix[timestep]), timestep, self.Parameters, self.stepfunction, self._ana_sens_matrix[i,:,:])')
+        else:
+            for i,timestep in enumerate(self.ode_solved.index):
+                algeb_out[i,:,:] = eval(self.modelname+'.Algebraic_sens'+'(np.array(self.ode_solved.ix[timestep]), timestep, self.Parameters, self._ana_sens_matrix[i,:,:])')
+                
+        alg_dict = {}
+        
+        for i,key in enumerate(self.Algebraic.keys()):
+            alg_dict[key] = pd.DataFrame(algeb_out[:,i,:], columns=self.Parameters.keys(), 
+                                 index = self.ode_solved.index)
+        
+        self.getAlgLSA = alg_dict
 
     def solve_ode(self, TimeStepsDict = False, Initial_Conditions = False, 
-                  plotit = True, with_sens = False, procedure = "odeint"):
+                  plotit = True, with_sens = False, procedure = "odeint", write = False):
         '''Solve the differential equation
         
         Solves the ode model with the given properties and model configuration
@@ -879,7 +981,7 @@ class odegenerator(object):
         self._check_for_init(Initial_Conditions)
         
         if (self._wrote_model_to_file and self._ode_procedure is not procedure) or \
-                (self._wrote_model_to_file is False):
+                (self._wrote_model_to_file is False) or (write):
             print "Writing model to file for '" + procedure + "' procedure..."
             self._ode_procedure = procedure
             self._write_model_to_file(procedure = procedure)
@@ -887,7 +989,8 @@ class odegenerator(object):
             print '...Finished writing to file!'
         else:
             print "Model was already written to file! We are using the '" + \
-                procedure + "' procedure for solving ODEs"
+                procedure + "' procedure for solving ODEs. If you want to rewrite \
+                the model to the file, please add 'write = True'."
         
         try:
             os.remove(self.modelname + '.pyc')
@@ -943,6 +1046,9 @@ class odegenerator(object):
                     res = spin.odeint(eval(self.modelname+'.system_with_sens'), np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,))
                 #put output in pandas dataframe
                 df = pd.DataFrame(res[:,0:len(self._Variables)], index=self._Time,columns = self._Variables)
+                if self._has_algebraic:               
+                    self._ana_sens_matrix = res[:,len(self._Variables):].reshape(len(self._Time),len(self._Variables),len(self.Parameters))
+                    #self._ana_sens_matrix = np.rollaxis(np.rollaxis(self._ana_sens_matrix,1,0),2,1)
                 analytical_sens = {}
                 for i in range(len(self._Variables)):
                     #Comment was bug!
