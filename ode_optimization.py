@@ -5,6 +5,7 @@ Created on Thu Apr 11 11:39:49 2013
 @author: Timothy Van Daele; Stijn Van Hoey
 
 0.1 Class version of the ODE generator package
+BEER_WARE - test voor git-installatie
 """
 
 from __future__ import division
