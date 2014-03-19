@@ -86,6 +86,7 @@ class odegenerator(object):
         try:
             self.Algebraic =  collections.OrderedDict(sorted(kwargs.get('Algebraic').items(),key=lambda t: t[0]))
             self._has_algebraic = True
+            self._alg_swap()
             self._alg_LSA()
         except:
             print 'No Algebraic equations defined. Continuing...'
@@ -264,6 +265,23 @@ class odegenerator(object):
 #        #Remove zero rows
 #        self.dgdx = np.array(dgdx[~np.all(dgdx == 0, axis=1)])
         
+    def _alg_swap(self):
+        
+        try:
+            self.Algebraic_swapped
+        except:        
+            h = 0
+            algebraic_matrix = sympy.Matrix(sympy.sympify(self.Algebraic.values()))
+            algebraic_keys = sympy.Matrix(sympy.sympify(self.Algebraic.keys()))
+            while (np.sum(np.abs(algebraic_matrix.jacobian(algebraic_keys))) != 0) and (h <= len(self.Algebraic.keys())):
+                for i, alg in enumerate(self.Algebraic.keys()):
+                    algebraic_matrix = algebraic_matrix.replace(alg, self.Algebraic.values()[i])
+                h += 1
+            
+            self.Algebraic_swapped = algebraic_matrix
+        
+        return self.Algebraic_swapped
+
     def _alg_LSA(self):
         '''Analytic derivation of the local sensitivities
         
@@ -283,14 +301,23 @@ class odegenerator(object):
         '''    
         
         # Set up symbolic matrix of system states
-        algebraic_matrix = sympy.Matrix(sympy.sympify(self.Algebraic.values()))
+        #algebraic_matrix = sympy.Matrix(sympy.sympify(self.Algebraic.values()))
+        #algebraic_keys = sympy.Matrix(sympy.sympify(self.Algebraic.keys()))
         # Set up symbolic matrix of variables
         states_matrix = sympy.Matrix(sympy.sympify(self._Variables))
         # Set up symbolic matrix of parameters
         parameter_matrix = sympy.Matrix(sympy.sympify(self.Parameters.keys()))
+ 
+        algebraic_matrix = self._alg_swap()             
+#        h = 0
+#        while (np.sum(np.abs(algebraic_matrix.jacobian(algebraic_keys))) != 0) and (h <= len(self.Algebraic.keys())):
+#            for i, alg in enumerate(self.Algebraic.keys()):
+#                algebraic_matrix = algebraic_matrix.replace(alg, self.Algebraic.values()[i])
+#            h += 1
                                 
         # Initialize and calculate matrices for analytic sensitivity calculation
         # dgdtheta
+        print algebraic_matrix
         dgdtheta = algebraic_matrix.jacobian(parameter_matrix)
         self.dgdtheta = np.array(dgdtheta)
         # dgdx
@@ -766,7 +793,8 @@ class odegenerator(object):
         try:
             self.Algebraic
             for i in range(len(self.Algebraic)):
-                file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
+                #file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
+                file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic_swapped[i])+'\n')
             file.write('\n')
         except AttributeError:
             pass
@@ -803,7 +831,8 @@ class odegenerator(object):
         try:
             self.Algebraic
             for i in range(len(self.Algebraic)):
-                file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
+                #file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
+                file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic_swapped[i])+'\n')
             file.write('\n')
         except AttributeError:
             pass
@@ -852,7 +881,8 @@ class odegenerator(object):
                 pass
             if self.Algebraic != None:
                 for i in range(len(self.Algebraic)):
-                    file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+' + zeros(len(t))\n')
+                    #file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+' + zeros(len(t))\n')
+                    file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic_swapped[i])+' + zeros(len(t))\n')
             file.write('\n')
             file.write('    algebraic = array('+str(self.Algebraic.keys()).replace("'","")+').T\n\n')
             file.write('    return algebraic\n\n\n')
@@ -877,7 +907,8 @@ class odegenerator(object):
                 pass
             if self.Algebraic != None:
                 for i in range(len(self.Algebraic)):
-                    file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
+                    #file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
+                    file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic_swapped[i])+'\n')
             file.write('\n')
             print 'Sensitivities are printed to the file....'
             file.write('\n    #Sensitivities\n\n')
