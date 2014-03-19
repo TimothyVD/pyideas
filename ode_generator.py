@@ -852,7 +852,7 @@ class odegenerator(object):
                 pass
             if self.Algebraic != None:
                 for i in range(len(self.Algebraic)):
-                    file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
+                    file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+' + zeros(len(t))\n')
             file.write('\n')
             file.write('    algebraic = array('+str(self.Algebraic.keys()).replace("'","")+').T\n\n')
             file.write('    return algebraic\n\n\n')
