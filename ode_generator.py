@@ -423,7 +423,7 @@ class odegenerator(object):
                 
         self.stepfunction = stepfunction
         self._has_stepfunction = True  
-        #self._write_model_to_file()
+        self._wrote_model_to_file = False
                
         return stepfunction
 
@@ -1029,6 +1029,7 @@ class odegenerator(object):
             pass
         exec('import ' + self.modelname)
         exec('reload('+self.modelname+')')
+        print(eval(self.modelname+'.system_with_sens'))
         	
         if with_sens == False:
             if procedure == "odeint": 
@@ -1089,12 +1090,14 @@ class odegenerator(object):
             elif procedure == "ode":
                 print "Going for generic methodology..."
                 #ode procedure-generic
-                r = ode(eval(self.modelname+'.system_with_sens')).set_integrator('vode', method='bdf', 
-                                                    with_jacobian = False)
+                r = spin.ode(eval(self.modelname+'.system_with_sens'))
+                r.set_integrator('vode', method='bdf', with_jacobian = False)
                 if self._has_stepfunction:
-                    r.set_initial_value(self.Initial_Conditions.values(), 0).set_f_params(self.Parameters,self.stepfunction)                    
+                    r.set_initial_value(np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), 0)
+                    r.set_f_params(self.Parameters,self.stepfunction)                    
                 else:
-                    r.set_initial_value(self.Initial_Conditions.values(), 0).set_f_params(self.Parameters)
+                    r.set_initial_value(np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), 0)
+                    r.set_f_params(self.Parameters)
                 dt = (self._TimeDict['end']-self._TimeDict['start'])/self._TimeDict['nsteps']
                 moutput = []
                 toutput = []
@@ -1107,9 +1110,22 @@ class odegenerator(object):
                     toutput.append(r.t)
                 print "...Done!"
                 
+                moutput = np.array(moutput)
+                df = pd.DataFrame(moutput[:,0:len(self._Variables)], index=toutput,columns = self._Variables)
+                
+                
+                if self._has_algebraic:               
+                    self._ana_sens_matrix = moutput[:,len(self._Variables):].reshape(len(toutput),len(self._Variables),len(self.Parameters))
+                    #self._ana_sens_matrix = np.rollaxis(np.rollaxis(self._ana_sens_matrix,1,0),2,1)
+                analytical_sens = {}
+                for i in range(len(self._Variables)):
+                    #Comment was bug!
+                    #analytical_sens[self._Variables[i]] = pd.DataFrame(res[:,len(self._Variables)*(1+i):len(self._Variables)*(1+i)+len(self.Parameters)], index=self._Time,columns = self.Parameters.keys())
+                    analytical_sens[self._Variables[i]] = pd.DataFrame(moutput[:,len(self._Variables)+len(self.Parameters)*(i):len(self._Variables)+len(self.Parameters)*(1+i)], index=toutput,columns = self.Parameters.keys())
+                
                 #make df
-                df = pd.DataFrame(moutput, index = toutput, 
-                                  columns = self._Variables)
+#                df = pd.DataFrame(moutput, index = toutput, 
+#                                  columns = self._Variables)
                 #                print "df is: ", df
 
         #plotfunction
@@ -1204,7 +1220,7 @@ class odegenerator(object):
         '''
         self.LSA_type = Sensitivity
 
-        df, analytical_sens = self.solve_ode(with_sens = True, plotit = False, procedure = 'odeint')
+        df, analytical_sens = self.solve_ode(with_sens = True, plotit = False, procedure = procedure)
         
         if Sensitivity == 'CPRS':
             #CPRS = CAS*parameter
