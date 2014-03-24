@@ -1113,7 +1113,6 @@ class odegenerator(object):
                 moutput = np.array(moutput)
                 df = pd.DataFrame(moutput[:,0:len(self._Variables)], index=toutput,columns = self._Variables)
                 
-                
                 if self._has_algebraic:               
                     self._ana_sens_matrix = moutput[:,len(self._Variables):].reshape(len(toutput),len(self._Variables),len(self.Parameters))
                     #self._ana_sens_matrix = np.rollaxis(np.rollaxis(self._ana_sens_matrix,1,0),2,1)
