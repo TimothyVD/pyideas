@@ -1198,6 +1198,31 @@ class odegenerator(object):
         except:
             self.Collinearity_Pairwise = {}
             self.Collinearity_Pairwise[variable] = x
+            
+    def calcLSA(self, approach = 'analytical', **kwargs):
+        '''Calculate Local Sensitivity
+        
+        For every parameter calculate the sensitivity of the output variables.
+        
+        Parameters
+        -----------
+        approach : string
+            String should refer to one of the two possible sensitivity\
+            approaches: 'analytical' or 'numerical'         
+        
+        Returns
+        --------
+        sens : dict
+            each variable gets a t timesteps x k par DataFrame
+            
+        '''
+        if approach == 'analytical':
+            sens = self.analytic_local_sensitivity(**kwargs)
+        elif approach == 'numerical':
+            sens = self.numeric_local_sensitivity(**kwargs)
+        else:
+            raise Exception("Approach needs to be defined as 'analytical' or 'numerical'")
+        return sens
     
     def analytic_local_sensitivity(self, Sensitivity = 'CAS', procedure = 'odeint'):
         '''Calculates analytic based local sensitivity 
