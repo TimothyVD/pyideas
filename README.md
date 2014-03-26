@@ -15,8 +15,8 @@ Functionalities
 * Measurements
 * Optimization (both local and global (bioinspyred))
 * Fisher Information Matrix (FIM)
-	** Different optimization criteria (A, modA, D, E, modE)
-	** Parameter/Model output confidence and correlation
+	* Different optimization criteria (A, modA, D, E, modE)
+	* Parameter/Model output confidence and correlation
 
 Functionality to be added:
 
