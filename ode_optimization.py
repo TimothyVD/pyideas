@@ -51,7 +51,7 @@ class ode_optimizer(object):
         #check inputs
         if not isinstance(odeModel, odegenerator):
             raise Exception('Bad input type for model or oed')
-        if not isinstance(Data, measurements):
+        if not isinstance(Data, ode_measurements):
             raise Exception('Bad input type for Data')
             
 
