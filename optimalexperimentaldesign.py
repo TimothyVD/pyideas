@@ -331,17 +331,21 @@ class ode_FIM(object):
         ECM = self.FIM.I
         self.ECM = ECM
     
-        CI = np.zeros([ECM.shape[1],5])    
+        CI = np.zeros([ECM.shape[1],7]) 
+        n_p = sum(self._data.Data.count())-len(self.Parameters)
         
         CI[:,0] = self.Parameters.values()
-        for i,par in enumerate(np.array(self.ECM.diagonal())[0,:]):
+        for i,variance in enumerate(np.array(self.ECM.diagonal())[0,:]):
             #TODO check whether sum or median or... should be used 
-            CI[i,1:3] =  stats.t.interval(alpha,sum(self._data.Data.count())-len(self.Parameters),loc=self.Parameters.values()[i],scale=np.sqrt(par))
+            CI[i,1:3] =  stats.t.interval(alpha, n_p, loc=self.Parameters.values()[i],scale=np.sqrt(variance))
             #print stats.t.interval(alpha,self._data.Data.count()-len(self.Parameters),scale=np.sqrt(var))[1][0]
-            CI[i,3] = stats.t.interval(alpha,sum(self._data.Data.count())-len(self.Parameters),scale=np.sqrt(par))[1]
-        CI[:,4] = abs(CI[:,3]/self.Parameters.values())*100      
+            CI[i,3] = stats.t.interval(alpha, n_p, scale=np.sqrt(variance))[1]
+        CI[:,4] = abs(CI[:,3]/self.Parameters.values())*100
+        CI[:,5] = self.Parameters.values()/np.sqrt(np.trace(self.ECM.diagonal()))
+        CI[:,6] = stats.t.interval(alpha, n_p)
+        CI[:,7] = CI[:,5]>=CI[:,6]
             
-        CI = pd.DataFrame(CI,columns=['value','lower','upper','delta','percent'],index=self.Parameters.keys())       
+        CI = pd.DataFrame(CI,columns=['value','lower','upper','delta','percent'],index=self.Parameters.keys())
         
         self.parameter_confidence = CI
         
