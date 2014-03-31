@@ -426,6 +426,17 @@ class odegenerator(object):
         self._wrote_model_to_file = False
                
         return stepfunction
+        
+    def addExternalFunction(self, function):
+        '''
+        Add external function to the biointense module
+        
+        Comparable to stepfunction but more general now!
+        '''
+        
+        self.stepfunction = function
+        self._has_stepfunction = True  
+        self._wrote_model_to_file = False
 
     def taylor_series_approach(self, iterations, Measurable_States = False,
                              Initial_Conditions = False):
