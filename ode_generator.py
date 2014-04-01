@@ -154,7 +154,7 @@ class odegenerator(object):
         Parameters
         -----------
         Measurable_States : list
-            string names of the variables thta can be measured
+            string names of the variables that can be measured
             
         Examples
         ----------
@@ -163,18 +163,24 @@ class odegenerator(object):
         '''
         Measured_temp = {}
         for key in self.System:
-            Measured_temp[key] = 0        
+            Measured_temp[key] = 0
+        try:
+            for key in self.Algebraic:
+                Measured_temp[key] = 0
+        except:
+            pass
         self._MeasuredList=[]
         
         Measurable_States.sort()
         
         for measured in Measurable_States:
             dmeasured = 'd' + measured
-            print dmeasured
             if dmeasured in Measured_temp:
                 Measured_temp[dmeasured] = 1
                 self._MeasuredList.append(measured)
-            
+            elif self._has_algebraic and measured in Measured_temp:
+                Measured_temp[measured] = 1
+                self._MeasuredList.append(measured)    
             else:
                 raise Exception('The variable',measured,'is not part of the current model.')
 

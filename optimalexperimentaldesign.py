@@ -61,7 +61,7 @@ class ode_FIM(object):
         self._model = odeoptimizer._model
         self._data = odeoptimizer._data
         self.Error_Covariance_Matrix = odeoptimizer._data._Error_Covariance_Matrix
-        self.Parameters = odeoptimizer._model.Parameters
+        self.Parameters = odeoptimizer._get_fitting_parameters()
         
         self.criteria_optimality_info = {'A':'min', 'modA': 'max', 'D': 'max', 
                                          'E':'max', 'modE':'min'}
@@ -78,7 +78,11 @@ class ode_FIM(object):
 #        self._model._Time = np.concatenate((np.array([0.]),self._data.get_measured_times()))
         if sensmethod == 'analytical':
             self._model.analytic_local_sensitivity()
-            self.sensitivities = self._model.analytical_sensitivity
+            try:
+                self._model.calcAlgLSA()
+                self.sensitivities = dict(self._model.analytical_sensitivity.items() + self._model.getAlgLSA.items())
+            except:
+                self.sensitivities = self._model.analytical_sensitivity
         elif sensmethod == 'numerical':
             self._model.numeric_local_sensitivity(*args,**kwargs)
             self.sensitivities = self._model.numerical_sensitivity           
@@ -180,7 +184,7 @@ class ode_FIM(object):
                 sensmatrix = np.zeros((nbvar,len(self.Parameters)))
                 #create sensitivity amtrix
                 for i, var in enumerate(Qerr[timestep].columns):
-                    sensmatrix[i,:] = np.array(self.sensitivities[var].xs(timestep))
+                    sensmatrix[i,:] = np.array(self.sensitivities[var][self.Parameters.keys()].xs(timestep))
     
                 #calculate matrices
                 FIMt = np.matrix(sensmatrix).transpose() * np.linalg.inv(np.matrix(Qerr[timestep])) * np.matrix(sensmatrix)
@@ -328,10 +332,9 @@ class ode_FIM(object):
         
         '''
         self._check_for_FIM()
-        ECM = self.FIM.I
-        self.ECM = ECM
-    
-        CI = np.zeros([ECM.shape[1],7]) 
+        self.ECM = self.FIM.I
+
+        CI = np.zeros([self.ECM.shape[1],8]) 
         n_p = sum(self._data.Data.count())-len(self.Parameters)
         
         CI[:,0] = self.Parameters.values()
@@ -341,11 +344,22 @@ class ode_FIM(object):
             #print stats.t.interval(alpha,self._data.Data.count()-len(self.Parameters),scale=np.sqrt(var))[1][0]
             CI[i,3] = stats.t.interval(alpha, n_p, scale=np.sqrt(variance))[1]
         CI[:,4] = abs(CI[:,3]/self.Parameters.values())*100
-        CI[:,5] = self.Parameters.values()/np.sqrt(np.trace(self.ECM.diagonal()))
-        CI[:,6] = stats.t.interval(alpha, n_p)
-        CI[:,7] = CI[:,5]>=CI[:,6]
+        CI[:,5] = self.Parameters.values()/np.sqrt(self.ECM.diagonal())
+        CI[:,6] = stats.t.interval(alpha, n_p)[1]
+        for i in np.arange(self.ECM.shape[1]):
+            CI[i,7] = 1 if CI[i,5]>=CI[i,6] else 0
+        
+        if (CI[:,7]==0).any():
+            print 'Some of the parameters show a non significant t_value, which\
+            suggests that the confidence intervals of that particular parameter\
+            include zero and such a situation means that the parameter could be\
+            statistically dropped from the model. However it should be noted that\
+            sometimes occurs in multi-parameter models because of high correlation\
+            between the parameters.'
+        else:
+            print 'T_values seem ok, all parameters can be regarded as reliable.'
             
-        CI = pd.DataFrame(CI,columns=['value','lower','upper','delta','percent'],index=self.Parameters.keys())
+        CI = pd.DataFrame(CI,columns=['value','lower','upper','delta','percent','t_value','t_reference','significant'],index=self.Parameters.keys())
         
         self.parameter_confidence = CI
         
@@ -458,6 +472,17 @@ class ode_FIM(object):
         corr = pd.DataFrame(corr, columns=combin,index=self._data.get_measured_times())                    
         self.model_correlation = corr
         return corr
+        
+    def get_model_adequacy(self, variable):
+        
+        repeated_meas = self._data.Data[variable].count()
+        n_p_r = self._data.Data.count()-len(self.Parameters)-repeated_meas
+        s_squared = sum(self._data.Data[variable]-self._model.ode_solved[variable])/repeated_meas
+        
+        F = ((Sr_theta - repeated_meas*s_squared)/(n_p_r))/(s_squared)
+        
+        print stats.f_value(s_squared,0,n_p_r,1000)
+
 
     
     

@@ -53,26 +53,32 @@ class ode_optimizer(object):
             raise Exception('Bad input type for model or oed')
         if not isinstance(Data, ode_measurements):
             raise Exception('Bad input type for Data')
-            
-
-        #compare with previous set measured variable; if same; ok, if not warning
-        Meas_same = True
-        for var in Data.get_measured_variables():
-            if var in odeModel._Variables:
-                if not var in odeModel._MeasuredList:
-                    Meas_same = False
-            else:
-                raise Exception('%s is not a variable in the current model' %var)
-        if Meas_same == False or len(Data.get_measured_variables()) <> len(odeModel._Variables):
-            print 'Measured variables are updated in model!'
-            odeModel.set_measured_states(Data.get_measured_variables())
-        
+ 
         self.Data = Data.Data
 #        self.Data.columns = [var+'_meas' for var in self.Data.columns]
         self._data = Data
         self._data_dict = Data.Data_dict
-        self._model = odeModel
-        
+        self._model = odeModel            
+
+        #compare with previous set measured variable; if same; ok, if not warning
+        Meas_same = True
+        for var in Data.get_measured_variables():
+            if self._model._has_algebraic:
+                if var in odeModel._Variables or var in odeModel.Algebraic.keys():         
+                    if not var in odeModel._MeasuredList:
+                        Meas_same = False
+                else:
+                    raise Exception('%s is not a variable in the current model' %var)
+            else:
+                if var in odeModel._Variables:
+                    if not var in odeModel._MeasuredList:
+                        Meas_same = False
+                else:
+                    raise Exception('%s is not a variable in the current model' %var)
+        if Meas_same == False or len(Data.get_measured_variables()) <> len(odeModel._Variables):
+            print 'Measured variables are updated in model!'
+            odeModel.set_measured_states(Data.get_measured_variables())
+            
         #create initial set of information:
         self._solve_for_opt()
         self.get_WSSE()
@@ -149,7 +155,12 @@ class ode_optimizer(object):
         else:
             self._model._Time = np.concatenate((np.array([0.]), 
                                                 self._data.get_measured_times()))
-        self.ModelOutput = self._model.solve_ode(plotit=False)
+        self._model.solve_ode(plotit=False)
+        try:        
+            self._model.rerun_for_algebraic()
+            self.ModelOutput = pd.merge(self._model.ode_solved,self._model.algeb_solved, left_index = True, right_index = True)
+        except:
+            self.ModelOutput = self._model.ode_solved
 #        self.ModelOutput.columns = [var+'_model' for var in self.ModelOutput.columns]
         self._model.set_time(self._model._TimeDict)
         #put ModMeas in set
@@ -167,8 +178,12 @@ class ode_optimizer(object):
             for par in self._get_fitting_parameters().keys():
                 self._model.Parameters[par] = parset[par]
                 
-                
-        visual_ModelOutput = self._model.solve_ode(plotit=False)
+        self._model.solve_ode(plotit=False)
+        try:
+            self._model.rerun_for_algebraic()
+            visual_ModelOutput = pd.merge(self._model.ode_solved,self._model.algeb_solved, left_index = True, right_index = True)
+        except:
+            visual_ModelOutput = self._model.ode_solved
         return visual_ModelOutput     
         
               
@@ -188,6 +203,7 @@ class ode_optimizer(object):
         #Residuals for the current model_output
         self.residuals = (self.ModelOutput-self.Data).dropna(how='all') 
         self.unweigthed_SSE = (self.residuals**2).sum() 
+        print self.residuals
         
         #WSSE CALCULATION       
         #sum over the timesteps (order is not important, so dict-iteration could also be used)
