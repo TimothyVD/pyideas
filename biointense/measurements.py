@@ -245,7 +245,20 @@ class ode_measurements(object):
                     yti = self.Data_dict[var].ix[timestep][var]
                     measerr = self.Meas_Errors[var]      
                     temp=1.+ 1./((yti/lower_accuracy_bound)**2 +(yti/lower_accuracy_bound))
-                    self._Error_Covariance_Matrix[timestep].values[ide,ide] = yti*minimal_relative_error*temp                     
+                    self._Error_Covariance_Matrix[timestep].values[ide,ide] = yti*minimal_relative_error*temp
+        
+        elif method == 'direct':
+            for var in self.Meas_Errors:
+                measerr = self.Meas_Errors[var]
+                self.Data_dict[var]['error'] = measerr
+                
+            for jde, timestep in enumerate(self.get_measured_times()):  
+                temp = np.zeros((len(self.Data.ix[timestep].dropna()), len(self.Data.ix[timestep].dropna())))
+                self._Error_Covariance_Matrix[timestep] = pd.DataFrame(temp, index=self.Data.ix[timestep].dropna().index.tolist(), columns=self.Data.ix[timestep].dropna().index.tolist())
+                for ide, var in enumerate(self.Data.ix[timestep].dropna().index):
+                    measerr = self.Meas_Errors[var]
+                    self._Error_Covariance_Matrix[timestep].values[ide,ide] = measerr[jde]
+            
             
         
 

@@ -6,6 +6,8 @@ Created on Mon Mar 25 12:04:03 2013
 0.1 Class version of the ODE generator by Tvandaele
 """
 
+from biointense import odegenerator
+
 class odemaker(object):
     '''
     Class to generate an ODE system based on a symbolic diagram.
@@ -113,10 +115,13 @@ class odemaker(object):
                         parameters[j]
                         raise Exception('The parameter {0} has been defined more than once, please change the input!'.format(j))
                     except KeyError:
-                        parameters[j] = 0
+                        parameters[j] = 1
                 
         self.system = system
         self.parameters = parameters
         self.system_list = system_list
         
         print '...Done!'
+        
+    def passToOdeGenerator(self):
+        return odegenerator(self.system, self.parameters, Modelname = self.modelname)

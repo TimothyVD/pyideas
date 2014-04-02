@@ -1654,6 +1654,17 @@ class odegenerator(object):
         
         self.QSSE_var = QSSE_var
         self.QSSE_enz = QSSE_enz
+        
+    def QSSAtoModel(self, substrates, products):
+        system = {}
+        for i in substrates:
+            system['d'+i] = '-QSSE'
+        for i in products:
+            system['d'+i] = 'QSSE'
+            
+        algebraic = {}
+        algebraic['QSSE'] = str(self.QSSE_var)
+        return odegenerator(system, self.Parameters, Modelname = self.modelname + '_QSSA', Algebraic = algebraic)
                
     def checkMassBalance(self, variables = 'En'):
         '''Check mass balance of enzyme forms

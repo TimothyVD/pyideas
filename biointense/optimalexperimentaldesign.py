@@ -340,11 +340,12 @@ class ode_FIM(object):
         CI[:,0] = self.Parameters.values()
         for i,variance in enumerate(np.array(self.ECM.diagonal())[0,:]):
             #TODO check whether sum or median or... should be used 
-            CI[i,1:3] =  stats.t.interval(alpha, n_p, loc=self.Parameters.values()[i],scale=np.sqrt(variance))
+            #TODO Check of de absolute waarde hier gebruikt mag worden!!!!
+            CI[i,1:3] =  stats.t.interval(alpha, n_p, loc=self.Parameters.values()[i],scale=np.sqrt(abs(variance)))
             #print stats.t.interval(alpha,self._data.Data.count()-len(self.Parameters),scale=np.sqrt(var))[1][0]
-            CI[i,3] = stats.t.interval(alpha, n_p, scale=np.sqrt(variance))[1]
+            CI[i,3] = stats.t.interval(alpha, n_p, scale=np.sqrt(abs(variance)))[1]
         CI[:,4] = abs(CI[:,3]/self.Parameters.values())*100
-        CI[:,5] = self.Parameters.values()/np.sqrt(self.ECM.diagonal())
+        CI[:,5] = self.Parameters.values()/np.sqrt(abs(self.ECM.diagonal()))
         CI[:,6] = stats.t.interval(alpha, n_p)[1]
         for i in np.arange(self.ECM.shape[1]):
             CI[i,7] = 1 if CI[i,5]>=CI[i,6] else 0
