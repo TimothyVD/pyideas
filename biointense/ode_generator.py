@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 
 from plotfunctions import *
 
-class odegenerator(object):
+class DAErunner(object):
     '''
     Class to generated an ODE model based on a Parameter and Variables
     dictionary. Includes ODE-model run, identifiability analysis with Tatlor
@@ -72,28 +72,36 @@ class odegenerator(object):
     >>>  M1.taylor_series_approach(2)
     '''
     
-    def __init__(self, System, Parameters, Modelname = 'MyModel',*args,**kwargs):
+    def __init__(self,*args,**kwargs):
         '''
 
         '''
         
-        self.Parameters = collections.OrderedDict(sorted(Parameters.items(), key=lambda t: t[0]))
-        self.System = collections.OrderedDict(sorted(System.items(), key=lambda t: t[0]))    
+        self.Parameters = collections.OrderedDict(sorted(kwargs.get('Parameters').items(), key=lambda t: t[0]))
+        try:        
+            self.System = collections.OrderedDict(sorted(kwargs.get('System').items(), key=lambda t: t[0]))    
+            self._Variables = [i[1:] for i in self.System.keys()]            
+            self._has_ODE = True
+            self._analytic_local_sensitivity()
+            print(str(len(self.System)) + ' ODE(s) was/were defined. Continuing...')
+        except:
+            print('No ODES defined. Continuing...')
+            self._has_ODE = False            
         
-        self.modelname = Modelname
-        self._Variables = [i[1:] for i in self.System.keys()]
+        
+        self.modelname = kwargs.get('Modelname')
         
         try:
             self.Algebraic =  collections.OrderedDict(sorted(kwargs.get('Algebraic').items(),key=lambda t: t[0]))
             self._has_algebraic = True
-            self._alg_swap()
+            #self._AlgVariables = self.Algebraic.keys()
             self._alg_LSA()
+            print(str(len(self.Algebraic)) + ' Algebraic equation(s) was/were defined. Continuing...')
         except:
             print 'No Algebraic equations defined. Continuing...'
             self._has_algebraic = False
             
-        self._has_stepfunction = False
-        self._analytic_local_sensitivity()            
+        self._has_inputfunction = False         
         #self._write_model_to_file()
                 
         self._wrote_model_to_file = False
@@ -162,13 +170,12 @@ class odegenerator(object):
         
         '''
         Measured_temp = {}
-        for key in self.System:
-            Measured_temp[key] = 0
-        try:
+        if self._has_ODE:
+            for key in self.System:
+                Measured_temp[key] = 0
+        if self._has_algebraic:
             for key in self.Algebraic:
                 Measured_temp[key] = 0
-        except:
-            pass
         self._MeasuredList=[]
         
         Measurable_States.sort()
@@ -310,7 +317,8 @@ class odegenerator(object):
         #algebraic_matrix = sympy.Matrix(sympy.sympify(self.Algebraic.values()))
         #algebraic_keys = sympy.Matrix(sympy.sympify(self.Algebraic.keys()))
         # Set up symbolic matrix of variables
-        states_matrix = sympy.Matrix(sympy.sympify(self._Variables))
+        if self._has_ODE:
+            states_matrix = sympy.Matrix(sympy.sympify(self._Variables))
         # Set up symbolic matrix of parameters
         parameter_matrix = sympy.Matrix(sympy.sympify(self.Parameters.keys()))
  
@@ -323,13 +331,12 @@ class odegenerator(object):
                                 
         # Initialize and calculate matrices for analytic sensitivity calculation
         # dgdtheta
-        print algebraic_matrix
         dgdtheta = algebraic_matrix.jacobian(parameter_matrix)
         self.dgdtheta = np.array(dgdtheta)
         # dgdx
-        dgdx = algebraic_matrix.jacobian(states_matrix)
-        self.dgdx = np.array(dgdx)
-        
+        if self._has_ODE:
+            dgdx = algebraic_matrix.jacobian(states_matrix)
+            self.dgdx = np.array(dgdx)
         
     def _check_for_meas(self, Measurable_States):
         '''verify presence of measured states
@@ -427,10 +434,6 @@ class odegenerator(object):
             else:
                 stepfunction.append(spint.interp1d(x, y))
                 
-        self.stepfunction = stepfunction
-        self._has_stepfunction = True  
-        self._wrote_model_to_file = False
-               
         return stepfunction
         
     def addExternalFunction(self, function):
@@ -440,319 +443,9 @@ class odegenerator(object):
         Comparable to stepfunction but more general now!
         '''
         
-        self.stepfunction = function
-        self._has_stepfunction = True  
+        self.externalfunction = function
+        self._has_externalfunction = True  
         self._wrote_model_to_file = False
-
-    def taylor_series_approach(self, iterations, Measurable_States = False,
-                             Initial_Conditions = False):
-        '''Identifiability: TaylorSeriesApproach
-        
-        Taylor Series Approach for verification of identification.
-        
-        Parameters
-        -----------
-        iterations : int
-            Number of derivatives the algorithm has to calculate (TaylorSeries!)
-        Measurable_States : list or False
-            if False, the previously set variables are used; otherwise this
-            contains all the measured states in a list
-        Initial_Conditions : Dict of False
-            if False, the previously set conditions are used; otherwise this 
-            dict contains initial conditions for all states
-
-        Returns
-        -------
-        Identifiability_Pairwise : array
-            Contains for every Measurable state and every iteration, an array
-            (number parameters x number parameters), values of 1 show that this
-            parameter pair is not interchangeable. Values of 0 shows that this pair is 
-            interchangeable. Values of 10 can be ignored.
-        
-        Identifiability_Ghostparameter : array
-            Contains for every Measurable state and every iteration, an array
-            (1 x number parameters), a value of 1 show that this parameter is unique. 
-            A value of 0 states that this parameter is not uniquely identifiable.
-        
-        Identifiability_Swapping : array
-
-        Notes
-        ------
-        Identifiability is defined both by the so-called ghost-parameter and 
-        the swap-parameter method. 
-            
-        References
-        ----------
-        .. [1] E. Walter and L. Pronzato, Identification of parametric models 
-                from experimental data., 1997.
-        
-        See Also
-        ---------
-        taylor_compare_methods_check, plot_taylor_ghost
-         
-        '''  
-        self._check_for_init(Initial_Conditions)
-        self._check_for_meas(Measurable_States)
-
-        intern_system = {}
-        # Convert all parameters to symbols
-        for i in range(len(self.Parameters)):
-            exec(self.Parameters.keys()[i]+" = sympy.symbols('"+self.Parameters.keys()[i]+"')")
-        # Add (t) to the different states in order to calculate the derivative to the time   
-        for i in range(len(self.System)):
-            exec(self.System.keys()[i][1:]+" = sympy.symbols('"+self.System.keys()[i][1:]+"(t)')")
-        # Replace states without time by states WITH time
-        for i in range(len(self.System)):
-            intern_system[self.System.keys()[i]] = str(eval(self.System.values()[i]))
-        # Sort internal system
-        intern_system = collections.OrderedDict(sorted(intern_system.items(), key=lambda t: t[0]))
-        # Symbolify t
-        t = sympy.symbols('t')
-        # Delete state symbols (only looking to time dependence)
-        for i in range(len(self.System)):
-            exec('del '+self.System.keys()[i][1:])
-        # Construct empty identification matrix
-        self.Identifiability_Pairwise = np.zeros([sum(self.Measurable_States.values()),iterations,len(self.Parameters),len(self.Parameters)])+10
-        self.Identifiability_Ghostparameter = np.zeros([sum(self.Measurable_States.values()),iterations,len(self.Parameters)])+10
-        # For all measurable states run TaylorSeriesApproac
-        for h in range(sum(self.Measurable_States.values())):
-            # Only perform identifiability analysis for measurable outputs
-            h_measurable = np.where(np.array(self.Measurable_States.values())==1)[0][h]
-            # Make list for measurable output derivatives
-            Measurable_Output_Derivatives = []
-            Measurable_Output_Derivatives_numerical_values = []
-            # Make ghost parameter
-            P_P_ghost = sympy.symbols('P_P_ghost')
-            # Number of iterations = nth order-derivatives
-            for i in range(iterations):
-                if len(Measurable_Output_Derivatives) == 0:
-                    # Copy original system in dict
-                    Measurable_Output_Derivatives.append(str(intern_system['d'+self.System.keys()[h_measurable][1:]]))
-                else:
-                    # Take derivative of previous element of list
-                    Measurable_Output_Derivatives.append(str(sympy.diff(Measurable_Output_Derivatives[-1],t)))
-                for j in range(len(self.System)):
-                    # Replace 'Derivative(X(t),t)' by dX(t) from system
-                    Measurable_Output_Derivatives[-1] = Measurable_Output_Derivatives[-1].replace("Derivative("+self.System.keys()[j][1:]+"(t), t)",'('+intern_system['d'+self.System.keys()[j][1:]]+')')
-                Measurable_Output_Derivatives_numerical_values.append(Measurable_Output_Derivatives[-1])
-                for j in range(len(self.System)):
-                    # Replace symbols by the corresponding numerical values
-                    Measurable_Output_Derivatives_numerical_values[-1] = Measurable_Output_Derivatives_numerical_values[-1].replace(self.System.keys()[j][1:]+"(t)",str(self.Initial_Conditions[self.System.keys()[j][1:]]))
-                    # Keep the symbolic values (still testing mode)                
-                    #AAA[-1] = AAA[-1].replace(state_list[j]+"(t)",str(state_list[j]))
-                # Simplify sympy expression
-                Measurable_Output_Derivatives[-1] = str(sympy.simplify(Measurable_Output_Derivatives[-1]))
-                for j in range(len(self.Parameters)):
-                    for k in range(j+1,len(self.Parameters)):
-                        # Exchange two symbols with each other
-                        exec(self.Parameters.keys()[j]+" = sympy.symbols('"+self.Parameters.keys()[k]+"')")
-                        exec(self.Parameters.keys()[k]+" = sympy.symbols('"+self.Parameters.keys()[j]+"')")
-                        # Evaluate 'symbolic' expression
-                        Measurable_Output_Derivatives_temp_plus = str(eval(Measurable_Output_Derivatives_numerical_values[i]))
-                        # Reset symbols to their original values                    
-                        exec(self.Parameters.keys()[k]+" = sympy.symbols('"+self.Parameters.keys()[k]+"')")
-                        exec(self.Parameters.keys()[j]+" = sympy.symbols('"+self.Parameters.keys()[j]+"')")
-                        # If answer is the same then these parameters are not identifiable
-                        self.Identifiability_Pairwise[h,i,k,j] = eval(Measurable_Output_Derivatives_numerical_values[i]+' != '+Measurable_Output_Derivatives_temp_plus)
-                for j in range(len(self.Parameters)):
-                    # Replace parameter by ghostparameter
-                    exec(self.Parameters.keys()[j]+" = sympy.symbols('P_P_ghost')")
-                    # Evaluate 'symbolic' expression
-                    Measurable_Output_Derivatives_temp_plus = str(eval(Measurable_Output_Derivatives_numerical_values[i]))
-                    # Reset parameter to its original value                   
-                    exec(self.Parameters.keys()[j]+" = sympy.symbols('"+self.Parameters.keys()[j]+"')")
-                    # If answer is the same then this parameter is not unique identifiable
-                    self.Identifiability_Ghostparameter[h,i,j] = eval(Measurable_Output_Derivatives_numerical_values[i]+' != '+Measurable_Output_Derivatives_temp_plus)
-        self.Identifiability_Swapping = self._pairwise_to_ghoststyle(iterations)
-        return self.Identifiability_Pairwise, self.Identifiability_Ghostparameter, self.Identifiability_Swapping
-
-    def taylor_compare_methods_check(self):
-        '''Taylor identifibility compare approaches
-        
-        Check if the ghost-parameter and swap-parameter methods are giving the 
-        same result        
-        '''
-        check = ((self.Identifiability_Ghostparameter==self.Identifiability_Swapping)==0).sum()
-        if check == 0:
-            print 'Both approaches yield the same solution!'
-        else:
-            print 'There is an inconsistency between the Ghost and Swapping approach'
-            print 'Ghostparameter'
-            pprint.pprint(self.Identifiability_Ghostparameter)
-            print 'Swapping'
-            pprint.pprint(self.Identifiability_Swapping)
-
-    def _pairwise_to_ghoststyle(self,iterations):
-        '''Puts the output of both Taylor methods in similar output format
-        
-        '''
-        self.Parameter_Identifiability = np.ones([sum(self.Measurable_States.values()),iterations,len(self.Parameters)])
-        for h in range(sum(self.Measurable_States.values())):
-            for i in range(iterations):
-                for j in range(len(self.Parameters)):
-                    self.Parameter_Identifiability[h,i,j] = min([min(self.Identifiability_Pairwise[h,i,j,:]),min(self.Identifiability_Pairwise[h,i,:,j])])
-        return self.Parameter_Identifiability
-
-    def plot_taylor_ghost(self, ax = 'none', order = 0, redgreen = False):
-        '''Taylor identifiability plot
-        
-        Creates an overview plot of the identifiable parameters, given
-        a certain order to show
-        
-        Parameters
-        -----------
-        ax1 : matplotlib axis instance
-            the axis will be updated by the function
-        order : int
-            order of the taylor expansion to plot (starts with 0)
-        redgreen : boolean True|False
-            if True, identifibility is addressed by red/green colors, otherwise
-            greyscale color is used
-
-        Returns
-        ---------
-        ax1 : matplotlib axis instance
-            axis with the plotted output 
-                
-        Examples
-        ----------
-        >>> M1 = odegenerator(System, Parameters, Modelname = Modelname)
-        >>> fig = plt.figure()
-        >>> fig.subplots_adjust(hspace=0.3)
-        >>> ax1 = fig.add_subplot(211)
-        >>> ax1 = M1.plot_taylor_ghost(ax1, order = 0, redgreen=True)
-        >>> ax1.set_title('First order derivative')
-        >>> ax2 = fig.add_subplot(212)
-        >>> ax2 = M1.plot_taylor_ghost(ax2, order = 1, redgreen=True)
-        >>> ax2.set_title('Second order derivative')
-        
-        '''
-        if ax == 'none':
-            fig, ax1 = plt.subplots()
-        else:
-            ax1 = ax
-        
-        
-        mat_to_plot = self.Identifiability_Ghostparameter[:,order,:]
-              
-        xplaces=np.arange(0,mat_to_plot.shape[1],1)
-        yplaces=np.arange(0,mat_to_plot.shape[0],1)
-                
-        if redgreen == True:
-            cmap = colors.ListedColormap(['FireBrick','YellowGreen'])
-        else:
-            cmap = colors.ListedColormap(['.5','1.'])
-            
-        bounds=[0,0.9,2.]
-        norm = colors.BoundaryNorm(bounds, cmap.N)
-        #plot tje colors for the frist tree parameters
-        ax1.matshow(mat_to_plot,cmap=cmap,norm=norm)
-        
-        #Plot the rankings in the matrix
-        for i in range(mat_to_plot.shape[1]):
-            for j in range(mat_to_plot.shape[0]):
-                if mat_to_plot[j,i]== 0.:
-                    ax1.text(xplaces[i], yplaces[j], '-', 
-                             fontsize=14, horizontalalignment='center', 
-                             verticalalignment='center')
-                else:
-                    ax1.text(xplaces[i], yplaces[j], '+', 
-                             fontsize=14, horizontalalignment='center', 
-                             verticalalignment='center')   
-                             
-        #place ticks and labels
-        ax1.set_xticks(xplaces)
-        ax1.set_xbound(-0.5,xplaces.size-0.5)
-        ax1.set_xticklabels(self.Parameters.keys(), rotation = 30, ha='left')
-        
-        ax1.set_yticks(yplaces)
-        ax1.set_ybound(yplaces.size-0.5,-0.5)
-        ax1.set_yticklabels(self.get_measured_variables())
-        
-        ax1.spines['bottom'].set_color('none')
-        ax1.spines['right'].set_color('none')
-        ax1.xaxis.set_ticks_position('top')
-        ax1.yaxis.set_ticks_position('left')
-        
-        return ax1
-       
-        
-    def _make_canonical(self):
-        '''transforms model in canonical shape
-                
-        '''
-        print self.System.keys()
-        # Symbolify parameters
-        for i in range(len(self.Parameters)):
-            exec(self.Parameters.keys()[i] + " = sympy.symbols('"+self.Parameters.keys()[i]+"')")
-        # Symbolify states
-        self._canon_A = np.zeros([len(self.System),len(self.System)])
-        A_list = []
-        for i in range(len(self.System)):
-            for j in range(len(self.System)):
-                if i is not j:
-                    exec(self.System.keys()[j][1:]+"= sympy.symbols('"+self.System.keys()[j][1:]+"_eq')")
-                else:
-                    exec(self.System.keys()[j][1:] +" = sympy.symbols('"+self.System.keys()[j][1:]+"')")
-            for j in range(len(System)):
-               A_list.append(sympy.integrate(sympy.diff(eval(self.System.values()[j]),eval(self.System.keys()[i][1:])),eval(self.System.keys()[i][1:]))/eval(self.System.keys()[i][1:]))
-      
-        for i in range(len(self.Parameters)):
-            exec(self.Parameters.keys()[i]+' = '+str(self.Parameters.values()[i]))
-        for i in range(len(self.System)):
-            exec(self.Initial_Conditions.keys()[i]+'_eq = '+str(self.Initial_Conditions.values()[i]))
-        
-        for i in range(len(self.System)):
-            for j in range(len(self.System)):
-                self._canon_A[i,j] = eval(str(A_list[i*len(self.System)+j]))
-    
-        self._canon_B = np.zeros([len(self.Measurable_States) ,sum(self.Measurable_States.values())])
-        j=0
-        for i in range(len(self.Measurable_States)):
-            if self.Measurable_States.values()[i] == 1:
-                self._canon_B[i,j]=1
-                j+=1
-        self._canon_C = np.transpose(self._canon_B)
-        self._canon_D = np.zeros([sum(self.Measurable_States.values()),sum(self.Measurable_States.values())])
-        
-        return self._canon_A, self._canon_B, self._canon_C, self._canon_D
-
-
-    def _identifiability_check_laplace_transform(self, Measurable_States = False, 
-                              Initial_Conditions = False):
-        '''Laplace transformation based identifiability test
-        
-        Checks the identifiability by Laplace transformation
-        
-        Parameters
-        -----------
-        Measurable_States : list or False
-            if False, the previously set variables are used; otherwise this
-            contains all the measured states in a list
-        Initial_Conditions : Dict of False
-            if False, the previously set conditions are used; otherwise this 
-            dict contains initial conditions for all states
-        
-        Returns
-        --------
-        H1 : ndarray
-            identifibaility array 1
-        H2 : ndarray
-            identifibaility array 2
-        
-        '''
-        #check for presence of initial conditions and measured values
-        self._check_for_init(Initial_Conditions)
-        self._check_for_meas(Measurable_States)        
-
-        #Make cannonical
-        self._make_canonical()
-        
-        s = sympy.symbols('s')
-        H2 = self._canon_C*((s*sympy.eye(len(self._canon_A))-self._canon_A).inv())
-        H1 = H2*self._canon_B+self._canon_D
-        
-        return H1,H2
 
     def _write_model_to_file(self, procedure = 'ode'):
         '''Write derivative of model as definition in file
@@ -765,12 +458,13 @@ class odegenerator(object):
         
         '''
                 
-        try:
-            self.dfdtheta
-        except:
-            print 'Running symbolic calculation of analytic sensitivity ...'
-            self._analytic_local_sensitivity()
-            print '... Done!'
+        if self._has_ODE:
+            try:
+                self.dfdtheta
+            except:
+                print 'Running symbolic calculation of analytic sensitivity ...'
+                self._analytic_local_sensitivity()
+                print '... Done!'           
             
         temp_path = os.path.join(os.getcwd(),self.modelname+'.py')
         print 'File is printed to: ', temp_path
@@ -778,136 +472,60 @@ class odegenerator(object):
         file = open(temp_path, 'w+')
         file.seek(0,0)
         
-        file.write('#'+self.modelname+'\n')
+        file.write("# Generated by biointense 0.01\n")
+        file.write('# '+self.modelname+'\n')
         file.write('from __future__ import division\n')
         file.write('from numpy import *\n\n')
         
         # Write function for solving ODEs only
-        if self._has_stepfunction:
-            if self._ode_procedure == "ode":
-                file.write('def system(t,ODES,Parameters,stepfunction):\n')
+        if self._has_ODE:
+            if self._has_inputfunction:
+                if self._ode_procedure == "ode":
+                    file.write('def system(t,ODES,Parameters,input):\n')
+                else:
+                    file.write('def system(ODES,t,Parameters,input):\n')
             else:
-                file.write('def system(ODES,t,Parameters,stepfunction):\n')
-        else:
-            if self._ode_procedure == "ode":
-                file.write('def system(t,ODES,Parameters):\n')
-            else:
-                file.write('def system(ODES,t,Parameters):\n')
-        for i in range(len(self.Parameters)):
-            #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
-            file.write('    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n")
-        file.write('\n')
-        for i in range(len(self.System)):
-            file.write('    '+str(self.System.keys()[i])[1:] + ' = ODES['+str(i)+']\n')
-        file.write('\n')  
-        try:
-            self.stepfunction
-            for i, step in enumerate(self.stepfunction):
-                file.write('    step'+str(i) + ' = stepfunction['+str(i)+'](t)'+'\n')
-            file.write('\n')
-        except AttributeError:
-            pass
-        try:
-            self.Algebraic
-            for i in range(len(self.Algebraic)):
-                #file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
-                file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic_swapped[i])+'\n')
-            file.write('\n')
-        except AttributeError:
-            pass
-        for i in range(len(self.System)):
-            file.write('    '+str(self.System.keys()[i]) + ' = ' + str(self.System.values()[i])+'\n')
+                if self._ode_procedure == "ode":
+                    file.write('def system(t,ODES,Parameters):\n')
+                else:
+                    file.write('def system(ODES,t,Parameters):\n')
         
-        file.write('    return '+str(self.System.keys()).replace("'","")+'\n\n\n')
-        
-        # Write function for solving ODEs of both system and analytical sensitivities
-        if self._has_stepfunction:
-            if self._ode_procedure == "ode":
-                file.write('def system_with_sens(t,ODES,Parameters,stepfunction):\n')
-            else:
-                file.write('def system_with_sens(ODES,t,Parameters,stepfunction):\n')
-        else:
-            if self._ode_procedure == "ode":
-                file.write('def system_with_sens(t,ODES,Parameters):\n')
-            else:
-                file.write('def system_with_sens(ODES,t,Parameters):\n')
-        for i in range(len(self.Parameters)):
-            #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
-            file.write('    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n")
-        file.write('\n')
-        for i in range(len(self.System)):
-            file.write('    '+str(self.System.keys()[i])[1:] + ' = ODES['+str(i)+']\n')
-        file.write('\n')
-        try:
-            self.stepfunction
-            for i, step in enumerate(self.stepfunction):
-                file.write('    step'+str(i) + ' = stepfunction['+str(i)+'](t)'+'\n')
-            file.write('\n')
-        except AttributeError:
-            pass
-        try:
-            self.Algebraic
-            for i in range(len(self.Algebraic)):
-                #file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
-                file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic_swapped[i])+'\n')
-            file.write('\n')
-        except AttributeError:
-            pass
-        for i in range(len(self.System)):
-            file.write('    '+str(self.System.keys()[i]) + ' = ' + str(self.System.values()[i])+'\n')
-        
-        print 'Sensitivities are printed to the file....'
-        file.write('\n    #Sensitivities\n\n')
-        
-        # Calculate number of states by using inputs
-        file.write('    state_len = len(ODES)/(len(Parameters)+1)\n')
-        # Reshape ODES input to array with right dimensions in order to perform matrix multiplication
-        file.write('    dxdtheta = array(ODES[state_len:].reshape(state_len,len(Parameters)))\n\n')
-        
-        # Write dfdtheta as symbolic array
-        file.write('    dfdtheta = ')
-        pprint.pprint(self.dfdtheta,file)
-        # Write dfdx as symbolic array
-        file.write('\n    dfdx = ')
-        pprint.pprint(self.dfdx,file)
-        # Calculate derivative in order to integrate this
-        file.write('\n    dxdtheta = dfdtheta + dot(dfdx,dxdtheta)\n')
-
-        file.write('    return '+str(self.System.keys()).replace("'","")+'+ list(dxdtheta.reshape(-1,))'+'\n\n\n')
-        
-        try:
-            self.Algebraic
-            if self._has_stepfunction:
-                file.write('\ndef Algebraic_outputs(ODES,t,Parameters, stepfunction):\n')
-            else:
-                file.write('\ndef Algebraic_outputs(ODES,t,Parameters):\n')
             for i in range(len(self.Parameters)):
                 #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
                 file.write('    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n")
             file.write('\n')
+            
             for i in range(len(self.System)):
-                #file.write('    '+str(self.System.keys()[i])[1:] + ' = ODES['+str(i)+']\n')
-                file.write('    '+str(self.System.keys()[i])[1:] + ' = ODES[:,'+str(i)+']\n')
-            file.write('\n')
-            try:
-                self.stepfunction
-                for i, step in enumerate(self.stepfunction):
-                    file.write('    step'+str(i) + ' = stepfunction['+str(i)+'](t)'+'\n')
+                file.write('    '+str(self.System.keys()[i])[1:] + ' = ODES['+str(i)+']\n')
+            file.write('\n')  
+            
+            if self._has_externalfunction:
+                for i, step in enumerate(self.input_function):
+                    file.write('    input'+str(i) + ' = input['+str(i)+'](t)'+'\n')
                 file.write('\n')
-            except AttributeError:
-                pass
-            if self.Algebraic != None:
+                
+            if self._has_algebraic:
                 for i in range(len(self.Algebraic)):
-                    #file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+' + zeros(len(t))\n')
-                    file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic_swapped[i])+' + zeros(len(t))\n')
-            file.write('\n')
-            file.write('    algebraic = array('+str(self.Algebraic.keys()).replace("'","")+').T\n\n')
-            file.write('    return algebraic\n\n\n')
-            #Algebraic sens
-            if self._has_stepfunction:
-                file.write('\ndef Algebraic_sens(ODES,t,Parameters, stepfunction, dxdtheta):\n')
+                    #file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
+                    file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic_swapped[i])+'\n')
+                file.write('\n')
+            
+            for i in range(len(self.System)):
+                file.write('    '+str(self.System.keys()[i]) + ' = ' + str(self.System.values()[i])+'\n')
+        
+            file.write('    return '+str(self.System.keys()).replace("'","")+'\n\n\n')
+        
+            # Write function for solving ODEs of both system and analytical sensitivities
+            if self._has_inputfunction:
+                if self._ode_procedure == "ode":
+                    file.write('def system_with_sens(t,ODES,Parameters,input):\n')
+                else:
+                    file.write('def system_with_sens(ODES,t,Parameters,input):\n')
             else:
-                file.write('\ndef Algebraic_sens(ODES,t,Parameters, dxdtheta):\n')
+                if self._ode_procedure == "ode":
+                    file.write('def system_with_sens(t,ODES,Parameters):\n')
+                else:
+                    file.write('def system_with_sens(ODES,t,Parameters):\n')
             for i in range(len(self.Parameters)):
                 #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
                 file.write('    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n")
@@ -915,50 +533,161 @@ class odegenerator(object):
             for i in range(len(self.System)):
                 file.write('    '+str(self.System.keys()[i])[1:] + ' = ODES['+str(i)+']\n')
             file.write('\n')
-            try:
-                self.stepfunction
-                for i, step in enumerate(self.stepfunction):
-                    file.write('    step'+str(i) + ' = stepfunction['+str(i)+'](t)'+'\n')
+            if self._has_inputfunction:
+                for i, step in enumerate(self.input_function):
+                    file.write('    input'+str(i) + ' = input['+str(i)+'](t)'+'\n')
                 file.write('\n')
-            except AttributeError:
-                pass
-            if self.Algebraic != None:
+            if self._has_algebraic:
                 for i in range(len(self.Algebraic)):
                     #file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
                     file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic_swapped[i])+'\n')
-            file.write('\n')
+                file.write('\n')
+            for i in range(len(self.System)):
+                file.write('    '+str(self.System.keys()[i]) + ' = ' + str(self.System.values()[i])+'\n')
+            
             print 'Sensitivities are printed to the file....'
             file.write('\n    #Sensitivities\n\n')
-                       
-            # Write dgdtheta as symbolic array
-            file.write('    dgdtheta = ')
-            pprint.pprint(self.dgdtheta,file)
-            # Write dgdx as symbolic array
-            file.write('\n    dgdx = ')
-            pprint.pprint(self.dgdx,file)
-#            file.write('    dgdtheta = zeros('+str([self._TimeDict['nsteps'],self.dgdtheta.shape[0],self.dgdtheta.shape[1]])+')')
-#            for i,dg in enumerate(self.dgdtheta):
-#                for j,dg2 in enumerate(dg):
-#                    file.write('\n    dgdtheta[:,'+str(i)+','+str(j)+'] = ' + str(self.dgdtheta[i,j]))
-            # Write dgdx as symbolic array
             
-#            file.write('\n\n    dgdx = zeros('+str([self._TimeDict['nsteps'],self.dgdx.shape[0],self.dgdx.shape[1]])+')')
-#            for i,dg in enumerate(self.dgdx):
-#                for j,dg2 in enumerate(dg):
-#                    file.write('\n    dgdx[:,'+str(i)+','+str(j)+'] = ' + str(self.dgdx[i,j]))
+            # Calculate number of states by using inputs
+            file.write('    state_len = len(ODES)/(len(Parameters)+1)\n')
+            # Reshape ODES input to array with right dimensions in order to perform matrix multiplication
+            file.write('    dxdtheta = array(ODES[state_len:].reshape(state_len,len(Parameters)))\n\n')
+            
+            # Write dfdtheta as symbolic array
+            file.write('    dfdtheta = ')
+            pprint.pprint(self.dfdtheta,file)
+            # Write dfdx as symbolic array
+            file.write('\n    dfdx = ')
+            pprint.pprint(self.dfdx,file)
             # Calculate derivative in order to integrate this
-            file.write('\n\n    dydtheta = dgdtheta + dot(dgdx,dxdtheta)\n')
+            file.write('\n    dxdtheta = dfdtheta + dot(dfdx,dxdtheta)\n')
+    
+            file.write('    return '+str(self.System.keys()).replace("'","")+'+ list(dxdtheta.reshape(-1,))'+'\n\n\n')
+        
+        if self._has_algebraic:
+            if self._has_ODE:
+                if self._has_inputfunction:
+                    file.write('\ndef Algebraic_outputs(ODES,t,Parameters, input):\n')
+                else:
+                    file.write('\ndef Algebraic_outputs(ODES,t,Parameters):\n')
+            elif self._has_inputfunction:
+                file.write('\ndef Algebraic_outputs(t,Parameters, input):\n')
+            else:
+                file.write('\ndef Algebraic_outputs(t,Parameters):\n')
+            for i in range(len(self.Parameters)):
+                #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
+                file.write('    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n")
+            file.write('\n')
+            if self._has_ODE:
+                for i in range(len(self.System)):
+                    #file.write('    '+str(self.System.keys()[i])[1:] + ' = ODES['+str(i)+']\n')
+                    file.write('    '+str(self.System.keys()[i])[1:] + ' = ODES[:,'+str(i)+']\n')
+                file.write('\n')
+            if self._has_inputfunction:
+                for i, step in enumerate(self.input_function):
+                    file.write('    input'+str(i) + ' = input['+str(i)+'](t)'+'\n')
+                file.write('\n')
+            for i in range(len(self.Algebraic)):
+                #file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+' + zeros(len(t))\n')
+                file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic_swapped[i])+' + zeros(len(t))\n')
+            file.write('\n')
+            file.write('    algebraic = array('+str(self.Algebraic.keys()).replace("'","")+').T\n\n')
+            file.write('    return algebraic\n\n\n')
+            
+            #
+            if self._has_ODE:
+                #Algebraic sens
+                if self._has_inputfunction:
+                    file.write('\ndef Algebraic_sens(ODES,t,Parameters, input, dxdtheta):\n')
+                else:
+                    file.write('\ndef Algebraic_sens(ODES,t,Parameters, dxdtheta):\n')
+                for i in range(len(self.Parameters)):
+                    #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
+                    file.write('    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n")
+                file.write('\n')
+                for i in range(len(self.System)):
+                    file.write('    '+str(self.System.keys()[i])[1:] + ' = ODES['+str(i)+']\n')
+                file.write('\n')
+                if self._has_inputfunction:
+                    for i, step in enumerate(self.input_function):
+                        file.write('    input'+str(i) + ' = input['+str(i)+'](t)'+'\n')
+                    file.write('\n')
+                for i in range(len(self.Algebraic)):
+                    #file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
+                    file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic_swapped[i])+'\n')
+                file.write('\n')
+                print 'Sensitivities are printed to the file....'
+                file.write('\n    #Sensitivities\n\n')
+                           
+                # Write dgdtheta as symbolic array
+                file.write('    dgdtheta = ')       
+                pprint.pprint(self.dgdtheta,file)
+
+                # Write dgdx as symbolic array
+                file.write('\n    dgdx = ')
+                pprint.pprint(self.dgdx,file)
+                
+                file.write('\n    dgdxdxdtheta = np.zeros([' + len(self.Algebraic.keys()) + ', ' + len(self.Parameters.keys()) + '])\n')
+                
+                for i, alg in enumerate(self.Algebraic.keys()):
+                    for j, par in enumerate(self.Parameters.keys()):
+                        file.write('    dgdxdxdtheta[' + str(i) + ',' + str(j) +'] = ' + dgdx[i,:]*dxdtheta[:,j] +'\n')
+                        
+                
+    #            file.write('    dgdtheta = zeros('+str([self._TimeDict['nsteps'],self.dgdtheta.shape[0],self.dgdtheta.shape[1]])+')')
+    #            for i,dg in enumerate(self.dgdtheta):
+    #                for j,dg2 in enumerate(dg):
+    #                    file.write('\n    dgdtheta[:,'+str(i)+','+str(j)+'] = ' + str(self.dgdtheta[i,j]))
+                # Write dgdx as symbolic array
+                
+    #            file.write('\n\n    dgdx = zeros('+str([self._TimeDict['nsteps'],self.dgdx.shape[0],self.dgdx.shape[1]])+')')
+    #            for i,dg in enumerate(self.dgdx):
+    #                for j,dg2 in enumerate(dg):
+    #                    file.write('\n    dgdx[:,'+str(i)+','+str(j)+'] = ' + str(self.dgdx[i,j]))
+                # Calculate derivative in order to integrate this
+                #file.write('\n\n    dydtheta = dgdtheta + dot(dgdx,dxdtheta)\n')
+                file.write('\n\n    dydtheta = dgdtheta + dgdxdxdtheta\n')
+                
+            else:
+                #Algebraic sens
+                if self._has_inputfunction:
+                    file.write('\ndef Algebraic_sens(t,Parameters, input):\n')
+                else:
+                    file.write('\ndef Algebraic_sens(t,Parameters):\n')
+                for i in range(len(self.Parameters)):
+                    #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
+                    file.write('    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n")
+                file.write('\n')
+                if self._has_inputfunction:
+                    for i, step in enumerate(self.input_function):
+                        file.write('    input'+str(i) + ' = input['+str(i)+'](t)'+'\n')
+                    file.write('\n')
+                for i in range(len(self.Algebraic)):
+                    #file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
+                    file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic_swapped[i])+'\n')
+                file.write('\n')
+                print 'Sensitivities are printed to the file....'
+                file.write('\n    #Sensitivities\n\n')
+                           
+                # Write dgdtheta as symbolic array
+                file.write('    dgdtheta = ')       
+                pprint.pprint(self.dgdtheta,file)
+
+                file.write('\n\n    dydtheta = dgdtheta\n')
     
             file.write('    return dydtheta'+'\n\n\n')
         
-        except AttributeError:
-            pass
         file.close()
         print '...done!'
         
-    def rerun_for_algebraic(self):
+    def solve_algebraic(self):
         """
         """
+        if not self._has_algebraic:
+            raise Exception('This model has no algebraic equations!')
+        if not self._has_ODE or self._wrote_model_to_file:
+            self._write_model_to_file()
+            self._wrote_model_to_file = True
         try:
             os.remove(self.modelname + '.pyc')
         except:
@@ -966,40 +695,62 @@ class odegenerator(object):
         exec('import ' + self.modelname)
         exec(self.modelname+' = reload('+self.modelname+')')
 
-        if self._has_stepfunction:
-            algeb_out = eval(self.modelname+'.Algebraic_outputs'+'(np.array(self.ode_solved), self._Time, self.Parameters, self.stepfunction)')
-        else:
+        if self._has_ODE:
+            if self._has_inputfunction:
+                algeb_out = eval(self.modelname+'.Algebraic_outputs'+'(np.array(self.ode_solved), self._Time, self.Parameters, self.inputfunction)')
+            else:
+                algeb_out = eval(self.modelname+'.Algebraic_outputs'+'(np.array(self.ode_solved), self._Time, self.Parameters)')                 
+        elif self._has_inputfunction:
             algeb_out = eval(self.modelname+'.Algebraic_outputs'+'(np.array(self.ode_solved), self._Time, self.Parameters)')
- 
+        else:
+            algeb_out = eval(self.modelname+'.Algebraic_outputs'+'(self._Time, self.Parameters)')    
+        
         self.algeb_solved = pd.DataFrame(algeb_out, columns=self.Algebraic.keys(), 
-                                 index = self.ode_solved.index)
+                                 index = self._Time)
                                  
-    def calcAlgLSA(self):
+    def calcAlgLSA(self, Sensitivity = 'CAS'):
         """
         """
         try:
-            self._ana_sens_matrix
+            self.algeb_solved
         except:
-            raise Exception('First run self.analytical_local_sensitivity()!')
+            print('First running self.solve_algebraic()')
+            self.solve_algebraic()
+            
+        if not self._has_algebraic:
+            raise Exception('This model has no algebraic equations!')
+        if not self._has_ODE or self._wrote_model_to_file:
+            self._write_model_to_file()
+            self._wrote_model_to_file = True
+        if self._has_ODE:
+            try:
+                self._ana_sens_matrix
+            except:
+                raise Exception('First run self.analytical_local_sensitivity()!')
         
         exec('import ' + self.modelname)
         
-        algeb_out = np.empty((self.ode_solved.index.size, len(self.Algebraic.keys()) ,len(self.Parameters)))         
+        algeb_out = np.empty((self._Time.size, len(self.Algebraic.keys()) ,len(self.Parameters)))         
         
-        if self._has_stepfunction:
-            for i,timestep in enumerate(self.ode_solved.index):
-                algeb_out[i,:,:] = eval(self.modelname+'.Algebraic_sens'+'(np.array(self.ode_solved.ix[timestep]), timestep, self.Parameters, self.stepfunction, self._ana_sens_matrix[i,:,:])')
+        if self._has_ODE:
+            if self._has_inputfunction:
+                algeb_out = eval(self.modelname+'.Algebraic_sens'+'(np.array(self.ode_solved), self._Time, self.Parameters, self.inputfunction, self._ana_sens_matrix)')
+            else:
+                algeb_out = eval(self.modelname+'.Algebraic_sens'+'(np.array(self.ode_solved), self._Time, self.Parameters)')                       
+        elif self._has_inputfunction:
+            algeb_out = eval(self.modelname+'.Algebraic_sens'+'(np.array(self.ode_solved), self._Time, self.Parameters, self.inputfunction, self._ana_sens_matrix)')
         else:
-            for i,timestep in enumerate(self.ode_solved.index):
-                algeb_out[i,:,:] = eval(self.modelname+'.Algebraic_sens'+'(np.array(self.ode_solved.ix[timestep]), timestep, self.Parameters, self._ana_sens_matrix[i,:,:])')
-                
+            algeb_out = eval(self.modelname+'.Algebraic_sens'+'(self._Time, self.Parameters)')              
+               
         alg_dict = {}
         
         for i,key in enumerate(self.Algebraic.keys()):
-            alg_dict[key] = pd.DataFrame(algeb_out[:,i,:], columns=self.Parameters.keys(), 
-                                 index = self.ode_solved.index)
+            alg_dict[key] = pd.DataFrame(algeb_out[i,:,:].T, columns=self.Parameters.keys(), 
+                                 index = self._Time)
         
-        self.getAlgLSA = alg_dict
+        self.getAlgLSA = self._LSA_converter(self.algeb_solved, alg_dict, self.Algebraic.keys(), Sensitivity,'ALGSENS')
+                
+        return self.getAlgLSA
 
     def solve_ode(self, TimeStepsDict = False, Initial_Conditions = False, 
                   plotit = True, with_sens = False, procedure = "odeint", write = False):
@@ -1024,6 +775,8 @@ class odegenerator(object):
         set_initial_conditions, set_time
                 
         '''
+        if not self._has_ODE:
+            raise Exception('This model has no ODE equations!')
         #        print 'Current parameters', self.Parameters.values()
         self._check_for_time(TimeStepsDict)
         self._check_for_init(Initial_Conditions)
@@ -1052,7 +805,7 @@ class odegenerator(object):
             if procedure == "odeint": 
                 print "Going for odeint..."
                 if self._has_stepfunction:
-                    res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,self.stepfunction,))
+                    res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,self.inputfunction,))
                 else:
                     res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,))
                 #put output in pandas dataframe
@@ -1090,7 +843,7 @@ class odegenerator(object):
             if procedure == "odeint":
                 print "Going for odeint..."
                 if self._has_stepfunction:
-                    res = spin.odeint(eval(self.modelname+'.system_with_sens'), np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,self.stepfunction,))
+                    res = spin.odeint(eval(self.modelname+'.system_with_sens'), np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,self.self.inputfunction,))
                 else:
                     res = spin.odeint(eval(self.modelname+'.system_with_sens'), np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,))
                 #put output in pandas dataframe
@@ -1153,10 +906,10 @@ class odegenerator(object):
                
         self.ode_solved = df
         if self._has_algebraic:
-            print "If you want the algebraic equations also, please rerun manually\
-             by using the 'self.rerun_for_algebraic()' function!"
+            #print "If you want the algebraic equations also, please rerun manually\
+             #by using the 'self.solve_algebraic()' function!"
         
-            #self.rerun_for_algebraic()
+            self.solve_algebraic()
 
         if with_sens == False:
             return df
@@ -1216,7 +969,7 @@ class odegenerator(object):
             self.Collinearity_Pairwise = {}
             self.Collinearity_Pairwise[variable] = x
             
-    def calcLSA(self, approach = 'analytical', **kwargs):
+    def calcOdeLSA(self, approach = 'analytical', **kwargs):
         '''Calculate Local Sensitivity
         
         For every parameter calculate the sensitivity of the output variables.
@@ -1240,6 +993,38 @@ class odegenerator(object):
         else:
             raise Exception("Approach needs to be defined as 'analytical' or 'numerical'")
         return sens
+
+    def _LSA_converter(self, df, sens_matrix, sens_variables, sens_method, procedure):
+        '''
+        '''
+        if sens_method == 'CPRS':
+            #CPRS = CAS*parameter
+            for i in sens_variables:
+                 sens_matrix[i] = sens_matrix[i]*self.Parameters.values()
+        elif sens_method == 'CTRS':
+            #CTRS
+            if min(df.mean()) == 0 or max(df.mean()) == 0:
+                self.LSA_type = None
+                raise Exception(procedure+': It is not possible to use the CTRS method for\
+                    calculating sensitivity, because one or more variables are\
+                    fixed at zero. Try to use another method or to change the\
+                    initial conditions!')
+            elif min(df.min()) == 0 or max(df.max()) == 0:
+                print(procedure+' Using AVERAGE of output values')
+                for i in sens_variables:
+                     sens_matrix[i] = sens_matrix[i]*self.Parameters.values()/df[i].mean()
+            else:
+                print(procedure+'ANASENS: Using EVOLUTION of output values')
+                for i in sens_variables:
+                     sens_matrix[i] = sens_matrix[i]*self.Parameters.values()/np.tile(np.array(df[i]),(len(self._Variables),1)).T
+        elif sens_method != 'CAS':
+            self.LSA_type = None
+            raise Exception('You have to choose one of the sensitivity\
+             methods which are available: CAS, CPRS or CTRS')
+        
+        print(procedure+': The ' + sens_method + ' sensitivity method is used, do not\
+                forget to check whether outputs can be compared!')
+        return sens_matrix
     
     def analytic_local_sensitivity(self, Sensitivity = 'CAS', procedure = 'odeint'):
         '''Calculates analytic based local sensitivity 
@@ -1259,39 +1044,13 @@ class odegenerator(object):
             each variable gets a t timesteps x k par DataFrame
             
         '''
+        if not self._has_ODE:
+            raise Exception('This model has no ODE equations!')
         self.LSA_type = Sensitivity
 
         df, analytical_sens = self.solve_ode(with_sens = True, plotit = False, procedure = procedure)
         
-        if Sensitivity == 'CPRS':
-            #CPRS = CAS*parameter
-            for i in self._Variables:
-                 analytical_sens[i] = analytical_sens[i]*self.Parameters.values()
-        elif Sensitivity == 'CTRS':
-            #CTRS
-            if min(df.mean()) == 0 or max(df.mean()) == 0:
-                self.LSA_type = None
-                raise Exception('ANASENS: It is not possible to use the CTRS method for\
-                    calculating sensitivity, because one or more variables are\
-                    fixed at zero. Try to use another method or to change the\
-                    initial conditions!')
-            elif min(df.min()) == 0 or max(df.max()) == 0:
-                print 'ANASENS: Using AVERAGE of output values'
-                for i in self._Variables:
-                     analytical_sens[i] = analytical_sens[i]*self.Parameters.values()/df[i].mean()
-            else:
-                print 'ANASENS: Using EVOLUTION of output values'
-                for i in self._Variables:
-                     analytical_sens[i] = analytical_sens[i]*self.Parameters.values()/np.tile(np.array(df[i]),(len(self._Variables),1)).T
-        elif Sensitivity != 'CAS':
-            self.LSA_type = None
-            raise Exception('You have to choose one of the sensitivity\
-             methods which are available: CAS, CPRS or CTRS')
-        
-        self.analytical_sensitivity = analytical_sens
-
-        print 'ANASENS: The ' + Sensitivity + ' sensitivity method is used, do not\
-                forget to check whether outputs can be compared!'
+        self.analytical_sensitivity = self._LSA_converter(df, analytical_sens, self._Variables, Sensitivity,'ANASENS')
         
         return analytical_sens
         
@@ -1354,44 +1113,17 @@ class odegenerator(object):
 #            CAS = (modout_plus-modout_min)/(2.*perturbation_factor*value2save) #dy/dp         
             #CAS
             sensitivity_out = (modout_plus-modout)/(perturbation_factor*value2save) #dy/dp
-            
-            #we use now CPRS, but later on we'll adapt to CTRS
-            if Sensitivity == 'CPRS':
-                #CPRS = CAS*parameter
-                sensitivity_out = sensitivity_out*value2save
-            elif Sensitivity == 'CTRS':
-                #CTRS
-                average_out = (modout_plus+modout_min)/2.
-                if min(abs(average_out.mean())) < 1e-10:
-                    self.LSA_type = None
-                    raise Exception('NUMSENS: It is not possible to use the CTRS method for\
-                        calculating sensitivity, because one or more variables are\
-                        fixed at zero. Try to use another method or to change the\
-                        initial conditions!')
-                elif min(average_out.abs().min()) < 1e-10:
-                    if i==0:
-                        print 'NUMSENS: Using AVERAGE of output values'
-                    sensitivity_out = sensitivity_out*value2save/average_out.mean()
-                else:
-                    if i==0:
-                        print 'NUMSENS: Using EVOLUTION of output values'
-                    sensitivity_out = sensitivity_out*value2save/average_out
-            elif Sensitivity != 'CAS':
-                self.LSA_type = None
-                raise Exception('You have to choose one of the sensitivity\
-                 methods which are available: CAS, CPRS or CTRS')
-            
+
             #put on the rigth spot in the dictionary
             for var in self._Variables:
                 numerical_sens[var][parameter] = sensitivity_out[var][:].copy()
                
             #put back original value
             self.Parameters[parameter] = value2save
-        print 'NUMSENS: The ' + Sensitivity + ' sensitivity method is used, do not\
-                forget to check whether outputs can be compared!'
-        self.numerical_sensitivity = numerical_sens
+               
+        self.numerical_sensitivity = self._LSA_converter(df, numerical_sens, self._Variables, Sensitivity, 'NUMSENS')
 
-        return numerical_sens
+        return self.numerical_sensitivity
 
     def visual_check_collinearity(self, output, analytic = False, layout = 'full', upperpane = 'pearson'):
         '''show scatterplot of sensitivities
@@ -1664,7 +1396,7 @@ class odegenerator(object):
             
         algebraic = {}
         algebraic['QSSE'] = str(self.QSSE_var)
-        return odegenerator(system, self.Parameters, Modelname = self.modelname + '_QSSA', Algebraic = algebraic)
+        return odegenerator(System = system, Parameters = self.Parameters, Modelname = self.modelname + '_QSSA', Algebraic = algebraic)
                
     def checkMassBalance(self, variables = 'En'):
         '''Check mass balance of enzyme forms

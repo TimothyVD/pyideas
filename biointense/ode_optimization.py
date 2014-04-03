@@ -25,7 +25,7 @@ else:
 
 from plotfunctions import *
 from matplotlib.ticker import MaxNLocator
-from ode_generator import odegenerator
+from ode_generator import DAErunner
 from measurements import ode_measurements
 from parameterdistribution import *
 
@@ -83,6 +83,9 @@ class ode_optimizer(object):
         self._solve_for_opt()
         self.get_WSSE()
         #All parameters are set as fitting
+        print "All parameters are set as fitting parameters, if you want to \
+        fit only some parameters, one should use \
+        self.set_fitting_parameters({'par1':val1,'par2':val2})"
         self.set_fitting_parameters(self._model.Parameters)
         
         self._distributions_set = False
@@ -150,11 +153,11 @@ class ode_optimizer(object):
             #run model first with new parameters
             for par in self._get_fitting_parameters().keys():
                 self._model.Parameters[par] = parset[par]
-        if  self._data.get_measured_times()[0] == 0.:
-            self._model._Time = self._data.get_measured_times()
+        if  self._data.get_measured_xdata()[0] == 0.:
+            self._model._xdata = self._data.get_measured_xdata()
         else:
-            self._model._Time = np.concatenate((np.array([0.]), 
-                                                self._data.get_measured_times()))
+            self._model._xdata = np.concatenate((np.array([0.]), 
+                                                self._data.get_measured_xdata()))
         self._model.solve_ode(plotit=False)
         try:        
             self._model.rerun_for_algebraic()

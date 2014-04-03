@@ -37,42 +37,43 @@ class ode_measurements(object):
         
     '''
     
-    def __init__(self, measdata):
+    def __init__(self, measdata, xdata = 'Time'):
         '''
         '''
-        if isinstance(measdata, dict):            
+        if isinstance(measdata, dict):
+            self.xdata = xdata
             #Different variables names in key-names
             if 'variables' in measdata:
                 if not 'values' in measdata:
                     raise Exception('Values and variables needed as key-value')
-                if not 'time' in measdata:
-                    raise Exception('Time information of the measurements lacking!')
-                self.Data = pd.DataFrame(measdata).pivot(index='time', columns='variables', values='values')
+                if not xdata in measdata:
+                    raise Exception('Information about the xdata for the measurements is lacking!')
+                self.Data = pd.DataFrame(measdata).pivot(index = xdata, columns='variables', values='values')
                 
             else: #all variables in key names, so same length in all arrays
                 lencheck = np.array([len(value) for value in measdata.items()])
                 if not lencheck.min() == lencheck.max():
                     raise Exception('Dictionary data input requires equal lengths in this format')          
                 
-                if 'time' in measdata:
+                if xdata in measdata:
                     #convert Dictionary to pandas DataFrame 
-                    indext=measdata['time']
+                    indext=measdata[xdata]
                     measdata = {key: value for key, value in measdata.items() if key != 'time'}
                     self.Data = pd.DataFrame(measdata, index=indext)  
                 else:
                     self.Data = pd.DataFrame(measdata)
-                    print 'Attention: Time is not explicitly set!'
+                    print 'Attention: Information for xdata is not explicitly set!'
 
         elif isinstance(measdata, pd.DataFrame):            
             #check if time is a column name
-            if 'time' in measdata.columns:
+            if xdata in measdata.columns:
                 if 'variables' in measdata:
-                    self.Data = measdata.pivot(index='time', columns='variables', values='values')
+                    self.Data = measdata.pivot(index=xdata, columns='variables', values='values')
                 else:
-                    self.Data = measdata.set_index('time')                                
+                    self.Data = measdata.set_index(xdata)                                
             else:
                 self.Data = measdata
-                print 'index of dataframe is seen as measurement time steps, and colnames are the measured variables'
+                print 'index of dataframe is seen as measurement xdata, and colnames are the measured variables'
                 
         elif isinstance(measdata, pd.Series):
             self.Data = pd.DataFrame(measdata)
@@ -114,7 +115,7 @@ class ode_measurements(object):
         
         '''
         if isinstance(newdata, dict):
-            newdata = pd.DataFrame(newdata).set_index('time')
+            newdata = pd.DataFrame(newdata).set_index(self.xdata)
             self.Data = pd.concat([self.Data, newdata], axis=1).sort()                       
         elif isinstance(newdata, pd.DataFrame):
             self.Data = pd.concat([self.Data, newdata], axis=1).sort()           
@@ -124,14 +125,14 @@ class ode_measurements(object):
         self.get_measured_variables() 
 
 
-    def get_measured_times(self):
+    def get_measured_xdata(self):
         '''
         Based on the measurements timesteps, an array is made with the 
         timesteps to get modelled output from (over all variables)    
 
         '''
-        self._measured_timesteps = np.array(self.Data.index).astype('float')
-        return self._measured_timesteps
+        self._measured_xdata = np.array(self.Data.index).astype('float')
+        return self._measured_xdata
 
     def get_measured_variables(self):
         '''
@@ -200,7 +201,7 @@ class ode_measurements(object):
         #self._Error_Covariance_Matrix = np.identity(len(self._MeasuredList))
         #OLD VERSION; only for equal measurement size:
         #self._Error_Covariance_Matrix = np.zeros((len(self.get_measured_variables()), 
-        #len(self.get_measured_variables()), len(self.get_measured_times())))
+        #len(self.get_measured_variables()), len(self.get_measured_xdata())))
        
         #The number of available measurements is time-dependent, so the FIM
         #and WSSE calculation need adaptation. In order to preserve flexibility
@@ -212,24 +213,24 @@ class ode_measurements(object):
                 measerr = self.Meas_Errors[var]
                 self.Data_dict[var]['error'] = measerr**2.
             
-            for timestep in self.get_measured_times():   
-                temp = np.zeros((len(self.Data.ix[timestep].dropna()), len(self.Data.ix[timestep].dropna())))
-                self._Error_Covariance_Matrix[timestep] = pd.DataFrame(temp, index=self.Data.ix[timestep].dropna().index.tolist(), columns=self.Data.ix[timestep].dropna().index.tolist())
-                for ide, var in enumerate(self.Data.ix[timestep].dropna().index):
+            for xstep in self.get_measured_xdata():   
+                temp = np.zeros((len(self.Data.ix[xstep].dropna()), len(self.Data.ix[xstep].dropna())))
+                self._Error_Covariance_Matrix[xstep] = pd.DataFrame(temp, index=self.Data.ix[xstep].dropna().index.tolist(), columns=self.Data.ix[xstep].dropna().index.tolist())
+                for ide, var in enumerate(self.Data.ix[xstep].dropna().index):
                     measerr = self.Meas_Errors[var]
-                    self._Error_Covariance_Matrix[timestep] .values[ide,ide] = measerr**2.  #De 1/sigma^2 komt bij inv berekening van FIM
+                    self._Error_Covariance_Matrix[xstep] .values[ide,ide] = measerr**2.  #De 1/sigma^2 komt bij inv berekening van FIM
                 
         elif method == 'relative':   
             for var in self.Meas_Errors:
                 measerr = self.Meas_Errors[var]
                 self.Data_dict[var]['error'] = np.array((measerr*self.Data_dict[var][var])**2.).flatten()
             
-            for timestep in self.get_measured_times():  
-                temp = np.zeros((len(self.Data.ix[timestep].dropna()), len(self.Data.ix[timestep].dropna())))
-                self._Error_Covariance_Matrix[timestep] = pd.DataFrame(temp, index=self.Data.ix[timestep].dropna().index.tolist(), columns=self.Data.ix[timestep].dropna().index.tolist())
-                for ide, var in enumerate(self.Data.ix[timestep].dropna().index):
+            for xstep in self.get_measured_xdata():  
+                temp = np.zeros((len(self.Data.ix[xstep].dropna()), len(self.Data.ix[xstep].dropna())))
+                self._Error_Covariance_Matrix[xstep] = pd.DataFrame(temp, index=self.Data.ix[xstep].dropna().index.tolist(), columns=self.Data.ix[xstep].dropna().index.tolist())
+                for ide, var in enumerate(self.Data.ix[xstep].dropna().index):
                     measerr = self.Meas_Errors[var]
-                    self._Error_Covariance_Matrix[timestep].values[ide,ide] = np.array((measerr*self.Data_dict[var].ix[timestep][var])**2.)#.flatten()
+                    self._Error_Covariance_Matrix[xstep].values[ide,ide] = np.array((measerr*self.Data_dict[var].ix[xstep][var])**2.)#.flatten()
                 
         elif method == 'Ternbach': #NEEDS CHECKUP!!
             for var in self.Meas_Errors:
@@ -238,26 +239,26 @@ class ode_measurements(object):
                 temp=1.+ 1./((yti/lower_accuracy_bound)**2 +(yti/lower_accuracy_bound))
                 self.Data_dict[var]['error'] = yti*minimal_relative_error*temp
             
-            for timestep in self.get_measured_times():   
-                temp = np.zeros((len(self.Data.ix[timestep].dropna()), len(self.Data.ix[timestep].dropna())))
-                self._Error_Covariance_Matrix[timestep] = pd.DataFrame(temp, index=self.Data.ix[timestep].dropna().index.tolist(), columns=self.Data.ix[timestep].dropna().index.tolist())
-                for ide, var in enumerate(self.Data.ix[timestep].dropna().index):
-                    yti = self.Data_dict[var].ix[timestep][var]
+            for xstep in self.get_measured_xdata():   
+                temp = np.zeros((len(self.Data.ix[xstep].dropna()), len(self.Data.ix[xstep].dropna())))
+                self._Error_Covariance_Matrix[xstep] = pd.DataFrame(temp, index=self.Data.ix[xstep].dropna().index.tolist(), columns=self.Data.ix[xstep].dropna().index.tolist())
+                for ide, var in enumerate(self.Data.ix[xstep].dropna().index):
+                    yti = self.Data_dict[var].ix[xstep][var]
                     measerr = self.Meas_Errors[var]      
                     temp=1.+ 1./((yti/lower_accuracy_bound)**2 +(yti/lower_accuracy_bound))
-                    self._Error_Covariance_Matrix[timestep].values[ide,ide] = yti*minimal_relative_error*temp
+                    self._Error_Covariance_Matrix[xstep].values[ide,ide] = yti*minimal_relative_error*temp
         
         elif method == 'direct':
             for var in self.Meas_Errors:
                 measerr = self.Meas_Errors[var]
                 self.Data_dict[var]['error'] = measerr
                 
-            for jde, timestep in enumerate(self.get_measured_times()):  
-                temp = np.zeros((len(self.Data.ix[timestep].dropna()), len(self.Data.ix[timestep].dropna())))
-                self._Error_Covariance_Matrix[timestep] = pd.DataFrame(temp, index=self.Data.ix[timestep].dropna().index.tolist(), columns=self.Data.ix[timestep].dropna().index.tolist())
-                for ide, var in enumerate(self.Data.ix[timestep].dropna().index):
+            for jde, xstep in enumerate(self.get_measured_xdata()):  
+                temp = np.zeros((len(self.Data.ix[xstep].dropna()), len(self.Data.ix[xstep].dropna())))
+                self._Error_Covariance_Matrix[xstep] = pd.DataFrame(temp, index=self.Data.ix[xstep].dropna().index.tolist(), columns=self.Data.ix[xstep].dropna().index.tolist())
+                for ide, var in enumerate(self.Data.ix[xstep].dropna().index):
                     measerr = self.Meas_Errors[var]
-                    self._Error_Covariance_Matrix[timestep].values[ide,ide] = measerr[jde]
+                    self._Error_Covariance_Matrix[xstep].values[ide,ide] = measerr[jde]
             
             
         

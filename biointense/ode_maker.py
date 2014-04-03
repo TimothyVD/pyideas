@@ -6,7 +6,7 @@ Created on Mon Mar 25 12:04:03 2013
 0.1 Class version of the ODE generator by Tvandaele
 """
 
-from biointense import odegenerator
+from biointense import DAErunner
 
 class odemaker(object):
     '''
@@ -124,4 +124,4 @@ class odemaker(object):
         print '...Done!'
         
     def passToOdeGenerator(self):
-        return odegenerator(self.system, self.parameters, Modelname = self.modelname)
+        return DAErunner(self.system, self.parameters, Modelname = self.modelname)

@@ -26,7 +26,7 @@ else:
 
 from plotfunctions import *
 from matplotlib.ticker import MaxNLocator
-from ode_generator import odegenerator
+from ode_generator import DAErunner
 from measurements import ode_measurements
 from ode_optimization import ode_optimizer
 
