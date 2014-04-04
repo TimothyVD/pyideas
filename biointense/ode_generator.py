@@ -82,25 +82,32 @@ class DAErunner(object):
             self.System = collections.OrderedDict(sorted(kwargs.get('System').items(), key=lambda t: t[0]))    
             self._Variables = [i[1:] for i in self.System.keys()]            
             self._has_ODE = True
-            self._analytic_local_sensitivity()
             print(str(len(self.System)) + ' ODE(s) was/were defined. Continuing...')
         except:
             print('No ODES defined. Continuing...')
-            self._has_ODE = False            
+            self._has_ODE = False  
         
         
         self.modelname = kwargs.get('Modelname')
         
         try:
-            self.Algebraic =  collections.OrderedDict(sorted(kwargs.get('Algebraic').items(),key=lambda t: t[0]))
-            self._has_algebraic = True
-            #self._AlgVariables = self.Algebraic.keys()
-            self._alg_LSA()
-            print(str(len(self.Algebraic)) + ' Algebraic equation(s) was/were defined. Continuing...')
+            Algebraic = kwargs.get('Algebraic')
+            print(str(len(Algebraic)) + ' Algebraic equation(s) was/were defined. Continuing...')
         except:
-            print 'No Algebraic equations defined. Continuing...'
-            self._has_algebraic = False
-            
+            if self._has_ODE:
+                Algebraic = {}
+                for i in self._Variables:
+                    Algebraic[i] = i
+                print('No Algebraic equations defined. All ODEs are regarded as outputs...')
+                self._has_algebraic = True
+            else:
+                raise Exception('A model without ODEs or output cannot be regarded as a model!')
+
+        self.Algebraic =  collections.OrderedDict(sorted(Algebraic.items(),key=lambda t: t[0]))
+        self._has_algebraic = True
+        self._analytic_local_sensitivity()
+        self._alg_LSA()
+        
         self._has_inputfunction = False         
         #self._write_model_to_file()
                 
@@ -499,7 +506,7 @@ class DAErunner(object):
                 file.write('    '+str(self.System.keys()[i])[1:] + ' = ODES['+str(i)+']\n')
             file.write('\n')  
             
-            if self._has_externalfunction:
+            if self._has_inputfunction:
                 for i, step in enumerate(self.input_function):
                     file.write('    input'+str(i) + ' = input['+str(i)+'](t)'+'\n')
                 file.write('\n')
@@ -627,11 +634,11 @@ class DAErunner(object):
                 file.write('\n    dgdx = ')
                 pprint.pprint(self.dgdx,file)
                 
-                file.write('\n    dgdxdxdtheta = np.zeros([' + len(self.Algebraic.keys()) + ', ' + len(self.Parameters.keys()) + '])\n')
-                
+                file.write('\n    dgdxdxdtheta = np.zeros([' + str(len(self.Algebraic.keys())) + ', ' + str(len(self.Parameters.keys())) + '])\n')
+                               
                 for i, alg in enumerate(self.Algebraic.keys()):
                     for j, par in enumerate(self.Parameters.keys()):
-                        file.write('    dgdxdxdtheta[' + str(i) + ',' + str(j) +'] = ' + dgdx[i,:]*dxdtheta[:,j] +'\n')
+                        file.write('    dgdxdxdtheta[' + str(i) + ',' + str(j) +'] = dgdx[' + str(i) + ',:]*dxdtheta[:,' + str(j) +']\n')
                         
                 
     #            file.write('    dgdtheta = zeros('+str([self._TimeDict['nsteps'],self.dgdtheta.shape[0],self.dgdtheta.shape[1]])+')')
@@ -680,7 +687,7 @@ class DAErunner(object):
         file.close()
         print '...done!'
         
-    def solve_algebraic(self):
+    def solve_algebraic(self, plotit = True):
         """
         """
         if not self._has_algebraic:
@@ -688,6 +695,12 @@ class DAErunner(object):
         if not self._has_ODE or self._wrote_model_to_file:
             self._write_model_to_file()
             self._wrote_model_to_file = True
+        if self._has_ODE:
+            try:
+                self.ode_solved
+            except:
+                raise Exception('First run self.solve_ode()!')
+            
         try:
             os.remove(self.modelname + '.pyc')
         except:
@@ -707,6 +720,13 @@ class DAErunner(object):
         
         self.algeb_solved = pd.DataFrame(algeb_out, columns=self.Algebraic.keys(), 
                                  index = self._Time)
+        
+        #plotfunction
+        if plotit == True:
+            if len(self._Variables) == 1:
+                self.algeb_solved.plot(subplots = False)
+            else:
+                self.algeb_solved.plot(subplots = True)
                                  
     def calcAlgLSA(self, Sensitivity = 'CAS'):
         """
@@ -804,7 +824,7 @@ class DAErunner(object):
         if with_sens == False:
             if procedure == "odeint": 
                 print "Going for odeint..."
-                if self._has_stepfunction:
+                if self._has_inputfunction:
                     res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,self.inputfunction,))
                 else:
                     res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,))
@@ -842,7 +862,7 @@ class DAErunner(object):
             #odeint procedure
             if procedure == "odeint":
                 print "Going for odeint..."
-                if self._has_stepfunction:
+                if self._has_inputfunction:
                     res = spin.odeint(eval(self.modelname+'.system_with_sens'), np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,self.self.inputfunction,))
                 else:
                     res = spin.odeint(eval(self.modelname+'.system_with_sens'), np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,))
@@ -862,7 +882,7 @@ class DAErunner(object):
                 #ode procedure-generic
                 r = spin.ode(eval(self.modelname+'.system_with_sens'))
                 r.set_integrator('vode', method='bdf', with_jacobian = False)
-                if self._has_stepfunction:
+                if self._has_inputfunction:
                     r.set_initial_value(np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), 0)
                     r.set_f_params(self.Parameters,self.stepfunction)                    
                 else:

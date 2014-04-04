@@ -49,7 +49,7 @@ class ode_optimizer(object):
         '''
         '''
         #check inputs
-        if not isinstance(odeModel, odegenerator):
+        if not isinstance(odeModel, DAErunner):
             raise Exception('Bad input type for model or oed')
         if not isinstance(Data, ode_measurements):
             raise Exception('Bad input type for Data')
@@ -209,12 +209,14 @@ class ode_optimizer(object):
         print self.residuals
         print self.unweigthed_SSE
         
+        print (self.ModelOutput-self.Data)
+        
         #WSSE CALCULATION       
         #sum over the timesteps (order is not important, so dict-iteration could also be used)
         self.WSSE = np.matrix(0.0)
-        for timestep in self._data.get_measured_times():
-            resid = np.matrix(self.residuals.ix[timestep].dropna().values)
-            qerr = np.matrix(self._data._Error_Covariance_Matrix[timestep])
+        for xdat in self._data.get_measured_xdata():
+            resid = np.matrix(self.residuals.ix[xdat].dropna().values)
+            qerr = np.matrix(self._data._Error_Covariance_Matrix[xdat])
             print qerr
             self.WSSE += resid * np.linalg.inv(qerr)* resid.transpose()
         self.WSSE = np.array(self.WSSE)   

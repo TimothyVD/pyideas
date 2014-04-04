@@ -37,7 +37,7 @@ class ode_measurements(object):
         
     '''
     
-    def __init__(self, measdata, xdata = 'Time'):
+    def __init__(self, measdata, xdata = 'time'):
         '''
         '''
         if isinstance(measdata, dict):
