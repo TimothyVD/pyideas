@@ -63,18 +63,11 @@ class ode_optimizer(object):
         #compare with previous set measured variable; if same; ok, if not warning
         Meas_same = True
         for var in Data.get_measured_variables():
-            if self._model._has_algebraic:
-                if var in odeModel._Variables or var in odeModel.Algebraic.keys():         
-                    if not var in odeModel._MeasuredList:
-                        Meas_same = False
-                else:
-                    raise Exception('%s is not a variable in the current model' %var)
+            if var in odeModel.Algebraic.keys():         
+                if not var in odeModel._MeasuredList:
+                    Meas_same = False
             else:
-                if var in odeModel._Variables:
-                    if not var in odeModel._MeasuredList:
-                        Meas_same = False
-                else:
-                    raise Exception('%s is not a variable in the current model' %var)
+                raise Exception('%s is not a variable in the current model' %var)
         if Meas_same == False or len(Data.get_measured_variables()) <> len(odeModel._Variables):
             print 'Measured variables are updated in model!'
             odeModel.set_measured_states(Data.get_measured_variables())
@@ -154,16 +147,17 @@ class ode_optimizer(object):
             for par in self._get_fitting_parameters().keys():
                 self._model.Parameters[par] = parset[par]
         if  self._data.get_measured_xdata()[0] == 0.:
-            self._model._xdata = self._data.get_measured_xdata()
+            self._model._Time = self._data.get_measured_xdata()
         else:
-            self._model._xdata = np.concatenate((np.array([0.]), 
+            self._model._Time = np.concatenate((np.array([0.]), 
                                                 self._data.get_measured_xdata()))
-        self._model.solve_ode(plotit=False)
-        try:        
-            self._model.rerun_for_algebraic()
-            self.ModelOutput = pd.merge(self._model.ode_solved,self._model.algeb_solved, left_index = True, right_index = True)
-        except:
-            self.ModelOutput = self._model.ode_solved
+        if self._model._has_ODE:
+            self._model.solve_ode(plotit=False)
+        self._model.solve_algebraic()
+#        if self._model._has_ODE:
+#            self.ModelOutput = pd.merge(self._model.ode_solved,self._model.algeb_solved, left_index = True, right_index = True)
+#        else:
+        self.ModelOutput = self._model.algeb_solved
 #        self.ModelOutput.columns = [var+'_model' for var in self.ModelOutput.columns]
         self._model.set_time(self._model._TimeDict)
         #put ModMeas in set
@@ -180,13 +174,14 @@ class ode_optimizer(object):
             #run model first with new parameters
             for par in self._get_fitting_parameters().keys():
                 self._model.Parameters[par] = parset[par]
-                
-        self._model.solve_ode(plotit=False)
-        try:
-            self._model.rerun_for_algebraic()
-            visual_ModelOutput = pd.merge(self._model.ode_solved,self._model.algeb_solved, left_index = True, right_index = True)
-        except:
-            visual_ModelOutput = self._model.ode_solved
+        
+        if self._model._has_ODE:
+            self._model.solve_ode(plotit=False)
+        self._model.solve_algebraic()
+#        if self._model._has_ODE:
+#            visual_ModelOutput = pd.merge(self._model.ode_solved,self._model.algeb_solved, left_index = True, right_index = True)
+#        else:
+        visual_ModelOutput = self._model.algeb_solved
         return visual_ModelOutput     
         
               
@@ -206,10 +201,6 @@ class ode_optimizer(object):
         #Residuals for the current model_output
         self.residuals = (self.ModelOutput-self.Data).dropna(how='all') 
         self.unweigthed_SSE = (self.residuals**2).sum() 
-        print self.residuals
-        print self.unweigthed_SSE
-        
-        print (self.ModelOutput-self.Data)
         
         #WSSE CALCULATION       
         #sum over the timesteps (order is not important, so dict-iteration could also be used)
