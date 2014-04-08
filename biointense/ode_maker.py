@@ -6,6 +6,8 @@ Created on Mon Mar 25 12:04:03 2013
 0.1 Class version of the ODE generator by Tvandaele
 """
 
+from biointense import odegenerator
+
 class odemaker(object):
     '''
     Class to generate an ODE system based on a symbolic diagram.
@@ -120,3 +122,6 @@ class odemaker(object):
         self.system_list = system_list
         
         print '...Done!'
+        
+    def passToOdeGenerator(self):
+        return odegenerator(self.system, self.parameters, Modelname = self.modelname)

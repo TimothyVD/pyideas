@@ -8,8 +8,8 @@ E-mail: stvhoey.vanhoey@ugent.be
 
 from biointense.version import version as __version__
 
-from ode_maker import odemaker
 from ode_generator import odegenerator
+from ode_maker import odemaker
 from optimalexperimentaldesign import *
 from ode_optimization import *
 
