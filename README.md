@@ -34,7 +34,8 @@ TO DO
 * Add raise Exceptions and more check functions
 	* Check input of model (every symbol has at least 2 letters)
 	* ...
-
+* Replace write to file with append to string and afterwards evaluate
+* Move model definition functionality from odegenerator to odemaker (odegenerator becomes DAErunner)
 
 
 
