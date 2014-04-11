@@ -78,6 +78,8 @@ class DAErunner(object):
 
         '''
         
+        self._has_def_algebraic = False
+        self._has_def_ODE = False
         self.Parameters = collections.OrderedDict(sorted(kwargs.get('Parameters').items(), key=lambda t: t[0]))
         try:        
             self.System = collections.OrderedDict(sorted(kwargs.get('ODE').items(), key=lambda t: t[0]))    
@@ -85,17 +87,18 @@ class DAErunner(object):
             self._has_ODE = True
             try:
                 self._has_def_ODE = kwargs.get('has_def_ODE')
-                print('ODE(s) were defined by user')
+                if self._has_def_ODE:
+                    print('ODE(s) were defined by user')
             except:
-                self._has_def_ODE = False
+                pass
                 
             print(str(len(self.System)) + ' ODE(s) was/were defined. Continuing...')
         except:
             print('No ODES defined. Continuing...')
-            self._has_ODE = False  
+            self._has_ODE = False
         
         
-        self.modelname = kwargs.get('modelname')
+        self.modelname = kwargs.get('Modelname')
         
         try:
             Algebraic = kwargs.get('Algebraic')
@@ -107,7 +110,7 @@ class DAErunner(object):
                     print('You defined your own function, please make sure this function is provided in\
                         '+self.modelname+'.py as Algebraic_outputs'+'(self._Time, self.Parameters)')
             except:
-                self._has_def_algebraic = False
+                pass
             if self._has_ODE:
                 Algebraic = {}
                 for i in self._Variables:
@@ -719,7 +722,7 @@ class DAErunner(object):
         """
         if not self._has_algebraic:
             raise Exception('This model has no algebraic equations!')
-        if not self._has_ODE or self._wrote_model_to_file:
+        if not (self._has_ODE or self._wrote_model_to_file):
             self._write_model_to_file()
             self._wrote_model_to_file = True
         if self._has_ODE:
@@ -773,7 +776,7 @@ class DAErunner(object):
         
         #plotfunction
         if plotit == True:
-            if len(self._Variables) == 1:
+            if len(self.Algebraic) == 1:
                 self.algeb_solved.plot(subplots = False)
             else:
                 self.algeb_solved.plot(subplots = True)

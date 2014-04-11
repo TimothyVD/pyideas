@@ -68,7 +68,7 @@ class ode_optimizer(object):
                     Meas_same = False
             else:
                 raise Exception('%s is not a variable in the current model' %var)
-        if Meas_same == False or len(Data.get_measured_variables()) <> len(odeModel._Variables):
+        if Meas_same == False or len(Data.get_measured_variables()) is not len(odeModel.Algebraic):
             print 'Measured variables are updated in model!'
             odeModel.set_measured_states(Data.get_measured_variables())
             
@@ -153,7 +153,7 @@ class ode_optimizer(object):
                                                 self._data.get_measured_xdata()))
         if self._model._has_ODE:
             self._model.solve_ode(plotit=False)
-        self._model.solve_algebraic()
+        self._model.solve_algebraic(plotit=False)
 #        if self._model._has_ODE:
 #            self.ModelOutput = pd.merge(self._model.ode_solved,self._model.algeb_solved, left_index = True, right_index = True)
 #        else:
@@ -442,8 +442,8 @@ class ode_optimizer(object):
         '''
         '''
         fitness = []
-        for c in candidates:
-            fitness.append(self.get_WSSE(c))
+        for cs in candidates:
+            fitness.append(self.get_WSSE(cs))
         return fitness
 
     def _get_multi_objective(self,candidates, args):
@@ -467,7 +467,6 @@ class ode_optimizer(object):
         from time import time
         from random import Random
         from inspyred import ec
-        from inspyred.ec import terminators
         
         #FIRST SAVE THE CURRENT STATE
         parray = self._pre_optimize_save(initial_parset=initial_parset)
@@ -509,9 +508,39 @@ class ode_optimizer(object):
         #TODO: ATTENTION: the best fit needs to get into the self.parameters
         #+ WSSE also in the self.WSSE!!!
         
+    def bioinspyred_optimize_multi(self, initial_parset=None, add_plot=True, nprocs = 2):
+        from random import Random
+        from time import time
+        from inspyred import ec
         
-        
-        
+        #FIRST SAVE THE CURRENT STATE
+        parray = self._pre_optimize_save(initial_parset=initial_parset)
+
+        prng = Random()
+        prng.seed(time()) 
+    
+        ea = ec.DEA(prng)
+#        if display:
+#            ea.observer = inspyred.ec.observers.stats_observer 
+        ea.terminator = ec.terminators.evaluation_termination
+        final_pop = ea.evolve(generator=self._sample_generator, 
+                              evaluator=ec.evaluators.parallel_evaluation_mp,
+                              mp_evaluator=self._get_objective, 
+                              mp_nprocs=nprocs,
+                              pop_size=8, 
+                              bounder=ec.Bounder(self._bounder_generator()),
+                              maximize=False,
+                              max_evaluations=256,
+                              num_inputs=3)
+                              
+#        if display:
+#            best = max(final_pop) 
+#            print('Best Solution: \n{0}'.format(str(best)))
+        if add_plot == True:
+            self._add_optimize_plot()
+
+        final_pop.sort(reverse=True)
+        return final_pop, ea
         
     def bioinspyred_multioptimize(self, initial_parset=None, add_plot=True):  
         """

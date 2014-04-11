@@ -124,4 +124,4 @@ class odemaker(object):
         print '...Done!'
         
     def passToOdeGenerator(self):
-        return DAErunner(self.system, self.parameters, Modelname = self.modelname)
+        return DAErunner(ODE = self.system, Parameters = self.parameters, Modelname = self.modelname)
