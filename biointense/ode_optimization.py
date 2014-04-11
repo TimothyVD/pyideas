@@ -185,7 +185,7 @@ class ode_optimizer(object):
         return visual_ModelOutput     
         
               
-    def get_WSSE(self, pararray=None):
+    def get_WSSE(self, pararray=None, printit = True):
         '''calculate weighted SSE
         
         according:  Typically, Q is chosen as the inverse of the measurement 
@@ -208,11 +208,11 @@ class ode_optimizer(object):
         for xdat in self._data.get_measured_xdata():
             resid = np.matrix(self.residuals.ix[xdat].dropna().values)
             qerr = np.matrix(self._data._Error_Covariance_Matrix[xdat])
-            print qerr
             self.WSSE += resid * np.linalg.inv(qerr)* resid.transpose()
         self.WSSE = np.array(self.WSSE)   
-        print "current WSSE is", self.WSSE
-        print "current parameters are", self._model.Parameters
+        if printit == True:
+            print "current WSSE is", self.WSSE
+            print "current parameters are", self._model.Parameters
 
         return self.WSSE
 
