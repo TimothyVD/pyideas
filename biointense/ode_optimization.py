@@ -207,7 +207,7 @@ class ode_optimizer(object):
         
         #WSSE CALCULATION       
         #sum over the timesteps (order is not important, so dict-iteration could also be used)
-        self.WSSE = np.array(0.0)
+        self.WSSE = np.matrix(0.0)
         for timestep in self._data.get_measured_times():
             resid = np.matrix(self.residuals.ix[timestep].dropna().values)
             qerr = np.matrix(self._data._Error_Covariance_Matrix[timestep])
