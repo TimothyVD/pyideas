@@ -791,7 +791,7 @@ class DAErunner(object):
             self.algeb_solved
         except:
             print('First running self.solve_algebraic()')
-            self.solve_algebraic()
+            self.solve_algebraic(plotit = False)
             
         if not self._has_algebraic:
             raise Exception('This model has no algebraic equations!')
@@ -976,7 +976,7 @@ class DAErunner(object):
             #print "If you want the algebraic equations also, please rerun manually\
              #by using the 'self.solve_algebraic()' function!"
         
-            self.solve_algebraic()
+            self.solve_algebraic(plotit = True)
 
         if with_sens == False:
             return df

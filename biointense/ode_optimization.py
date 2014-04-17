@@ -177,7 +177,7 @@ class ode_optimizer(object):
         
         if self._model._has_ODE:
             self._model.solve_ode(plotit=False)
-        self._model.solve_algebraic()
+        self._model.solve_algebraic(plotit=False)
 #        if self._model._has_ODE:
 #            visual_ModelOutput = pd.merge(self._model.ode_solved,self._model.algeb_solved, left_index = True, right_index = True)
 #        else:
