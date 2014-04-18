@@ -710,20 +710,31 @@ class DAErunner(object):
     
             algebraic_sens += '    return dydtheta'+'\n\n\n'
         
-        exec(system)
-        exec(LSA_analytical)
-        exec(algebraic)
-        exec(algebraic_sens)
-        
-        self._fun_ODE_str = system
-        self._fun_ODE_LSA_str = LSA_analytical
-        self._fun_alg_str = algebraic
-        self._fun_alg_LSA_str = algebraic_sens
-        
-        self._fun_ODE = _fun_ODE
-        self._fun_ODE_LSA = _fun_ODE_LSA
-        self._fun_alg = _fun_alg
-        self._fun_alg_LSA = _fun_alg_LSA
+        if self._has_ODE:
+            exec(system)
+            exec(LSA_analytical)
+            self._fun_ODE_str = system
+            self._fun_ODE_LSA_str = LSA_analytical
+            self._fun_ODE = _fun_ODE
+            self._fun_ODE_LSA = _fun_ODE_LSA
+        else:
+            self._fun_ODE_str = None
+            self._fun_ODE_LSA_str = None
+            self._fun_ODE = None
+            self._fun_ODE_LSA = None
+
+        if self._has_algebraic:
+            exec(algebraic)
+            exec(algebraic_sens)
+            self._fun_alg_str = algebraic
+            self._fun_alg_LSA_str = algebraic_sens
+            self._fun_alg = _fun_alg
+            self._fun_alg_LSA = _fun_alg_LSA
+        else:
+            self._fun_alg_str = None
+            self._fun_alg_LSA_str = None
+            self._fun_alg = None
+            self._fun_alg_LSA = None
         print('...All functions are generated!')
 
         
