@@ -539,13 +539,13 @@ class ode_optimizer(object):
 
 #        if display:
 #            ea.observer = inspyred.ec.observers.stats_observer 
-        ea.terminator = ec.terminators.evaluation_termination
+        ea.terminator = inspyred.ec.terminators.evaluation_termination
         final_pop = ea.evolve(generator=_sample_generator, 
-                              evaluator=ec.evaluators.parallel_evaluation_mp,
+                              evaluator=inspyred.ec.evaluators.parallel_evaluation_mp,
                               mp_evaluator=_get_objective, 
                               mp_nprocs=nprocs,
                               pop_size=pop_size, 
-                              bounder=ec.Bounder(_bounder_generator()),
+                              bounder=inspyred.ec.Bounder(_bounder_generator()),
                               maximize=False,
                               max_evaluations=max_eval,
                               **kwargs)
