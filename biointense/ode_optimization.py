@@ -14,6 +14,7 @@ import os
 import datetime
 import numpy as np
 import sympy
+import inspyred #Global optimization
 
 import pandas as pd
 from scipy import optimize
@@ -28,6 +29,8 @@ from matplotlib.ticker import MaxNLocator
 from ode_generator import DAErunner
 from measurements import ode_measurements
 from parameterdistribution import *
+from time import time
+from random import Random
 
 class ode_optim_saver():
     '''
@@ -464,9 +467,7 @@ class ode_optimizer(object):
         A working version of Bio_inspyred is needed to get this optimization 
         running!
         """
-        from time import time
-        from random import Random
-        from inspyred import ec
+
         
         #FIRST SAVE THE CURRENT STATE
         parray = self._pre_optimize_save(initial_parset=initial_parset)
@@ -508,31 +509,46 @@ class ode_optimizer(object):
         #TODO: ATTENTION: the best fit needs to get into the self.parameters
         #+ WSSE also in the self.WSSE!!!
         
-    def bioinspyred_optimize_multi(self, initial_parset=None, add_plot=True, nprocs = 2):
-        from random import Random
-        from time import time
-        from inspyred import ec
+    def bioinspyred_optimize_multi(self, prng = None, approach = 'PSO', initial_parset=None, add_plot=True,
+                                   pop_size = 16, max_eval = 256, nprocs = 2,**kwargs):
         
+        def _sample_generator(*args, **kwargs):
+            return self._sample_generator(*args, **kwargs)
+         
+        def _get_objective(*args, **kwargs):
+            return self._get_objective(*args, **kwargs)
+          
+        def _bounder_generator(*args, **kwargs):
+            return self._bounder_generator(*args, **kwargs)
+            
         #FIRST SAVE THE CURRENT STATE
         parray = self._pre_optimize_save(initial_parset=initial_parset)
+        
+        if prng is None:
+            prng = Random()
+            prng.seed(time()) 
+        
+        if approach == 'PSO':
+            ea = inspyred.swarm.PSO(prng)
+        elif approach == 'DEA':
+            ea = inspyred.ec.DEA(prng)
+        elif approach == 'SA':
+            ea = inspyred.ec.SA(prng)
+        else:
+            raise Exception('This approach is currently not supported!')
 
-        prng = Random()
-        prng.seed(time()) 
-    
-        ea = ec.DEA(prng)
 #        if display:
 #            ea.observer = inspyred.ec.observers.stats_observer 
-        dimensions = 3
         ea.terminator = ec.terminators.evaluation_termination
-        final_pop = ea.evolve(generator=self._sample_generator, 
+        final_pop = ea.evolve(generator=_sample_generator, 
                               evaluator=ec.evaluators.parallel_evaluation_mp,
-                              mp_evaluator=self._get_objective, 
+                              mp_evaluator=_get_objective, 
                               mp_nprocs=nprocs,
-                              pop_size=8, 
-                              bounder=ec.Bounder(self._bounder_generator()),
+                              pop_size=pop_size, 
+                              bounder=ec.Bounder(_bounder_generator()),
                               maximize=False,
-                              max_evaluations=256,
-                              num_inputs=3)
+                              max_evaluations=max_eval,
+                              **kwargs)
   
                       
 #        if display:
