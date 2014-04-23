@@ -522,6 +522,7 @@ class ode_optimizer(object):
         ea = ec.DEA(prng)
 #        if display:
 #            ea.observer = inspyred.ec.observers.stats_observer 
+        dimensions = 3
         ea.terminator = ec.terminators.evaluation_termination
         final_pop = ea.evolve(generator=self._sample_generator, 
                               evaluator=ec.evaluators.parallel_evaluation_mp,
@@ -532,7 +533,8 @@ class ode_optimizer(object):
                               maximize=False,
                               max_evaluations=256,
                               num_inputs=3)
-                              
+  
+                      
 #        if display:
 #            best = max(final_pop) 
 #            print('Best Solution: \n{0}'.format(str(best)))
