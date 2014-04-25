@@ -76,7 +76,7 @@ class ode_optimizer(object):
             odeModel.set_measured_states(Data.get_measured_variables())
             
         #create initial set of information:
-        self._solve_for_opt()
+        #self._solve_for_opt()
         self.get_WSSE()
         #All parameters are set as fitting
         print "All parameters are set as fitting parameters, if you want to \
@@ -185,10 +185,16 @@ class ode_optimizer(object):
 #            visual_ModelOutput = pd.merge(self._model.ode_solved,self._model.algeb_solved, left_index = True, right_index = True)
 #        else:
         visual_ModelOutput = self._model.algeb_solved
-        return visual_ModelOutput     
+        return visual_ModelOutput
         
+    def _track_WSSE(self, pararray = None):
+        
+        WSSE = self.get_WSSE(pararray=pararray)[0,0]
+        self.optimize_evolution.append(self._model.Parameters.values()+[WSSE])
+        
+        return WSSE
               
-    def get_WSSE(self, pararray=None, printit = True):
+    def get_WSSE(self, pararray=None):
         '''calculate weighted SSE
         
         according:  Typically, Q is chosen as the inverse of the measurement 
@@ -213,9 +219,10 @@ class ode_optimizer(object):
             qerr = np.matrix(self._data._Error_Covariance_Matrix[xdat])
             self.WSSE += resid * np.linalg.inv(qerr)* resid.transpose()
         self.WSSE = np.array(self.WSSE)   
-        if printit == True:
-            print "current WSSE is", self.WSSE
-            print "current parameters are", self._model.Parameters
+
+#        if printit == True:
+#            print "current WSSE is", self.WSSE
+#            print "current parameters are", self._model.Parameters
 
         return self.WSSE
 
@@ -315,12 +322,16 @@ class ode_optimizer(object):
         #first save the output with the 'old' parameters
         #if initial parameter set given, use this, run and save 
         parray = self._pre_optimize_save(initial_parset=initial_parset)
-        
+        self.optimize_evolution = []
+        self.optimize_evolution.append(self._model.Parameters.values()+[self.get_WSSE()[0,0]])
+
         #OPTIMIZATION
         #TODO: ADD OPTION FOR SAVING THE PARSETS (IN GETWSSE!!)
         #different algorithms: but implementation  Anneal and CG are not working 
         #a first fix made Powell work
-        self.optimize_info = optimize.minimize(self.get_WSSE, parray, method= method, *args, **kwargs)
+        self.optimize_info = optimize.minimize(self._track_WSSE, parray, method= method, *args, **kwargs)
+        self.optimize_evolution = pd.DataFrame(np.array(self.optimize_evolution),columns=self._model.Parameters.keys()+['WSSE'])
+        
         print self.optimize_info.message
         
         if add_plot == True:
@@ -446,7 +457,7 @@ class ode_optimizer(object):
         '''
         fitness = []
         for cs in candidates:
-            fitness.append(self.get_WSSE(cs))
+            fitness.append(self._track_WSSE(cs))
         return fitness
 
     def _get_multi_objective(self,candidates, args):
@@ -455,11 +466,12 @@ class ode_optimizer(object):
         from inspyred.ec import emo
         fitness = []
         for c in candidates:
-            fitness.append(emo.Pareto([self.get_WSSE(c), self.residuals['BZV'].sum()]))
+            fitness.append(emo.Pareto([self._track_WSSE(c), self.residuals['BZV'].sum()]))
             
         return fitness        
 
-    def bioinspyred_optimize(self, initial_parset=None, add_plot=True):
+    def bioinspyred_optimize(self,  prng = None, approach = 'PSO', initial_parset=None, add_plot=True,
+                                   pop_size = 16, max_eval = 256,**kwargs):
         """
         
         Notes
@@ -472,31 +484,34 @@ class ode_optimizer(object):
         #FIRST SAVE THE CURRENT STATE
         parray = self._pre_optimize_save(initial_parset=initial_parset)
         
+        self.optimize_evolution = []
+        self.optimize_evolution.append(self._model.Parameters.values()+[self.get_WSSE()[0,0]])
+        
         #OPTIMIZATION
-        rand = Random()
-        rand.seed(int(time()))
-#        es = ec.ES(rand)
-#        es.terminator = terminators.evaluation_termination
-#        final_pop = es.evolve(generator=self._sample_generator,
-#                              evaluator=self.get_WSSE,
-#                              pop_size=100,
-#                              maximize=False,
-#                              bounder=ec.Bounder(self._bounder_generator()),
-#                              max_evaluations=20000,
-#                              mutation_rate=0.25,
-#                              num_inputs=1)
-        ea = ec.DEA(rand)
-        #ea.observer = ec.observers.plot_observer
-        ea.terminator = ec.terminators.evaluation_termination
+        if prng is None:
+            prng = Random()
+            prng.seed(time()) 
+        
+        if approach == 'PSO':
+            ea = inspyred.swarm.PSO(prng)
+        elif approach == 'DEA':
+            ea = inspyred.ec.DEA(prng)
+        elif approach == 'SA':
+            ea = inspyred.ec.SA(prng)
+        else:
+            raise Exception('This approach is currently not supported!')
+
+        ea.terminator = inspyred.ec.terminators.evaluation_termination
         final_pop = ea.evolve(generator=self._sample_generator, 
                               evaluator=self._get_objective, 
-                              pop_size=50, 
-                              bounder=ec.Bounder(self._bounder_generator()),
+                              pop_size=pop_size, 
+                              bounder=inspyred.ec.Bounder(self._bounder_generator()),
                               maximize=False,
-                              max_evaluations=2000)#3000
+                              max_evaluations=max_eval)#3000
 
         #put the best of the last population into the class attributes (WSSE, pars)
-
+        self.optimize_evolution = pd.DataFrame(np.array(self.optimize_evolution),columns=self._model.Parameters.keys()+['WSSE'])
+        
                               
         # Sort and print the best individual, who will be at index 0.
         if add_plot == True:
@@ -523,7 +538,7 @@ class ode_optimizer(object):
             
         #FIRST SAVE THE CURRENT STATE
         parray = self._pre_optimize_save(initial_parset=initial_parset)
-        
+              
         if prng is None:
             prng = Random()
             prng.seed(time()) 
@@ -550,7 +565,7 @@ class ode_optimizer(object):
                               max_evaluations=max_eval,
                               **kwargs)
   
-                      
+        self.optimize_evolution = pd.DataFrame(np.array(self.optimize_evolution),columns=self._model.Parameters.keys()+['WSSE'])
 #        if display:
 #            best = max(final_pop) 
 #            print('Best Solution: \n{0}'.format(str(best)))
