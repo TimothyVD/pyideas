@@ -8,7 +8,7 @@ Created on Thu Apr 11 11:39:49 2013
 BEER_WARE - test voor git-installatie
 """
 
-from __future__ import division
+from __future__ import division,print_function
 import sys
 import os
 import datetime
@@ -72,16 +72,16 @@ class ode_optimizer(object):
             else:
                 raise Exception('%s is not a variable in the current model' %var)
         if Meas_same == False or len(Data.get_measured_variables()) is not len(odeModel.Algebraic):
-            print 'Measured variables are updated in model!'
+            print('Measured variables are updated in model!')
             odeModel.set_measured_states(Data.get_measured_variables())
             
         #create initial set of information:
         #self._solve_for_opt()
         self.get_WSSE()
         #All parameters are set as fitting
-        print "All parameters are set as fitting parameters, if you want to \
+        print("All parameters are set as fitting parameters, if you want to \
         fit only some parameters, one should use \
-        self.set_fitting_parameters({'par1':val1,'par2':val2})"
+        self.set_fitting_parameters({'par1':val1,'par2':val2})")
         self.set_fitting_parameters(self._model.Parameters)
         
         self._distributions_set = False
@@ -186,14 +186,13 @@ class ode_optimizer(object):
 #        else:
         visual_ModelOutput = self._model.algeb_solved
         return visual_ModelOutput
-        
+    
     def _track_WSSE(self, pararray = None):
         
         WSSE = self.get_WSSE(pararray=pararray)[0,0]
-        self.optimize_evolution.append(self._model.Parameters.values()+[WSSE])
-        
+        self.optimize_evolution.append(self._get_fitting_parameters().values()+[WSSE])
         return WSSE
-              
+                     
     def get_WSSE(self, pararray=None):
         '''calculate weighted SSE
         
@@ -285,11 +284,11 @@ class ode_optimizer(object):
             #control for similarity and update the fitting pars 
             initial_parset = collections.OrderedDict(sorted(initial_parset.items(), key=lambda t: t[0]))
             if sorted(initial_parset.keys()) != sorted(self._get_fitting_parameters().keys()):
-                print 'Fitting parameters are updated...'
-                print 'Previous set of fitting parameters: ',
-                print self._get_fitting_parameters().keys()
-                print 'New set of fitting parameters: '
-                print initial_parset.keys()
+                print('Fitting parameters are updated...')
+                print('Previous set of fitting parameters: ',)
+                print(self._get_fitting_parameters().keys())
+                print('New set of fitting parameters: ')
+                print(initial_parset.keys())
             self.set_fitting_parameters(initial_parset)
             
             parray = self._pardemapper(initial_parset)         
@@ -310,6 +309,12 @@ class ode_optimizer(object):
         
         return parray
         
+    def _get_optimization_evolution(self, final_pop):
+        
+        for ind in final_pop:
+            self.optimize_evolution.append(ind.candidate+[ind.fitness])
+        self.optimize_evolution = pd.DataFrame(np.array(self.optimize_evolution),columns=self._get_fitting_parameters().keys()+['WSSE'])
+                
     
     def local_parameter_optimize(self, initial_parset=None, add_plot=True, method = 'Nelder-Mead', *args, **kwargs):
         '''find parameters for optimal fit
@@ -323,16 +328,16 @@ class ode_optimizer(object):
         #if initial parameter set given, use this, run and save 
         parray = self._pre_optimize_save(initial_parset=initial_parset)
         self.optimize_evolution = []
-        self.optimize_evolution.append(self._model.Parameters.values()+[self.get_WSSE()[0,0]])
+        self.optimize_evolution.append(self._get_fitting_parameters().values()+[self.get_WSSE()[0,0]])
 
         #OPTIMIZATION
         #TODO: ADD OPTION FOR SAVING THE PARSETS (IN GETWSSE!!)
         #different algorithms: but implementation  Anneal and CG are not working 
         #a first fix made Powell work
         self.optimize_info = optimize.minimize(self._track_WSSE, parray, method= method, *args, **kwargs)
-        self.optimize_evolution = pd.DataFrame(np.array(self.optimize_evolution),columns=self._model.Parameters.keys()+['WSSE'])
+        self.optimize_evolution = pd.DataFrame(np.array(self.optimize_evolution),columns=self._get_fitting_parameters().keys()+['WSSE'])
         
-        print self.optimize_info.message
+        print(self.optimize_info.message)
         
         if add_plot == True:
             self._add_optimize_plot()
@@ -369,7 +374,7 @@ class ode_optimizer(object):
                     if not pardistrlist.min<self._fitting_pars[pardistrlist.name]<pardistrlist.max:
                         raise Exception('Current parvalue is not between min and max value of the parameter!')
                     if pardistrlist.name in self.pardistributions:
-                        print 'Parameter distribution info updated for %s' %pardistrlist.name
+                        print('Parameter distribution info updated for %s' %pardistrlist.name)
                         self.pardistributions[pardistrlist.name] = pardistrlist
                     else:
                         self.pardistributions[pardistrlist.name] = pardistrlist
@@ -383,7 +388,7 @@ class ode_optimizer(object):
                     if not parameter.min<self._fitting_pars[parameter.name]<parameter.max:
                         raise Exception('Current parvalue is not between min and max value of the parameter!')
                     if parameter.name in self.pardistributions:
-                        print 'Parameter distribution info updated for %s' %parameter.name
+                        print('Parameter distribution info updated for %s' %parameter.name)
                         self.pardistributions[parameter.name] = parameter
                     else:
                         self.pardistributions[parameter.name] = parameter
@@ -416,12 +421,12 @@ class ode_optimizer(object):
         for line in f:
             sline = line.strip().split(' ')
             if len(sline) == 4:
-                print sline
+                print(sline)
                 par = ModPar(sline[0],float(sline[1]),float(sline[2]),sline[3])
             elif len(sline) == 5:
                 par = ModPar(sline[0],float(sline[1]),float(sline[2]),sline[3],float(sline[4]))              
             elif len(sline) == 6:
-                print sline
+                print(sline)
                 par = ModPar(sline[0],float(sline[1]),float(sline[2]),sline[3],float(sline[4]),float(sline[5]))
             else:
                 raise Exception('Too much arguments on line %d' %cnt)
@@ -485,7 +490,7 @@ class ode_optimizer(object):
         parray = self._pre_optimize_save(initial_parset=initial_parset)
         
         self.optimize_evolution = []
-        self.optimize_evolution.append(self._model.Parameters.values()+[self.get_WSSE()[0,0]])
+        self.optimize_evolution.append(self._get_fitting_parameters().values()+[self.get_WSSE()[0,0]])
         
         #OPTIMIZATION
         if prng is None:
@@ -510,7 +515,7 @@ class ode_optimizer(object):
                               max_evaluations=max_eval)#3000
 
         #put the best of the last population into the class attributes (WSSE, pars)
-        self.optimize_evolution = pd.DataFrame(np.array(self.optimize_evolution),columns=self._model.Parameters.keys()+['WSSE'])
+        self.optimize_evolution = pd.DataFrame(np.array(self.optimize_evolution),columns=self._get_fitting_parameters().keys()+['WSSE'])
         
                               
         # Sort and print the best individual, who will be at index 0.
@@ -524,21 +529,30 @@ class ode_optimizer(object):
         #TODO: ATTENTION: the best fit needs to get into the self.parameters
         #+ WSSE also in the self.WSSE!!!
         
-    def bioinspyred_optimize_multi(self, prng = None, approach = 'PSO', initial_parset=None, add_plot=True,
+    def _track_population(self,population, num_generations, num_evaluations, args):
+        for i in population:
+            self.optimize_evolution.append(i.candidate+[i.fitness])
+        print(num_evaluations,end='\r')
+        
+    def bioinspyred_optimize_multi(self,sample_generator, get_objective, bounder_generator,
+                                   prng = None, approach = 'PSO', initial_parset=None, add_plot=True,
                                    pop_size = 16, max_eval = 256, nprocs = 2,**kwargs):
         
-        def _sample_generator(*args, **kwargs):
-            return self._sample_generator(*args, **kwargs)
-         
-        def _get_objective(*args, **kwargs):
-            return self._get_objective(*args, **kwargs)
-          
-        def _bounder_generator(*args, **kwargs):
-            return self._bounder_generator(*args, **kwargs)
-            
+#        def _sample_generator(*args, **kwargs):
+#            return self._sample_generator(*args, **kwargs)
+#         
+#        def _get_objective(*args, **kwargs):
+#            return self._get_objective(*args, **kwargs)
+#          
+#        def _bounder_generator(*args, **kwargs):
+#            return self._bounder_generator(*args, **kwargs)
+        
         #FIRST SAVE THE CURRENT STATE
         parray = self._pre_optimize_save(initial_parset=initial_parset)
-              
+        
+        self.optimize_evolution = []
+        self.optimize_evolution.append(self._get_fitting_parameters().values()+[self.get_WSSE()[0,0]])
+                     
         if prng is None:
             prng = Random()
             prng.seed(time()) 
@@ -551,21 +565,24 @@ class ode_optimizer(object):
             ea = inspyred.ec.SA(prng)
         else:
             raise Exception('This approach is currently not supported!')
-
+        
+        #ea.observer = self._track_population
 #        if display:
 #            ea.observer = inspyred.ec.observers.stats_observer 
         ea.terminator = inspyred.ec.terminators.evaluation_termination
-        final_pop = ea.evolve(generator=_sample_generator, 
+        final_pop = ea.evolve(generator=sample_generator, 
                               evaluator=inspyred.ec.evaluators.parallel_evaluation_mp,
-                              mp_evaluator=_get_objective, 
+                              mp_evaluator=get_objective, 
                               mp_nprocs=nprocs,
                               pop_size=pop_size, 
-                              bounder=inspyred.ec.Bounder(_bounder_generator()),
+                              bounder=inspyred.ec.Bounder(bounder_generator()),
                               maximize=False,
                               max_evaluations=max_eval,
                               **kwargs)
   
-        self.optimize_evolution = pd.DataFrame(np.array(self.optimize_evolution),columns=self._model.Parameters.keys()+['WSSE'])
+        self.optimize_evolution = pd.DataFrame(np.array(self.optimize_evolution),columns=self._get_fitting_parameters().keys()+['WSSE'])
+        
+        #self._get_optimization_evolution(final_pop)
 #        if display:
 #            best = max(final_pop) 
 #            print('Best Solution: \n{0}'.format(str(best)))
