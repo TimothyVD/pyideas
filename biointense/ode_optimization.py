@@ -337,7 +337,7 @@ class ode_optimizer(object):
         self.optimize_info = optimize.minimize(self._track_WSSE, parray, method= method, *args, **kwargs)
         self.optimize_evolution = pd.DataFrame(np.array(self.optimize_evolution),columns=self._get_fitting_parameters().keys()+['WSSE'])
         
-        print(self.optimize_info.message)
+        #print(self.optimize_info.message)
         
         if add_plot == True:
             self._add_optimize_plot()
