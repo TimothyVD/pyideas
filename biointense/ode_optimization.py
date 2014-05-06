@@ -85,6 +85,12 @@ class ode_optimizer(object):
         self.set_fitting_parameters(self._model.Parameters)
         
         self._distributions_set = False
+        
+        if  self._data.get_measured_xdata()[0] == 0.:
+            self._model._Time = self._data.get_measured_xdata()
+        else:
+            self._model._Time = np.concatenate((np.array([0.]), 
+                                                self._data.get_measured_xdata()))
 
     def _parmapper(self, pararray):
         '''converts parameter array for minimize function in dict
@@ -149,11 +155,11 @@ class ode_optimizer(object):
             #run model first with new parameters
             for par in self._get_fitting_parameters().keys():
                 self._model.Parameters[par] = parset[par]
-        if  self._data.get_measured_xdata()[0] == 0.:
-            self._model._Time = self._data.get_measured_xdata()
-        else:
-            self._model._Time = np.concatenate((np.array([0.]), 
-                                                self._data.get_measured_xdata()))
+#        if  self._data.get_measured_xdata()[0] == 0.:
+#            self._model._Time = self._data.get_measured_xdata()
+#        else:
+#            self._model._Time = np.concatenate((np.array([0.]), 
+#                                                self._data.get_measured_xdata()))
         if self._model._has_ODE:
             self._model.solve_ode(plotit=False)
         self._model.solve_algebraic(plotit=False)
