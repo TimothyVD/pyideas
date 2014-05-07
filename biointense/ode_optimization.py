@@ -168,7 +168,7 @@ class ode_optimizer(object):
 #        else:
         self.ModelOutput = self._model.algeb_solved
 #        self.ModelOutput.columns = [var+'_model' for var in self.ModelOutput.columns]
-        self._model.set_time(self._model._TimeDict)
+        #self._model.set_time(self._model._TimeDict)
         #put ModMeas in set
         self.ModMeas = pd.concat((self.Data,self.ModelOutput), axis=1, 
                                  keys=['Measured','Modelled'])        
