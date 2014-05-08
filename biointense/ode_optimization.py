@@ -77,7 +77,7 @@ class ode_optimizer(object):
             
         #create initial set of information:
         #self._solve_for_opt()
-        self.get_WSSE()
+        
         #All parameters are set as fitting
         print("All parameters are set as fitting parameters, if you want to \
         fit only some parameters, one should use \
@@ -92,6 +92,8 @@ class ode_optimizer(object):
             self._model._Time = np.concatenate((np.array([0.]), 
                                                 self._data.get_measured_xdata()))
 
+        self.get_WSSE()
+        
     def _parmapper(self, pararray):
         '''converts parameter array for minimize function in dict
         
@@ -195,7 +197,7 @@ class ode_optimizer(object):
     
     def _track_WSSE(self, pararray = None):
         
-        WSSE = self.get_WSSE(pararray=pararray)[0,0]
+        WSSE = self.get_WSSE(pararray=pararray)[0]
         self.optimize_evolution.append(self._get_fitting_parameters().values()+[WSSE])
         return WSSE
                      
@@ -212,19 +214,26 @@ class ode_optimizer(object):
         else:
             self._solve_for_opt()
         
-        #Residuals for the current model_output
-        self.residuals = (self.ModelOutput-self.Data).dropna(how='all') 
-        self.unweigthed_SSE = (self.residuals**2).sum() 
-        
-        #WSSE CALCULATION       
-        #sum over the timesteps (order is not important, so dict-iteration could also be used)
-        self.WSSE = np.matrix(0.0)
-        for xdat in self._data.get_measured_xdata():
-            resid = np.matrix(self.residuals.ix[xdat].dropna().values)
-            qerr = np.matrix(self._data._Error_Covariance_Matrix[xdat])
-            self.WSSE += resid * np.linalg.inv(qerr)* resid.transpose()
-        self.WSSE = np.array(self.WSSE)   
+#        #Residuals for the current model_output
+#        self.residuals = (self.ModelOutput-self.Data).dropna(how='all') 
 
+#        
+#
+#        
+#        #WSSE CALCULATION       
+#        #sum over the timesteps (order is not important, so dict-iteration could also be used)
+#        self.WSSE = np.matrix(0.0)
+#        for xdat in self._data.get_measured_xdata():
+#            resid = np.matrix(self.residuals.ix[xdat].dropna().values)
+#            qerr = np.matrix(self._data._Error_Covariance_Matrix[xdat])
+#            self.WSSE += resid * np.linalg.inv(qerr)* resid.transpose()
+#        self.WSSE = np.array(self.WSSE)
+        
+        #Optimized WSSE Calculation
+        self.residuals = (self.ModelOutput-self.Data)
+        self.unweigthed_SSE = (self.residuals**2).sum().sum()
+        self.WSSE = np.array([(self.residuals * 1/self._data._Error_Covariance_Matrix_PD * self.residuals).sum().sum()])
+        
 #        if printit == True:
 #            print "current WSSE is", self.WSSE
 #            print "current parameters are", self._model.Parameters
@@ -334,7 +343,7 @@ class ode_optimizer(object):
         #if initial parameter set given, use this, run and save 
         parray = self._pre_optimize_save(initial_parset=initial_parset)
         self.optimize_evolution = []
-        self.optimize_evolution.append(self._get_fitting_parameters().values()+[self.get_WSSE()[0,0]])
+        self.optimize_evolution.append(self._get_fitting_parameters().values()+[self.get_WSSE()[0]])
 
         #OPTIMIZATION
         #TODO: ADD OPTION FOR SAVING THE PARSETS (IN GETWSSE!!)

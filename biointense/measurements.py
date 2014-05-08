@@ -207,6 +207,7 @@ class ode_measurements(object):
         #and WSSE calculation need adaptation. In order to preserve flexibility
         #We'll put each timestep in a separate item in a dictionary
         self._Error_Covariance_Matrix = {}
+        self._Error_Covariance_Matrix_PD = self.Data.copy()
         
         if method == 'absolute':
             for var in self.Meas_Errors:
@@ -218,7 +219,11 @@ class ode_measurements(object):
                 self._Error_Covariance_Matrix[xstep] = pd.DataFrame(temp, index=self.Data.ix[xstep].dropna().index.tolist(), columns=self.Data.ix[xstep].dropna().index.tolist())
                 for ide, var in enumerate(self.Data.ix[xstep].dropna().index):
                     measerr = self.Meas_Errors[var]
-                    self._Error_Covariance_Matrix[xstep] .values[ide,ide] = measerr**2.  #De 1/sigma^2 komt bij inv berekening van FIM
+                    self._Error_Covariance_Matrix[xstep].values[ide,ide] = measerr**2.  #De 1/sigma^2 komt bij inv berekening van FIM
+            #Error covariance matrix PD                
+            for var in self.Data.columns:
+                measerr = self.Meas_Errors[var]
+                self._Error_Covariance_Matrix_PD[var] = measerr**2.  #De 1/sigma^2 komt bij inv berekening van FIM
                 
         elif method == 'relative':   
             for var in self.Meas_Errors:
@@ -231,6 +236,11 @@ class ode_measurements(object):
                 for ide, var in enumerate(self.Data.ix[xstep].dropna().index):
                     measerr = self.Meas_Errors[var]
                     self._Error_Covariance_Matrix[xstep].values[ide,ide] = np.array((measerr*self.Data_dict[var].ix[xstep][var])**2.)#.flatten()
+            #Error covariance matrix PD
+            for var in self.Data.columns:
+                measerr = self.Meas_Errors[var]
+                self._Error_Covariance_Matrix_PD[var] = (measerr*self.Data[var])**2.
+                
                 
         elif method == 'Ternbach': #NEEDS CHECKUP!!
             for var in self.Meas_Errors:
@@ -247,7 +257,12 @@ class ode_measurements(object):
                     measerr = self.Meas_Errors[var]      
                     temp=1.+ 1./((yti/lower_accuracy_bound)**2 +(yti/lower_accuracy_bound))
                     self._Error_Covariance_Matrix[xstep].values[ide,ide] = yti*minimal_relative_error*temp
-        
+            #Error covariance matrix PD
+            for var in self.Data.columns:
+                measerr = self.Meas_Errors[var]
+                temp=1.+ 1./((self.Data[var]/lower_accuracy_bound)**2 +(self.Data[var]/lower_accuracy_bound))
+                self._Error_Covariance_Matrix_PD[var] = self.Data[var]*minimal_relative_error*temp
+                        
         elif method == 'direct':
             for var in self.Meas_Errors:
                 measerr = self.Meas_Errors[var]
@@ -259,8 +274,12 @@ class ode_measurements(object):
                 for ide, var in enumerate(self.Data.ix[xstep].dropna().index):
                     measerr = self.Meas_Errors[var]
                     self._Error_Covariance_Matrix[xstep].values[ide,ide] = measerr[jde]
-            
-            
+        
+            #Error covariance matrix PD
+            for var in self.Data.columns:
+                measerr = self.Meas_Errors[var]
+                self._Error_Covariance_Matrix_PD[var] = measerr
+                           
         
 
 
