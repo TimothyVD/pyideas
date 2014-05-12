@@ -571,7 +571,7 @@ class DAErunner(object):
             for i in range(len(self.System)):
                 LSA_analytical += '    '+str(self.System.keys()[i]) + ' = ' + str(self.System.values()[i])+'\n'
             
-            print 'Sensitivities are printed to the file....'
+            print 'ODE sensitivities are printed to string....'
             LSA_analytical += '\n    #Sensitivities\n\n'
             
             # Calculate number of states by using inputs
@@ -649,7 +649,7 @@ class DAErunner(object):
                     #file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
                     algebraic_sens += '    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic_swapped[i])+'\n'
                 algebraic_sens += '\n'
-                print 'Sensitivities are printed to the file....'
+                print 'Algebraic sensitivities are printed to string....'
                 algebraic_sens += '\n    #Sensitivities\n\n'
                            
                 # Write dgdtheta as symbolic array
@@ -699,7 +699,7 @@ class DAErunner(object):
                     #file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
                     algebraic_sens += '    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic_swapped[i])+'\n'
                 algebraic_sens += '\n'
-                print 'Sensitivities are printed to the file....'
+                print 'Algebraic sensitivities are printed to the file....'
                 algebraic_sens += '\n    #Sensitivities\n\n'
                            
                 # Write dgdtheta as symbolic array
