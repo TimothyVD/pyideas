@@ -201,20 +201,25 @@ class ode_optimizer(object):
             self._solve_for_opt()
         
         #Residuals for the current model_output
-        self.residuals = (self.ModelOutput-self.Data).dropna(how='all') 
-        self.unweigthed_SSE = (self.residuals**2).sum() 
-        print self.residuals
+        #self.residuals = (self.ModelOutput-self.Data).dropna(how='all') 
+        #self.unweigthed_SSE = (self.residuals**2).sum() 
+        #print self.residuals
         
         #WSSE CALCULATION       
         #sum over the timesteps (order is not important, so dict-iteration could also be used)
-        self.WSSE = np.matrix(0.0)
-        for timestep in self._data.get_measured_times():
-            resid = np.matrix(self.residuals.ix[timestep].dropna().values)
-            qerr = np.matrix(self._data._Error_Covariance_Matrix[timestep])
-            self.WSSE += resid * np.linalg.inv(qerr)* resid.transpose()
-        self.WSSE = np.array(self.WSSE)  
-        print "current WSSE is", self.WSSE
-        print "current parameters are", self._model.Parameters
+        #self.WSSE = np.matrix(0.0)
+        #for timestep in self._data.get_measured_times():
+        #    resid = np.matrix(self.residuals.ix[timestep].dropna().values)
+        #    qerr = np.matrix(self._data._Error_Covariance_Matrix[timestep])
+        #    self.WSSE += resid * np.linalg.inv(qerr)* resid.transpose()
+        #self.WSSE = np.array(self.WSSE)  
+        #print "current WSSE is", self.WSSE
+        #print "current parameters are", self._model.Parameters
+        
+        #Optimized WSSE Calculation
+        self.residuals = (self.ModelOutput-self.Data)
+        self.unweigthed_SSE = (self.residuals**2).sum().sum()
+        self.WSSE = np.array([(self.residuals * 1/self._data._Error_Covariance_Matrix_PD * self.residuals).sum().sum()])
 
         return self.WSSE
 

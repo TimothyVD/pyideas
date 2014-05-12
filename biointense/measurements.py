@@ -206,6 +206,7 @@ class ode_measurements(object):
         #and WSSE calculation need adaptation. In order to preserve flexibility
         #We'll put each timestep in a separate item in a dictionary
         self._Error_Covariance_Matrix = {}
+        self._Error_Covariance_Matrix_PD = self.Data.copy()
         
         if method == 'absolute':
             for var in self.Meas_Errors:
@@ -218,6 +219,11 @@ class ode_measurements(object):
                 for ide, var in enumerate(self.Data.ix[timestep].dropna().index):
                     measerr = self.Meas_Errors[var]
                     self._Error_Covariance_Matrix[timestep] .values[ide,ide] = measerr**2.  #De 1/sigma^2 komt bij inv berekening van FIM
+            
+            #Error covariance matrix PD
+            for var in self.Data.columns:
+                measerr = self.Meas_Errors[var]
+                self._Error_Covariance_Matrix_PD[var] = measerr**2. #De 1/sigma^2 komt bij inv berekening van FIM
                 
         elif method == 'relative':   
             for var in self.Meas_Errors:
@@ -230,6 +236,11 @@ class ode_measurements(object):
                 for ide, var in enumerate(self.Data.ix[timestep].dropna().index):
                     measerr = self.Meas_Errors[var]
                     self._Error_Covariance_Matrix[timestep].values[ide,ide] = np.array((measerr*self.Data_dict[var].ix[timestep][var])**2.)#.flatten()
+            
+            #Error covariance matrix PD
+            for var in self.Data.columns:
+                measerr = self.Meas_Errors[var]
+                self._Error_Covariance_Matrix_PD[var] = (measerr*self.Data[var])**2.
                 
         elif method == 'Ternbach': #NEEDS CHECKUP!!
             for var in self.Meas_Errors:
