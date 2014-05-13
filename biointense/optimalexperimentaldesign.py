@@ -70,10 +70,10 @@ class ode_FIM(object):
         self.set_variables_for_FIM(self.get_measured_variables())
         
         #Run sensitivity
-        if  self._data.get_measured_times()[0] == 0.:
-            self._model._Time = self._data.get_measured_times()
+        if  self._data.get_measured_xdata()[0] == 0.:
+            self._model._Time = self._data.get_measured_xdata()
         else:
-            self._model._Time = np.concatenate((np.array([0.]),self._data.get_measured_times()))
+            self._model._Time = np.concatenate((np.array([0.]),self._data.get_measured_xdata()))
         
 #        self._model._Time = np.concatenate((np.array([0.]),self._data.get_measured_times()))
         if sensmethod == 'analytical':
@@ -167,7 +167,7 @@ class ode_FIM(object):
         Qerr = self.Error_Covariance_Matrix.copy()
         
         check_for_empties=False
-        for timestep in self._data.get_measured_times():
+        for timestep in self._data.get_measured_xdata():
             #select subset of Error Covariance based on variables selected for FIM
             for varnot in self._get_nonFIM():
                 Qerr[timestep] = Qerr[timestep].drop(varnot,axis=1).drop(varnot)
@@ -376,7 +376,7 @@ class ode_FIM(object):
             error covariance matrix.
         
         '''
-        time_len = len(self._data.get_measured_times())
+        time_len = len(self._data.get_measured_xdata())
         par_len = len(self.Parameters)
         var_len = len(self.get_all_variables())
            
@@ -385,7 +385,7 @@ class ode_FIM(object):
         ECM = np.multiply(self.ECM,np.eye(par_len))
         sens_step = np.zeros([par_len,var_len])
         
-        for timestep in self._data.get_measured_times():
+        for timestep in self._data.get_measured_xdata():
             for i, var in enumerate(self.sensitivities.values()):
                 sens_step[:,i] = var.ix[timestep]
             omega[timestep,:,:] = sens_step.T*ECM*sens_step
@@ -414,7 +414,7 @@ class ode_FIM(object):
             and the relative uncertainty in percent.
         
         '''
-        time_len = len(self._data.get_measured_times())
+        time_len = len(self._data.get_measured_xdata())
         par_len = len(self.Parameters)
            
         sigma = {}
@@ -423,12 +423,12 @@ class ode_FIM(object):
         for i,var in enumerate(self.get_all_variables()):
             sigma_var = np.zeros([time_len,5])
             sigma_var[0,0:3] = self._model.ode_solved[var].ix[0]
-            for timestep in self._data.get_measured_times()[1:]:
+            for timestep in self._data.get_measured_xdata()[1:]:
                 sigma_var[timestep,0] = self._model.ode_solved[var].ix[timestep]
                 sigma_var[timestep,1:3] = stats.t.interval(alpha,sum(self._data.Data.count())-par_len,loc=sigma_var[timestep,0],scale=np.sqrt(self.model_prediction_ECM[timestep,:,:].diagonal()[i]))
                 sigma_var[timestep,3] = abs((sigma_var[timestep,2]-sigma_var[timestep,0]))
                 sigma_var[timestep,4] = abs(sigma_var[timestep,3]/sigma_var[timestep,0])*100
-            sigma_var = pd.DataFrame(sigma_var,columns=['value','lower','upper','delta','percent'],index=self._data.get_measured_times())       
+            sigma_var = pd.DataFrame(sigma_var,columns=['value','lower','upper','delta','percent'],index=self._data.get_measured_xdata())       
             sigma[var] = sigma_var
         
         self.model_confidence = sigma
@@ -453,7 +453,7 @@ class ode_FIM(object):
             represents the correlation between the two variables.
         
         '''
-        time_len = len(self._data.get_measured_times())
+        time_len = len(self._data.get_measured_xdata())
         
         comb_gen = list(combinations(self.get_all_variables(), 2))
         for i,comb in enumerate(comb_gen):
@@ -463,14 +463,14 @@ class ode_FIM(object):
                 combin.append([comb[0] + '-' +comb[1]])
         
         corr = np.zeros([time_len, len(combin)])
-        for timestep in self._data.get_measured_times()[1:]:
+        for timestep in self._data.get_measured_xdata()[1:]:
             tracker = 0
             for i,var1 in enumerate(self.get_all_variables()[:-1]):
                 for j,var2 in enumerate(self.get_all_variables()[i+1:]):
                     corr[timestep, tracker] = self.model_prediction_ECM[timestep,i,j+1]/np.sqrt(self.model_prediction_ECM[timestep,i,i]*self.model_prediction_ECM[timestep,j+1,j+1])
                     tracker += 1            
                     
-        corr = pd.DataFrame(corr, columns=combin,index=self._data.get_measured_times())                    
+        corr = pd.DataFrame(corr, columns=combin,index=self._data.get_measured_xdata())                    
         self.model_correlation = corr
         return corr
         
