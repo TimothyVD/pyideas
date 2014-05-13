@@ -80,7 +80,7 @@ class DAErunner(object):
 
         self._has_def_algebraic = False
         self._has_def_ODE = False
-        self.Parameters = collections.OrderedDict(sorted(kwargs.get('Parameters').items(), key=lambda t: t[0]))
+        self.Parameters = collections.OrderedDict(sorted(kwargs.get('Parameters').items(), key=lambda t: t[0]))  
         try:        
             self.System = collections.OrderedDict(sorted(kwargs.get('ODE').items(), key=lambda t: t[0]))    
             self._Variables = [i[1:] for i in self.System.keys()]  
@@ -119,9 +119,10 @@ class DAErunner(object):
                 self._has_algebraic = True
             else:
                 raise Exception('A model without ODEs or output cannot be regarded as a model!')
-           
+        
         self.Algebraic =  collections.OrderedDict(sorted(Algebraic.items(),key=lambda t: t[0]))
         self._has_algebraic = True
+        self._Outputs = self.Algebraic.keys()
         if self._has_ODE and not self._has_def_ODE:
             self._analytic_local_sensitivity()
         self._alg_LSA()
@@ -226,7 +227,7 @@ class DAErunner(object):
         '''
         return self._Variables
 
-    def get_measured_variables(self):
+    def get_measured_outputs(self):
         '''get a list of all measurable variables
         
         Help function for getting the values one can measure in the lab
@@ -235,7 +236,7 @@ class DAErunner(object):
             self._MeasuredList
         except:
             print 'All variables are assumed measured, since no selection was set'
-            self.set_measured_states(self._Variables)
+            self.set_measured_states(self._Outputs)
         return self._MeasuredList
     
     def get_time(self):
@@ -282,7 +283,7 @@ class DAErunner(object):
             
             h = 0
             while (np.sum(np.abs(system_matrix.jacobian(algebraic_matrix))) != 0) and (h <= len(self.Algebraic.keys())):
-                for i, alg in enumerate(self.Algebraic.keys()):
+                for i, alg in enumerate(self._Outputs):
                     system_matrix = system_matrix.replace(alg, self.Algebraic.values()[i])
                 h += 1
                          
@@ -813,7 +814,10 @@ class DAErunner(object):
             try:
                 self._ana_sens_matrix
             except:
-                raise Exception('First run self.analytical_local_sensitivity()!')
+                print('Running ODE LSA...')
+                self.calcOdeLSA()
+                print('...Done! Going to Algebraic LSA...')
+
                
         algeb_out = np.empty((self._Time.size, len(self.Algebraic.keys()) ,len(self.Parameters)))         
         

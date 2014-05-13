@@ -83,11 +83,11 @@ class ode_measurements(object):
         
         #We provide for internal purposes also second data-type: dict with {'cvar1':Timeserie,'var': Timeserie}                
         self._data2dictsystem()
-        self.get_measured_variables()  
+        self.get_measured_outputs()  
 
         #Create Error Covariance Matrix with unity matrixes
         unity_dict ={}
-        for var in self.get_measured_variables():
+        for var in self.get_measured_outputs():
             unity_dict[var]=1            
         print unity_dict
         self.add_measured_errors(unity_dict, method = 'absolute')
@@ -122,7 +122,7 @@ class ode_measurements(object):
 
         #update the datadictionary
         self._data2dictsystem()  
-        self.get_measured_variables() 
+        self.get_measured_outputs() 
 
 
     def get_measured_xdata(self):
@@ -134,12 +134,12 @@ class ode_measurements(object):
         self._measured_xdata = np.array(self.Data.index).astype('float')
         return self._measured_xdata
 
-    def get_measured_variables(self):
+    def get_measured_outputs(self):
         '''
         Based on the measurements, get the variable names measured
         '''
-        self._measured_variables = self.Data.columns.tolist()
-        return self._measured_variables
+        self._measured_outputs = self.Data.columns.tolist()
+        return self._measured_outputs
         
         
     def add_measured_errors(self, meas_error_dict, method = 'relative',
@@ -191,7 +191,7 @@ class ode_measurements(object):
         print 'Error Covariance Matrix is updated'
         
         for var in meas_error_dict:
-            if not var in self.get_measured_variables():       
+            if not var in self.get_measured_outputs():       
                 raise Exception('Variable ', var, ' not listed in current measurements.')
 
         self.Meas_Errors = collections.OrderedDict(sorted(meas_error_dict.items(), key=lambda t: t[0]))                    

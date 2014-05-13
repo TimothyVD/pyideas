@@ -65,15 +65,15 @@ class ode_optimizer(object):
 
         #compare with previous set measured variable; if same; ok, if not warning
         Meas_same = True
-        for var in Data.get_measured_variables():
+        for var in Data.get_measured_outputs():
             if var in odeModel.Algebraic.keys():         
                 if not var in odeModel._MeasuredList:
                     Meas_same = False
             else:
                 raise Exception('%s is not a variable in the current model' %var)
-        if Meas_same == False or len(Data.get_measured_variables()) is not len(odeModel.Algebraic):
+        if Meas_same == False or len(Data.get_measured_outputs()) is not len(odeModel.Algebraic):
             print('Measured variables are updated in model!')
-            odeModel.set_measured_states(Data.get_measured_variables())
+            odeModel.set_measured_states(Data.get_measured_outputs())
             
         #create initial set of information:
         #self._solve_for_opt()

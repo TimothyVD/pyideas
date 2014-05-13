@@ -67,7 +67,7 @@ class ode_FIM(object):
                                          'E':'max', 'modE':'min'}
         
         #initially set all measured variables as included
-        self.set_variables_for_FIM(self.get_measured_variables())
+        self.set_variables_for_FIM(self.get_measured_outputs())
         
         #Run sensitivity
         if  self._data.get_measured_xdata()[0] == 0.:
@@ -77,12 +77,8 @@ class ode_FIM(object):
         
 #        self._model._Time = np.concatenate((np.array([0.]),self._data.get_measured_times()))
         if sensmethod == 'analytical':
-            self._model.analytic_local_sensitivity()
-            try:
                 self._model.calcAlgLSA()
-                self.sensitivities = dict(self._model.analytical_sensitivity.items() + self._model.getAlgLSA.items())
-            except:
-                self.sensitivities = self._model.analytical_sensitivity
+                self.sensitivities = dict(self._model.getAlgLSA.items())
         elif sensmethod == 'numerical':
             self._model.numeric_local_sensitivity(*args,**kwargs)
             self.sensitivities = self._model.numerical_sensitivity           
@@ -90,18 +86,18 @@ class ode_FIM(object):
         #
         self.get_FIM()        
         
-    def get_all_variables(self):
+    def get_all_outputs(self):
         '''
         returns all model variables in the current model
         '''
-        return self._model.get_variables()
+        return self._model._Outputs
 
-    def get_measured_variables(self):
+    def get_measured_outputs(self):
         '''
         '''
-        if sorted(self._model.get_measured_variables()) != sorted(self._data.get_measured_variables()):
+        if sorted(self._model.get_measured_outputs()) != sorted(self._data.get_measured_outputs()):
             raise Exception('Model and Data measured variables are not in line with eachother.')
-        return self._data.get_measured_variables()
+        return self._data.get_measured_outputs()
         
     def get_variables_for_FIM(self):
         '''variables for FIM calculation
@@ -112,7 +108,7 @@ class ode_FIM(object):
         '''variables for FIM calculation
         '''
         for var in varlist:
-            if not var in self.get_measured_variables():
+            if not var in self.get_measured_outputs():
                 raise Exception('Variabel %s not measured')
         self._FIMvariables = varlist
 
@@ -145,7 +141,7 @@ class ode_FIM(object):
     def _get_nonFIM(self):
         '''
         '''
-        return [x for x in self.get_measured_variables() if not x in self.get_variables_for_FIM()]
+        return [x for x in self.get_measured_outputs() if not x in self.get_variables_for_FIM()]
 
     def get_FIM(self):
         '''  
@@ -191,7 +187,7 @@ class ode_FIM(object):
                 self.FIM = self.FIM + FIMt
                 self.FIM_timestep[timestep] = FIMt
         if check_for_empties == True:
-            print 'Not all timesteps are evaluated'
+            print('Not all timesteps are evaluated')
         return self.FIM
 
     def _check_for_FIM(self):
@@ -201,9 +197,9 @@ class ode_FIM(object):
         try:
             self.FIM
         except:
-            print 'FIM matrix is calculated...'
+            print('FIM matrix is calculated...')
             self.get_FIM()
-            print '... done!'
+            print('... done!')
 
     def A_criterium(self):
         '''OED design A criterium
@@ -215,7 +211,7 @@ class ode_FIM(object):
         numerical problems will arise when the FIM is close to singular.        
         '''
         self._check_for_FIM()
-        print 'MINIMIZE A criterium for OED'
+        print('MINIMIZE A criterium for OED')
         return self.FIM.I.trace()
         
     def modA_criterium(self):
@@ -228,7 +224,7 @@ class ode_FIM(object):
         numerical problems will arise when the FIM is close to singular.        
         '''
         self._check_for_FIM()
-        print 'MAXIMIZE modA criterium for OED'
+        print('MAXIMIZE modA criterium for OED')
         return self.FIM.trace()                   
         
     def D_criterium(self):
@@ -247,7 +243,7 @@ class ode_FIM(object):
         is most influential.
         '''
         self._check_for_FIM()
-        print 'MAXIMIZE D criterium for OED'
+        print('MAXIMIZE D criterium for OED')
         return np.linalg.det(self.FIM)          
 
     def E_criterium(self):
@@ -259,7 +255,7 @@ class ode_FIM(object):
         distance from the singular, unidentifiable case.
         '''
         self._check_for_FIM()
-        print 'MAXIMIZE E criterium for OED'
+        print('MAXIMIZE E criterium for OED')
         w, v = np.linalg.eig(self.FIM)
         return min(w)
     
@@ -273,7 +269,7 @@ class ode_FIM(object):
         is a (hyper)sphere.
         '''
         self._check_for_FIM()
-        print 'MINIMIZE modE criterium for OED'
+        print('MINIMIZE modE criterium for OED')
         w, v = np.linalg.eig(self.FIM)
         return max(w)/min(w)
 
@@ -351,14 +347,14 @@ class ode_FIM(object):
             CI[i,7] = 1 if CI[i,5]>=CI[i,6] else 0
         
         if (CI[:,7]==0).any():
-            print 'Some of the parameters show a non significant t_value, which\
+            print('Some of the parameters show a non significant t_value, which\
             suggests that the confidence intervals of that particular parameter\
             include zero and such a situation means that the parameter could be\
             statistically dropped from the model. However it should be noted that\
             sometimes occurs in multi-parameter models because of high correlation\
-            between the parameters.'
+            between the parameters.')
         else:
-            print 'T_values seem ok, all parameters can be regarded as reliable.'
+            print('T_values seem ok, all parameters can be regarded as reliable.')
             
         CI = pd.DataFrame(CI,columns=['value','lower','upper','delta','percent','t_value','t_reference','significant'],index=self.Parameters.keys())
         
@@ -376,19 +372,22 @@ class ode_FIM(object):
             error covariance matrix.
         
         '''
+        self._check_for_FIM()
+        self.ECM = self.FIM.I
+        
         time_len = len(self._data.get_measured_xdata())
         par_len = len(self.Parameters)
-        var_len = len(self.get_all_variables())
+        var_len = len(self.get_all_outputs())
            
         omega = np.zeros([time_len,var_len,var_len])
         #Mask parameter correlations!
         ECM = np.multiply(self.ECM,np.eye(par_len))
         sens_step = np.zeros([par_len,var_len])
         
-        for timestep in self._data.get_measured_xdata():
+        for j,timestep in enumerate(self._data.get_measured_xdata()):
             for i, var in enumerate(self.sensitivities.values()):
                 sens_step[:,i] = var.ix[timestep]
-            omega[timestep,:,:] = sens_step.T*ECM*sens_step
+            omega[j,:,:] = sens_step.T*ECM*sens_step
               
         self.model_prediction_ECM = omega
         
@@ -418,16 +417,21 @@ class ode_FIM(object):
         par_len = len(self.Parameters)
            
         sigma = {}
-        np.zeros([time_len,5])        
+        np.zeros([time_len,5])
+        
+        if self._data.get_measured_xdata()[0] == 0:
+            time_uncertainty = self._data.get_measured_xdata()[1:]
+        else:
+            time_uncertainty = self._data.get_measured_xdata()
 
-        for i,var in enumerate(self.get_all_variables()):
+        for i,var in enumerate(self.get_measured_outputs()):
             sigma_var = np.zeros([time_len,5])
-            sigma_var[0,0:3] = self._model.ode_solved[var].ix[0]
-            for timestep in self._data.get_measured_xdata()[1:]:
-                sigma_var[timestep,0] = self._model.ode_solved[var].ix[timestep]
-                sigma_var[timestep,1:3] = stats.t.interval(alpha,sum(self._data.Data.count())-par_len,loc=sigma_var[timestep,0],scale=np.sqrt(self.model_prediction_ECM[timestep,:,:].diagonal()[i]))
-                sigma_var[timestep,3] = abs((sigma_var[timestep,2]-sigma_var[timestep,0]))
-                sigma_var[timestep,4] = abs(sigma_var[timestep,3]/sigma_var[timestep,0])*100
+            sigma_var[0,0:3] = self._model.algeb_solved[var].ix[0]
+            for j,timestep in enumerate(time_uncertainty):
+                sigma_var[j,0] = self._model.algeb_solved[var].ix[timestep]
+                sigma_var[j,1:3] = stats.t.interval(alpha,sum(self._data.Data.count())-par_len,loc=sigma_var[j,0],scale=np.sqrt(self.model_prediction_ECM[j,:,:].diagonal()[i]))
+                sigma_var[j,3] = abs((sigma_var[j,2]-sigma_var[j,0]))
+                sigma_var[j,4] = abs(sigma_var[j,3]/sigma_var[j,0])*100
             sigma_var = pd.DataFrame(sigma_var,columns=['value','lower','upper','delta','percent'],index=self._data.get_measured_xdata())       
             sigma[var] = sigma_var
         
@@ -455,30 +459,39 @@ class ode_FIM(object):
         '''
         time_len = len(self._data.get_measured_xdata())
         
-        comb_gen = list(combinations(self.get_all_variables(), 2))
-        for i,comb in enumerate(comb_gen):
-            if i is 0:
-                combin = [comb[0] + '-' +comb[1]]
-            else:
-                combin.append([comb[0] + '-' +comb[1]])
-        
-        corr = np.zeros([time_len, len(combin)])
-        for timestep in self._data.get_measured_xdata()[1:]:
-            tracker = 0
-            for i,var1 in enumerate(self.get_all_variables()[:-1]):
-                for j,var2 in enumerate(self.get_all_variables()[i+1:]):
-                    corr[timestep, tracker] = self.model_prediction_ECM[timestep,i,j+1]/np.sqrt(self.model_prediction_ECM[timestep,i,i]*self.model_prediction_ECM[timestep,j+1,j+1])
-                    tracker += 1            
+        if len(self.get_all_outputs()) == 1:
+            print('Model only has one output!')
+        else:
+            comb_gen = list(combinations(self.get_all_outputs(), 2))
+            print(comb_gen)
+            for i,comb in enumerate(comb_gen):
+                if i is 0:
+                    combin = [comb[0] + '-' +comb[1]]
+                else:
+                    combin.append([comb[0] + '-' +comb[1]])
                     
-        corr = pd.DataFrame(corr, columns=combin,index=self._data.get_measured_xdata())                    
-        self.model_correlation = corr
-        return corr
+            if self._data.get_measured_xdata()[0] == 0:
+                time_uncertainty = self._data.get_measured_xdata()[1:]
+            else:
+                time_uncertainty = self._data.get_measured_xdata()
+            
+            corr = np.zeros([time_len, len(combin)])
+            for h,timestep in enumerate(time_uncertainty):
+                tracker = 0
+                for i,var1 in enumerate(self.get_all_outputs()[:-1]):
+                    for j,var2 in enumerate(self.get_all_outputs()[i+1:]):
+                        corr[h, tracker] = self.model_prediction_ECM[h,i,j+1]/np.sqrt(self.model_prediction_ECM[h,i,i]*self.model_prediction_ECM[h,j+1,j+1])
+                        tracker += 1          
+                        
+            corr = pd.DataFrame(corr, columns=combin,index=self._data.get_measured_xdata())                    
+            self.model_correlation = corr
+            return corr
         
     def get_model_adequacy(self, variable):
         
         repeated_meas = self._data.Data[variable].count()
         n_p_r = self._data.Data.count()-len(self.Parameters)-repeated_meas
-        s_squared = sum(self._data.Data[variable]-self._model.ode_solved[variable])/repeated_meas
+        s_squared = sum(self._data.Data[variable]-self._model.algeb_solved[variable])/repeated_meas
         
         F = ((Sr_theta - repeated_meas*s_squared)/(n_p_r))/(s_squared)
         
