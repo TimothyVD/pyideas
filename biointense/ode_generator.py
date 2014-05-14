@@ -8,7 +8,6 @@ Created on Mon Mar 25 12:04:03 2013
 from __future__ import division
 import numpy as np
 from numpy import *
-from sympy import *
 import scipy.integrate as spin
 import scipy.interpolate as spint
 import sympy
@@ -991,7 +990,7 @@ class DAErunner(object):
             #print "If you want the algebraic equations also, please rerun manually\
              #by using the 'self.solve_algebraic()' function!"
         
-            self.solve_algebraic(plotit = True)
+            self.solve_algebraic(plotit = plotit)
 
         if with_sens == False:
             return df
