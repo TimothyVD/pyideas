@@ -826,7 +826,7 @@ class DAErunner(object):
         for i,key in enumerate(self.Algebraic.keys()):
             alg_dict[key] = pd.DataFrame(algeb_out[:,i,:], columns=self.Parameters.keys(), 
                                  index = self._Time)
-        
+       
         self.getAlgLSA = self._LSA_converter(self.algeb_solved, alg_dict, self.Algebraic.keys(), Sensitivity,'ALGSENS')
                 
         return self.getAlgLSA
@@ -1088,7 +1088,7 @@ class DAErunner(object):
             else:
                 print(procedure+'ANASENS: Using EVOLUTION of output values')
                 for i in sens_variables:
-                     sens_matrix[i] = sens_matrix[i]*self.Parameters.values()/np.tile(np.array(df[i]),(len(self._Variables),1)).T
+                     sens_matrix[i] = sens_matrix[i]*self.Parameters.values()/np.tile(np.array(df[i]),(len(self.Parameters),1)).T
         elif sens_method != 'CAS':
             self.LSA_type = None
             raise Exception('You have to choose one of the sensitivity\
@@ -1120,7 +1120,7 @@ class DAErunner(object):
             raise Exception('This model has no ODE equations!')
         self.LSA_type = Sensitivity
 
-        df, analytical_sens = self.solve_ode(with_sens = True, plotit = False, procedure = procedure)
+        df, analytical_sens = self.solve_ode(with_sens = True, plotit = False, procedure = procedure)      
         
         self.analytical_sensitivity = self._LSA_converter(df, analytical_sens, self._Variables, Sensitivity,'ANASENS')
         
