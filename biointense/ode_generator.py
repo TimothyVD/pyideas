@@ -639,47 +639,38 @@ class DAErunner(object):
                     algebraic_sens += '    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n"
                 algebraic_sens += '\n'
                 for i in range(len(self.System)):
-                    algebraic_sens += '    '+str(self.System.keys()[i])[1:] + ' = ODES['+str(i)+']\n'
+                    if self.solve_fast_way:
+                        algebraic_sens += '    '+str(self.System.keys()[i])[1:] + ' = ODES[:,'+str(i)+']\n'
+                    else:
+                        algebraic_sens += '    '+str(self.System.keys()[i])[1:] + ' = ODES['+str(i)+']\n'
                 algebraic_sens += '\n'
                 if self._has_externalfunction:
                     for i, step in enumerate(self.externalfunction):
                         algebraic_sens += '    input'+str(i) + ' = input['+str(i)+'](t)'+'\n'
                     algebraic_sens += '\n'
                 for i in range(len(self.Algebraic)):
+                    algebraic_sens += '    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic_swapped[i]) +'\n'
                     #file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
-                    algebraic_sens += '    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic_swapped[i])+'\n'
-                algebraic_sens += '\n'
                 print 'Algebraic sensitivities are printed to string....'
                 algebraic_sens += '\n    #Sensitivities\n\n'
                            
                 # Write dgdtheta as symbolic array
-                algebraic_sens += '    dgdtheta = '     
-                algebraic_sens += pprint.pformat(self.dgdtheta)
-
-                # Write dgdx as symbolic array
-                algebraic_sens += '\n    dgdx = '
-                algebraic_sens += pprint.pformat(self.dgdx)
-                
-                algebraic_sens += '\n    dgdxdxdtheta = np.zeros([' + str(len(self.Algebraic.keys())) + ', ' + str(len(self.Parameters.keys())) + '])\n'
-                               
+                algebraic_sens += '    dgdtheta = np.zeros([len(t), ' + str(len(self.Algebraic.keys())) + ', ' + str(len(self.Parameters.keys())) + '])\n'
                 for i, alg in enumerate(self.Algebraic.keys()):
                     for j, par in enumerate(self.Parameters.keys()):
-                        algebraic_sens += '    dgdxdxdtheta[' + str(i) + ',' + str(j) +'] = dgdx[' + str(i) + ',:]*dxdtheta[:,' + str(j) +']\n'
-                        
-                
-    #            file.write('    dgdtheta = zeros('+str([self._TimeDict['nsteps'],self.dgdtheta.shape[0],self.dgdtheta.shape[1]])+')')
-    #            for i,dg in enumerate(self.dgdtheta):
-    #                for j,dg2 in enumerate(dg):
-    #                    file.write('\n    dgdtheta[:,'+str(i)+','+str(j)+'] = ' + str(self.dgdtheta[i,j]))
+                        algebraic_sens += '    dgdtheta[:,' + str(i) + ',' + str(j) +'] = ' + str(self.dgdtheta[i,j])+'\n'
+
                 # Write dgdx as symbolic array
-                
-    #            file.write('\n\n    dgdx = zeros('+str([self._TimeDict['nsteps'],self.dgdx.shape[0],self.dgdx.shape[1]])+')')
-    #            for i,dg in enumerate(self.dgdx):
-    #                for j,dg2 in enumerate(dg):
-    #                    file.write('\n    dgdx[:,'+str(i)+','+str(j)+'] = ' + str(self.dgdx[i,j]))
-                # Calculate derivative in order to integrate this
-                #file.write('\n\n    dydtheta = dgdtheta + dot(dgdx,dxdtheta)\n')
-                algebraic_sens += '\n\n    dydtheta = dgdtheta + dgdxdxdtheta\n'
+                algebraic_sens += '    dgdx = np.zeros([len(t), ' + str(len(self.Algebraic.keys())) + ', ' + str(len(self.System.keys())) + '])\n'
+                for i, alg in enumerate(self.Algebraic.keys()):
+                    for j, par in enumerate(self.System.keys()):
+                        algebraic_sens += '    dgdx[:,' + str(i) + ',' + str(j) +'] = ' + str(self.dgdx[i,j])+'\n'
+
+                # The two time-dependent 2D matrices should be multiplied with each other (dot product).
+                # In order to yield a time-dependent 2D matrix, this is possible using the einsum function.
+                algebraic_sens += "\n    dgdxdxdtheta = np.einsum('ijk,ikl->ijl',dgdx,dxdtheta)\n"
+        
+                algebraic_sens += '\n    dydtheta = dgdtheta + dgdxdxdtheta\n'
                 
             else:
                 #Algebraic sens
@@ -824,16 +815,16 @@ class DAErunner(object):
             if self._has_externalfunction:
                 algeb_out = self._fun_alg_LSA(np.array(self.ode_solved), self._Time, self.Parameters, self.externalfunction, self._ana_sens_matrix)
             else:
-                algeb_out = self._fun_alg_LSA(np.array(self.ode_solved), self._Time, self.Parameters) 
+                algeb_out = self._fun_alg_LSA(np.array(self.ode_solved), self._Time, self.Parameters, self._ana_sens_matrix) 
         elif self._has_externalfunction:
-            algeb_out = self._fun_alg_LSA(np.array(self.ode_solved), self._Time, self.Parameters, self.externalfunction, self._ana_sens_matrix)
+            algeb_out = self._fun_alg_LSA(self._Time, self.Parameters, self.externalfunction)
         else:
             algeb_out = self._fun_alg_LSA(self._Time, self.Parameters)           
                
         alg_dict = {}
         
         for i,key in enumerate(self.Algebraic.keys()):
-            alg_dict[key] = pd.DataFrame(algeb_out[i,:,:].T, columns=self.Parameters.keys(), 
+            alg_dict[key] = pd.DataFrame(algeb_out[:,i,:], columns=self.Parameters.keys(), 
                                  index = self._Time)
         
         self.getAlgLSA = self._LSA_converter(self.algeb_solved, alg_dict, self.Algebraic.keys(), Sensitivity,'ALGSENS')
@@ -924,7 +915,7 @@ class DAErunner(object):
             if procedure == "odeint":
                 print "Going for odeint..."
                 if self._has_externalfunction:
-                    res = spin.odeint(self._fun_ODE_LSA, np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,self.self.externalfunction,))
+                    res = spin.odeint(self._fun_ODE_LSA, np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,self.externalfunction,))
                 else:
                     res = spin.odeint(self._fun_ODE_LSA, np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,))
                 #put output in pandas dataframe
