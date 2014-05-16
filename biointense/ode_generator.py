@@ -26,6 +26,8 @@ import matplotlib.pyplot as plt
 
 from plotfunctions import *
 
+np.set_printoptions(threshold=np.nan) # Necessary for printing big matrices in a proper way!
+
 class DAErunner(object):
     '''
     Class to generated an ODE model based on a Parameter and Variables
@@ -139,7 +141,7 @@ class DAErunner(object):
         self._has_externalfunction = False     
         #self._write_model_to_file()
 
-        self._ode_procedure = "odeint"        
+        self._ode_procedure = "odeint"
         self._generate_model()
         self._has_generated_model = False
 
@@ -600,6 +602,7 @@ class DAErunner(object):
             LSA_analytical += '    dxdtheta = array(ODES[state_len:].reshape(state_len,len(Parameters)))\n\n'
             
             # Write dfdtheta as symbolic array
+            print(LSA_analytical)
             LSA_analytical += '    dfdtheta = '
             LSA_analytical += pprint.pformat(self.dfdtheta)
             # Write dfdx as symbolic array
