@@ -53,10 +53,10 @@ class ode_FIM(object):
             on a selected perturbation factor for sensitivity calculation              
         
         '''
-        try:
-            self._print_on = kwargs.get('print_on')
-        except:
-            self._print_on = True        
+        if kwargs.get('print_on') == None:
+            self._print_on = True
+        else:
+            self._print_on = kwargs.get('print_on')        
         
         if isinstance(odeoptimizer, ode_optimizer):
             self.odeoptimizer = odeoptimizer

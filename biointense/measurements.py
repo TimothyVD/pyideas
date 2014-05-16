@@ -37,13 +37,13 @@ class ode_measurements(object):
         
     '''
     
-    def __init__(self, measdata, xdata = 'time', print_on = True):
+    def __init__(self, measdata, xdata = 'time', *args, **kwargs):
         '''
         '''
-        try:
-            self._print_on = kwargs.get('print_on')
-        except:
+        if kwargs.get('print_on') == None:
             self._print_on = True
+        else:
+            self._print_on = kwargs.get('print_on')
             
         if isinstance(measdata, dict):
             self.xdata = xdata
@@ -67,7 +67,7 @@ class ode_measurements(object):
                     self.Data = pd.DataFrame(measdata, index=indext)  
                 else:
                     self.Data = pd.DataFrame(measdata)
-                    if self.print_on:
+                    if self._print_on:
                         print('Attention: Information for xdata is not explicitly set!')
 
         elif isinstance(measdata, pd.DataFrame):            
@@ -79,7 +79,7 @@ class ode_measurements(object):
                     self.Data = measdata.set_index(xdata)                                
             else:
                 self.Data = measdata
-                if self.print_on:
+                if self._print_on:
                     print('index of dataframe is seen as measurement xdata, and colnames are the measured variables')
                 
         elif isinstance(measdata, pd.Series):
@@ -92,13 +92,11 @@ class ode_measurements(object):
         self._data2dictsystem()
         self.get_measured_outputs()
         
-        self.print_on = print_on
-
         #Create Error Covariance Matrix with unity matrixes
         unity_dict ={}
         for var in self.get_measured_outputs():
             unity_dict[var]=1            
-        if self.print_on:
+        if self._print_on:
             print(unity_dict)
         self.add_measured_errors(unity_dict, method = 'absolute')
         

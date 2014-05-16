@@ -52,10 +52,11 @@ class ode_optimizer(object):
         '''
         '''
         
-        try:
-            self._print_on = kwargs.get('print_on')
-        except:
+        if kwargs.get('print_on') == None:
             self._print_on = True
+        else:
+            self._print_on = kwargs.get('print_on')
+
         #check inputs
         if not isinstance(odeModel, DAErunner):
             raise Exception('Bad input type for model or oed')
@@ -84,9 +85,10 @@ class ode_optimizer(object):
         #self._solve_for_opt()
         
         #All parameters are set as fitting
-        print("All parameters are set as fitting parameters, if you want to \
-        fit only some parameters, one should use \
-        self.set_fitting_parameters({'par1':val1,'par2':val2})")
+        if self._print_on:
+	    print("All parameters are set as fitting parameters, if you want to \
+            fit only some parameters, one should use \
+            self.set_fitting_parameters({'par1':val1,'par2':val2})")
         self.set_fitting_parameters(self._model.Parameters)
         
         self._distributions_set = False

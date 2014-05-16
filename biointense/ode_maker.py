@@ -33,10 +33,10 @@ class odemaker(object):
         '''
 
         '''
-        try:
-            self._print_on = kwargs.get('print_on')
-        except:
+        if kwargs.get('print_on') == None:
             self._print_on = True
+        else:
+            self._print_on = kwargs.get('print_on')
             
         self.string_list = string_list   
         
