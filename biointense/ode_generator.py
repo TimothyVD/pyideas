@@ -602,7 +602,6 @@ class DAErunner(object):
             LSA_analytical += '    dxdtheta = array(ODES[state_len:].reshape(state_len,len(Parameters)))\n\n'
             
             # Write dfdtheta as symbolic array
-            print(LSA_analytical)
             LSA_analytical += '    dfdtheta = '
             LSA_analytical += pprint.pformat(self.dfdtheta)
             # Write dfdx as symbolic array
