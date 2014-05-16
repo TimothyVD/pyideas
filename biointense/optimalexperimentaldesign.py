@@ -53,6 +53,11 @@ class ode_FIM(object):
             on a selected perturbation factor for sensitivity calculation              
         
         '''
+        try:
+            self._print_on = kwargs.get('print_on')
+        except:
+            self._print_on = True        
+        
         if isinstance(odeoptimizer, ode_optimizer):
             self.odeoptimizer = odeoptimizer
         else:
@@ -186,7 +191,7 @@ class ode_FIM(object):
                 FIMt = np.matrix(sensmatrix).transpose() * np.linalg.inv(np.matrix(Qerr[timestep])) * np.matrix(sensmatrix)
                 self.FIM = self.FIM + FIMt
                 self.FIM_timestep[timestep] = FIMt
-        if check_for_empties == True:
+        if check_for_empties == True and self._print_on:
             print('Not all timesteps are evaluated')
         return self.FIM
 
@@ -197,9 +202,11 @@ class ode_FIM(object):
         try:
             self.FIM
         except:
-            print('FIM matrix is calculated...')
+            if self._print_on:
+                print('FIM matrix is calculated...')
             self.get_FIM()
-            print('... done!')
+            if self._print_on:
+                print('... done!')
 
     def A_criterium(self):
         '''OED design A criterium
@@ -211,7 +218,8 @@ class ode_FIM(object):
         numerical problems will arise when the FIM is close to singular.        
         '''
         self._check_for_FIM()
-        print('MINIMIZE A criterium for OED')
+        if self._print_on:
+            print('MINIMIZE A criterium for OED')
         return self.FIM.I.trace()
         
     def modA_criterium(self):
@@ -224,7 +232,8 @@ class ode_FIM(object):
         numerical problems will arise when the FIM is close to singular.        
         '''
         self._check_for_FIM()
-        print('MAXIMIZE modA criterium for OED')
+        if self._print_on:
+            print('MAXIMIZE modA criterium for OED')
         return self.FIM.trace()                   
         
     def D_criterium(self):
@@ -243,7 +252,8 @@ class ode_FIM(object):
         is most influential.
         '''
         self._check_for_FIM()
-        print('MAXIMIZE D criterium for OED')
+        if self._print_on:
+            print('MAXIMIZE D criterium for OED')
         return np.linalg.det(self.FIM)          
 
     def E_criterium(self):
@@ -255,7 +265,8 @@ class ode_FIM(object):
         distance from the singular, unidentifiable case.
         '''
         self._check_for_FIM()
-        print('MAXIMIZE E criterium for OED')
+        if self._print_on:
+            print('MAXIMIZE E criterium for OED')
         w, v = np.linalg.eig(self.FIM)
         return min(w)
     
@@ -269,7 +280,8 @@ class ode_FIM(object):
         is a (hyper)sphere.
         '''
         self._check_for_FIM()
-        print('MINIMIZE modE criterium for OED')
+        if self._print_on:
+            print('MINIMIZE modE criterium for OED')
         w, v = np.linalg.eig(self.FIM)
         return max(w)/min(w)
 
@@ -346,15 +358,16 @@ class ode_FIM(object):
         for i in np.arange(self.ECM.shape[1]):
             CI[i,7] = 1 if CI[i,5]>=CI[i,6] else 0
         
-        if (CI[:,7]==0).any():
-            print('Some of the parameters show a non significant t_value, which\
-            suggests that the confidence intervals of that particular parameter\
-            include zero and such a situation means that the parameter could be\
-            statistically dropped from the model. However it should be noted that\
-            sometimes occurs in multi-parameter models because of high correlation\
-            between the parameters.')
-        else:
-            print('T_values seem ok, all parameters can be regarded as reliable.')
+        if self._print_on:
+            if (CI[:,7]==0).any():
+                print('Some of the parameters show a non significant t_value, which\
+                suggests that the confidence intervals of that particular parameter\
+                include zero and such a situation means that the parameter could be\
+                statistically dropped from the model. However it should be noted that\
+                sometimes occurs in multi-parameter models because of high correlation\
+                between the parameters.')
+            else:
+                print('T_values seem ok, all parameters can be regarded as reliable.')
             
         CI = pd.DataFrame(CI,columns=['value','lower','upper','delta','percent','t_value','t_reference','significant'],index=self.Parameters.keys())
         
@@ -460,7 +473,9 @@ class ode_FIM(object):
         time_len = len(self._data.get_measured_xdata())
         
         if len(self.get_all_outputs()) == 1:
-            print('Model only has one output!')
+            if self._print_on:
+                print('Model only has one output!')
+            corr = pd.DataFrame(np.ones([1,1]), columns=self.get_all_outputs()[0],index=self._data.get_measured_xdata())
         else:
             comb_gen = list(combinations(self.get_all_outputs(), 2))
             print(comb_gen)
@@ -495,7 +510,8 @@ class ode_FIM(object):
         
         F = ((Sr_theta - repeated_meas*s_squared)/(n_p_r))/(s_squared)
         
-        print stats.f_value(s_squared,0,n_p_r,1000)
+        if self._print_on:
+            print(stats.f_value(s_squared,0,n_p_r,1000))
 
 
     

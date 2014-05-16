@@ -76,6 +76,11 @@ class DAErunner(object):
         '''
 
         '''
+        
+        try:
+            self._print_on = kwargs.get('print_on')
+        except:
+            self._print_on = True
 
         self._has_def_algebraic = False
         self._has_def_ODE = False
@@ -86,14 +91,16 @@ class DAErunner(object):
             self._has_ODE = True
             try:
                 self._has_def_ODE = kwargs.get('has_def_ODE')
-                if self._has_def_ODE:
+                if self._has_def_ODE and self._print_on:
                     print('ODE(s) were defined by user')
             except:
                 pass
-                
-            print(str(len(self.System)) + ' ODE(s) was/were defined. Continuing...')
+            
+            if self._print_on:
+                print(str(len(self.System)) + ' ODE(s) was/were defined. Continuing...')
         except:
-            print('No ODES defined. Continuing...')
+            if self._print_on:
+                print('No ODES defined. Continuing...')
             self._has_ODE = False
         
         
@@ -101,11 +108,12 @@ class DAErunner(object):
         
         try:
             Algebraic = kwargs.get('Algebraic')
-            print(str(len(Algebraic)) + ' Algebraic equation(s) was/were defined. Continuing...')
+            if self._print_on:
+                print(str(len(Algebraic)) + ' Algebraic equation(s) was/were defined. Continuing...')
         except:
             try:
                 self._has_def_algebraic = kwargs.get('has_def_algebraic')
-                if self._has_def_algebraic:
+                if self._has_def_algebraic and self._print_on:
                     print('You defined your own function, please make sure this function is provided in\
                         '+self.modelname+'.py as Algebraic_outputs'+'(self._Time, self.Parameters)')
             except:
@@ -114,7 +122,8 @@ class DAErunner(object):
                 Algebraic = {}
                 for i in self._Variables:
                     Algebraic[i] = i
-                print('No Algebraic equations defined. All ODEs are regarded as outputs...')
+                if self._print_on:
+                    print('No Algebraic equations defined. All ODEs are regarded as outputs...')
                 self._has_algebraic = True
             else:
                 raise Exception('A model without ODEs or output cannot be regarded as a model!')
@@ -234,7 +243,8 @@ class DAErunner(object):
         try:
             self._MeasuredList
         except:
-            print 'All variables are assumed measured, since no selection was set'
+            if self._print_on:
+                print('All variables are assumed measured, since no selection was set')
             self.set_measured_states(self._Outputs)
         return self._MeasuredList
     
@@ -244,9 +254,10 @@ class DAErunner(object):
         '''
         try:
             self._TimeDict['start']
-            print 'start timestep is ', self._TimeDict['start']
-            print 'end timestep is ', self._TimeDict['end']
-            print 'number of timesteps for printing is ', self._TimeDict['nsteps']
+            if self._print_on:
+                print('start timestep is '+ str(self._TimeDict['start']))
+                print('end timestep is '+ str(self._TimeDict['end']))
+                print('number of timesteps for printing is '+ str(self._TimeDict['nsteps']))
         except:
             raise Exception('Please add a time-dictionary containing start, end and nsteps')
             
@@ -372,12 +383,15 @@ class DAErunner(object):
         #CHECK FOR THE MEASURABLE VARIBALES
         if Measurable_States == False:
             try:
-                print 'Used measured variables: ',self._MeasuredList
+                self._MeasuredList
+                if self._print_on:
+                    print('Used measured variables: '+str(self._MeasuredList))
             except:
                 raise Exception('No measurable states are provided for the current model')            
         else:
             self.set_measured_states(Measurable_States)
-            print 'Updated measured states are used'
+            if self._print_on:
+                print('Updated measured states are used')
 
     def _check_for_init(self, Initial_Conditions):
         '''verify presence of initial conditions
@@ -391,8 +405,9 @@ class DAErunner(object):
             except:
                 raise Exception('No initial conditions are provided for the current model')            
         else:
-            self.set_initial_conditions(Initial_Conditions)               
-            print 'Updated initial conditions are used'
+            self.set_initial_conditions(Initial_Conditions)   
+            if self._print_on:          
+                print('Updated initial conditions are used')
 
     def _check_for_time(self, Timesteps):
         '''verify presence of model time information
@@ -406,8 +421,9 @@ class DAErunner(object):
             except:
                 raise Exception('No time step information is provided for the current model')            
         else:
-            self.set_time(Timesteps)               
-            print 'Updated initial conditions are used'
+            self.set_time(Timesteps)
+            if self._print_on:             
+                print('Updated initial conditions are used')
               
     def makeStepFunction(self,array_list, accuracy=0.001):
         '''makeStepFunction
@@ -487,7 +503,8 @@ class DAErunner(object):
         temp_path = os.path.join(os.getcwd(),self.modelname+'.py') 
         temp_path_user = os.path.join(os.getcwd(),self.modelname+'_user.py')
         if self._has_def_algebraic and self._has_def_ODE:
-            print('Functions are defined by user, no model to be generated!')
+            if self._print_on:
+                print('Functions are defined by user, no model to be generated!')
             shutil.copyfile(temp_path_user,temp_path)
             return 0
                 
@@ -495,9 +512,11 @@ class DAErunner(object):
             try:
                 self.dfdtheta
             except:
-                print 'Running symbolic calculation of analytic sensitivity ...'
+                if self._print_on:
+                    print('Running symbolic calculation of analytic sensitivity ...')
                 self._analytic_local_sensitivity()
-                print '... Done!'           
+                if self._print_on:
+                    print('... Done!')       
        
         # Write function for solving ODEs only
         system = ""
@@ -571,7 +590,8 @@ class DAErunner(object):
             for i in range(len(self.System)):
                 LSA_analytical += '    '+str(self.System.keys()[i]) + ' = ' + str(self.System.values()[i])+'\n'
             
-            print 'ODE sensitivities are printed to string....'
+            if self._print_on:
+                print('ODE sensitivities are printed to string....')
             LSA_analytical += '\n    #Sensitivities\n\n'
             
             # Calculate number of states by using inputs
@@ -651,7 +671,8 @@ class DAErunner(object):
                 for i in range(len(self.Algebraic)):
                     algebraic_sens += '    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic_swapped[i]) +'\n'
                     #file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
-                print 'Algebraic sensitivities are printed to string....'
+                if self._print_on:
+                    print('Algebraic sensitivities are printed to string....')
                 algebraic_sens += '\n    #Sensitivities\n\n'
                            
                 # Write dgdtheta as symbolic array
@@ -690,7 +711,8 @@ class DAErunner(object):
                     #file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
                     algebraic_sens += '    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic_swapped[i])+'\n'
                 algebraic_sens += '\n'
-                print 'Algebraic sensitivities are printed to the file....'
+                if self._print_on:
+                    print('Algebraic sensitivities are printed to the file....')
                 algebraic_sens += '\n    #Sensitivities\n\n'
                            
                 # Write dgdtheta as symbolic array
@@ -726,7 +748,8 @@ class DAErunner(object):
             self._fun_alg_LSA_str = None
             self._fun_alg = None
             self._fun_alg_LSA = None
-        print('...All functions are generated!')
+        if self._print_on:
+            print('...All functions are generated!')
 
         
     def solve_algebraic(self, plotit = True):
@@ -792,7 +815,8 @@ class DAErunner(object):
         try:
             self.algeb_solved
         except:
-            print('First running self.solve_algebraic()')
+            if self._print_on:
+                print('First running self.solve_algebraic()')
             self.solve_algebraic(plotit = False)
             
         if not self._has_algebraic:
@@ -804,9 +828,11 @@ class DAErunner(object):
             try:
                 self._ana_sens_matrix
             except:
-                print('Running ODE LSA...')
+                if self._print_on:
+                    print('Running ODE LSA...')
                 self.calcOdeLSA()
-                print('...Done! Going to Algebraic LSA...')
+                if self._print_on:
+                    print('...Done! Going to Algebraic LSA...')
 
                
         algeb_out = np.empty((self._Time.size, len(self.Algebraic.keys()) ,len(self.Parameters)))         
@@ -862,20 +888,23 @@ class DAErunner(object):
         
         if (self._has_generated_model and self._ode_procedure is not procedure) or \
                 (self._has_generated_model is False):
-            print "Writing model to file for '" + procedure + "' procedure..."
+            if self._print_on:
+                print("Writing model to file for '" + procedure + "' procedure...")
             self._ode_procedure = procedure
             self._generate_model(procedure = procedure)
             self._has_generated_model = True
-            print '...Finished writing to file!'
-        else:
-            print "Model was already written to file! We are using the '" + \
+            if self._print_on:
+                print('...Finished writing to file!')
+        elif self._print_on:
+            print("Model was already written to file! We are using the '" + \
                 procedure + "' procedure for solving ODEs. If you want to rewrite \
-                the model to the file, please add 'write = True'."
+                the model to the file, please add 'write = True'.")
         
         	
         if with_sens == False:
-            if procedure == "odeint": 
-                print "Going for odeint..."
+            if procedure == "odeint":
+                if self._print_on:
+                    print("Going for odeint...")
                 if self._has_externalfunction:
                     res = spin.odeint(self._fun_ODE,self.Initial_Conditions.values(), self._Time,args=(self.Parameters,self.externalfunction,))
                 else:
@@ -885,7 +914,8 @@ class DAErunner(object):
     
     
             elif procedure == "ode":
-                print "Going for generic methodology..."
+                if self._print_on:
+                    print("Going for generic methodology...")
                 #ode procedure-generic
                 #                f = eval(self.modelname+'.system')
                 r = spin.ode(self._fun_ODE).set_integrator('lsoda') #   method='bdf', with_jacobian = False
@@ -895,7 +925,8 @@ class DAErunner(object):
                 moutput = []
                 toutput = []
                 end_val = self._Time[-1]-self._TimeDict['end']/(10*self._TimeDict['nsteps'])             
-                print "Starting ODE loop..."
+                if self._print_on:                
+                    print("Starting ODE loop...")
                 while r.successful() and r.t < end_val:          
                     r.integrate(r.t + dt)
                     #print "This integration worked well?", r.successful()
@@ -905,7 +936,8 @@ class DAErunner(object):
     
                     moutput.append(r.y)
                     toutput.append(r.t)
-                print "...Done!"
+                if self._print_on:
+                    print("...Done!")
                 
                 #make df
                 df = pd.DataFrame(moutput, index = toutput, 
@@ -913,7 +945,8 @@ class DAErunner(object):
         else:
             #odeint procedure
             if procedure == "odeint":
-                print "Going for odeint..."
+                if self._print_on:
+                    print("Going for odeint...")
                 if self._has_externalfunction:
                     res = spin.odeint(self._fun_ODE_LSA, np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,self.externalfunction,))
                 else:
@@ -930,7 +963,8 @@ class DAErunner(object):
                     analytical_sens[self._Variables[i]] = pd.DataFrame(res[:,len(self._Variables)+len(self.Parameters)*(i):len(self._Variables)+len(self.Parameters)*(1+i)], index=self._Time,columns = self.Parameters.keys())
                 
             elif procedure == "ode":
-                print "Going for generic methodology..."
+                if self._print_on:                
+                    print("Going for generic methodology...")
                 #ode procedure-generic
                 r = spin.ode(self._fun_ODE_LSA)
                 r.set_integrator('vode', method='bdf', with_jacobian = False)
@@ -944,13 +978,15 @@ class DAErunner(object):
                 moutput = []
                 toutput = []
                 end_val = self._Time[-1]-self._TimeDict['end']/(10*self._TimeDict['nsteps'])
-                print "Starting ODE loop..."
+                if self._print_on:                
+                    print("Starting ODE loop...")
                 while r.successful() and r.t < end_val:
                     r.integrate(r.t+dt)
 #                    print("%g %g" % (r.t, r.y))
                     moutput.append(r.y)
                     toutput.append(r.t)
-                print "...Done!"
+                if self._print_on:
+                    print("...Done!")
                 
                 moutput = np.array(moutput)
                 df = pd.DataFrame(moutput[:,0:len(self._Variables)], index=toutput,columns = self._Variables)
@@ -1016,9 +1052,11 @@ class DAErunner(object):
         try:
             self.analytical_sensitivity
         except:
-            print 'Running Analytical sensitivity analysis'
+            if self._print_on:            
+                print('Running Analytical sensitivity analysis')
             self.analytic_local_sensitivity(Sensitivity = 'CTRS')
-            print '... Done!'
+            if self._print_on:
+                print('... Done!')
 
         if self.LSA_type != 'CTRS':
             raise Exception('The collinearity_check function is only useful for Total Relative Sensitivity!')
@@ -1082,11 +1120,13 @@ class DAErunner(object):
                     fixed at zero. Try to use another method or to change the\
                     initial conditions!')
             elif min(df.min()) == 0 or max(df.max()) == 0:
-                print(procedure+' Using AVERAGE of output values')
+                if self._print_on:                
+                    print(procedure+' Using AVERAGE of output values')
                 for i in sens_variables:
                      sens_matrix[i] = sens_matrix[i]*self.Parameters.values()/df[i].mean()
             else:
-                print(procedure+'ANASENS: Using EVOLUTION of output values')
+                if self._print_on:
+                    print(procedure+'ANASENS: Using EVOLUTION of output values')
                 for i in sens_variables:
                      sens_matrix[i] = sens_matrix[i]*self.Parameters.values()/np.tile(np.array(df[i]),(len(self.Parameters),1)).T
         elif sens_method != 'CAS':
@@ -1273,31 +1313,32 @@ class DAErunner(object):
             try:
                 mat_to_plot[i,:,:] = self.Collinearity_Pairwise[self._Variables[i]]
             except:
-                print 'Collinearity check of variable '+self._Variables[i]+' is now performed!' 
+                if self._print_on:                
+                    print('Collinearity check of variable '+self._Variables[i]+' is now performed!') 
                 mat_to_plot[i,:,:] = self.collinearity_check(self._Variables[i])
             
         textlist = {}
         #Plot the rankings in the matrix
         for i in range(len(self._Variables)):
             F = (mat_to_plot[i] <400.)*(mat_to_plot[i] >0.)
-            print F
+            #print F
             for j in range(len(self.Parameters)):
                 for k in range(len(self.Parameters)):
                     if F[j,k] == True:
-                        print j,k
-                        print F[j,k]
+                        #print j,k
+                        #print F[j,k]
                         try:
-                            print textlist[(self._Variables[i],self.Parameters.keys()[j])]
+                            #print textlist[(self._Variables[i],self.Parameters.keys()[j])]
                             textlist[(self._Variables[i],self.Parameters.keys()[j])]=textlist[(self._Variables[i],self.Parameters.keys()[j])]+','+(self.Parameters.keys()[k])   
                         except:
                             textlist[(self._Variables[i],self.Parameters.keys()[j])]=self.Parameters.keys()[k]  
                         try:
-                            print textlist[(self._Variables[i],self.Parameters.keys()[k])]
+                            #print textlist[(self._Variables[i],self.Parameters.keys()[k])]
                             textlist[(self._Variables[i],self.Parameters.keys()[k])]=textlist[(self._Variables[i],self.Parameters.keys()[k])]+','+(self.Parameters.keys()[j])   
                         except:
                             textlist[(self._Variables[i],self.Parameters.keys()[k])]=self.Parameters.keys()[j]  
 
-        print textlist
+        #print textlist
         #sorted(textlist[('EsQ','k1')].split(), key=str.lower)
         
 #        if redgreen == True:
@@ -1536,10 +1577,11 @@ class DAErunner(object):
         else:
             raise Exception("The argument 'variables' need to be provided!")
         
-        if massBalance == 0:
-            print "The mass balance is closed!"
-        else:
-            print "The mass balance is NOT closed for the enzyme forms of '" + variables +"'! \
-                The following term(s) cannot be striked out: " + str(massBalance)
+        if self._print_on:
+            if massBalance == 0:
+                print("The mass balance is closed!")
+            else:
+                print("The mass balance is NOT closed for the enzyme forms of '" + variables +"'! \
+                    The following term(s) cannot be striked out: " + str(massBalance))
         
         return massBalance

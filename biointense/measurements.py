@@ -37,9 +37,14 @@ class ode_measurements(object):
         
     '''
     
-    def __init__(self, measdata, xdata = 'time'):
+    def __init__(self, measdata, xdata = 'time', print_on = True):
         '''
         '''
+        try:
+            self._print_on = kwargs.get('print_on')
+        except:
+            self._print_on = True
+            
         if isinstance(measdata, dict):
             self.xdata = xdata
             #Different variables names in key-names
@@ -62,7 +67,8 @@ class ode_measurements(object):
                     self.Data = pd.DataFrame(measdata, index=indext)  
                 else:
                     self.Data = pd.DataFrame(measdata)
-                    print 'Attention: Information for xdata is not explicitly set!'
+                    if self.print_on:
+                        print('Attention: Information for xdata is not explicitly set!')
 
         elif isinstance(measdata, pd.DataFrame):            
             #check if time is a column name
@@ -73,7 +79,8 @@ class ode_measurements(object):
                     self.Data = measdata.set_index(xdata)                                
             else:
                 self.Data = measdata
-                print 'index of dataframe is seen as measurement xdata, and colnames are the measured variables'
+                if self.print_on:
+                    print('index of dataframe is seen as measurement xdata, and colnames are the measured variables')
                 
         elif isinstance(measdata, pd.Series):
             self.Data = pd.DataFrame(measdata)
@@ -83,14 +90,19 @@ class ode_measurements(object):
         
         #We provide for internal purposes also second data-type: dict with {'cvar1':Timeserie,'var': Timeserie}                
         self._data2dictsystem()
-        self.get_measured_outputs()  
+        self.get_measured_outputs()
+        
+        self.print_on = print_on
 
         #Create Error Covariance Matrix with unity matrixes
         unity_dict ={}
         for var in self.get_measured_outputs():
             unity_dict[var]=1            
-        print unity_dict
+        if self.print_on:
+            print(unity_dict)
         self.add_measured_errors(unity_dict, method = 'absolute')
+        
+
 
 
     def _data2dictsystem(self):
@@ -188,7 +200,7 @@ class ode_measurements(object):
         meaurements are proportional to the value of the measurements
         :math:`\hat{y}`.        
         '''
-        print 'Error Covariance Matrix is updated'
+        #print 'Error Covariance Matrix is updated'
         
         for var in meas_error_dict:
             if not var in self.get_measured_outputs():       

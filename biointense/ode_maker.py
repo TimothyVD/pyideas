@@ -33,6 +33,11 @@ class odemaker(object):
         '''
 
         '''
+        try:
+            self._print_on = kwargs.get('print_on')
+        except:
+            self._print_on = True
+            
         self.string_list = string_list   
         
         self.modelname = Modelname
@@ -45,7 +50,8 @@ class odemaker(object):
         Generate an ODE system based on a symbolic diagram.
 
         '''
-        print 'Running odemaker to convert symbolic input to ODE system...'
+        if self._print_on:
+            print('Running odemaker to convert symbolic input to ODE system...')
         system = {}
         parameters = {}
         system_list = []
@@ -121,7 +127,8 @@ class odemaker(object):
         self.parameters = parameters
         self.system_list = system_list
         
-        print '...Done!'
+        if self._print_on:
+            print('...Done!')
         
     def passToOdeGenerator(self):
         return DAErunner(ODE = self.system, Parameters = self.parameters, Modelname = self.modelname)

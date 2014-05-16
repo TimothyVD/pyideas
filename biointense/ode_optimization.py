@@ -48,9 +48,14 @@ class ode_optimizer(object):
     
     '''
     
-    def __init__(self, odeModel, Data):
+    def __init__(self, odeModel, Data, *args, **kwargs):
         '''
         '''
+        
+        try:
+            self._print_on = kwargs.get('print_on')
+        except:
+            self._print_on = True
         #check inputs
         if not isinstance(odeModel, DAErunner):
             raise Exception('Bad input type for model or oed')
@@ -298,7 +303,7 @@ class ode_optimizer(object):
         if initial_parset != None:
             #control for similarity and update the fitting pars 
             initial_parset = collections.OrderedDict(sorted(initial_parset.items(), key=lambda t: t[0]))
-            if sorted(initial_parset.keys()) != sorted(self._get_fitting_parameters().keys()):
+            if (sorted(initial_parset.keys()) != sorted(self._get_fitting_parameters().keys())) and self._print_on:
                 print('Fitting parameters are updated...')
                 print('Previous set of fitting parameters: ',)
                 print(self._get_fitting_parameters().keys())
@@ -389,7 +394,8 @@ class ode_optimizer(object):
                     if not pardistrlist.min<self._fitting_pars[pardistrlist.name]<pardistrlist.max:
                         raise Exception('Current parvalue is not between min and max value of the parameter!')
                     if pardistrlist.name in self.pardistributions:
-                        print('Parameter distribution info updated for %s' %pardistrlist.name)
+                        if self._print_on:
+                            print('Parameter distribution info updated for %s' %pardistrlist.name)
                         self.pardistributions[pardistrlist.name] = pardistrlist
                     else:
                         self.pardistributions[pardistrlist.name] = pardistrlist
@@ -403,7 +409,8 @@ class ode_optimizer(object):
                     if not parameter.min<self._fitting_pars[parameter.name]<parameter.max:
                         raise Exception('Current parvalue is not between min and max value of the parameter!')
                     if parameter.name in self.pardistributions:
-                        print('Parameter distribution info updated for %s' %parameter.name)
+                        if self._print_on:
+                            print('Parameter distribution info updated for %s' %parameter.name)
                         self.pardistributions[parameter.name] = parameter
                     else:
                         self.pardistributions[parameter.name] = parameter
@@ -436,12 +443,14 @@ class ode_optimizer(object):
         for line in f:
             sline = line.strip().split(' ')
             if len(sline) == 4:
-                print(sline)
+                if self._print_on:
+                    print(sline)
                 par = ModPar(sline[0],float(sline[1]),float(sline[2]),sline[3])
             elif len(sline) == 5:
                 par = ModPar(sline[0],float(sline[1]),float(sline[2]),sline[3],float(sline[4]))              
             elif len(sline) == 6:
-                print(sline)
+                if self._print_on:
+                    print(sline)
                 par = ModPar(sline[0],float(sline[1]),float(sline[2]),sline[3],float(sline[4]),float(sline[5]))
             else:
                 raise Exception('Too much arguments on line %d' %cnt)
@@ -547,7 +556,8 @@ class ode_optimizer(object):
     def _track_population(self,population, num_generations, num_evaluations, args):
         for i in population:
             self.optimize_evolution.append(i.candidate+[i.fitness])
-        print(num_evaluations,end='\r')
+        if self._print_on:
+            print(num_evaluations,end='\r')
         
     def bioinspyred_optimize_multi(self,sample_generator, get_objective, bounder_generator,
                                    prng = None, approach = 'PSO', initial_parset=None, add_plot=True,
@@ -636,9 +646,10 @@ class ode_optimizer(object):
         
         if add_plot:
             final_arc = ea.archive
-            print('Best Solutions: \n')
-            for f in final_arc:
-                print(f)
+            if self._print_on:
+                print('Best Solutions: \n')
+                for f in final_arc:
+                    print(f)
             import pylab
             x = []
             y = []
