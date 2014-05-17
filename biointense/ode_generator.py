@@ -81,8 +81,8 @@ class DAErunner(object):
         
         if kwargs.get('print_on') == None:
             self._print_on = True
-	else:
-	    self._print_on = kwargs.get('print_on')
+        else:
+            self._print_on = kwargs.get('print_on')
 
         self._has_def_algebraic = False
         self._has_def_ODE = False
