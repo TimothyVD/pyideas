@@ -93,7 +93,8 @@ class odegenerator(object):
             self._has_algebraic = False
             
         self._has_stepfunction = False
-        self._analytic_local_sensitivity()            
+        self._analytic_local_sensitivity() 
+        self._ode_solver_options = {}         
         #self._write_model_to_file()
                 
         self._wrote_model_to_file = False
