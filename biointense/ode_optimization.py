@@ -58,7 +58,7 @@ class ode_optimizer(object):
 #        self.Data.columns = [var+'_meas' for var in self.Data.columns]
         self._data = Data
         self._data_dict = Data.Data_dict
-        self._model = odeModel            
+        self._model = odeModel        
 
         #compare with previous set measured variable; if same; ok, if not warning
         Meas_same = True
@@ -308,7 +308,7 @@ class ode_optimizer(object):
         return parray
         
     
-    def local_parameter_optimize(self, initial_parset=None, add_plot=True, method = 'Nelder-Mead', *args, **kwargs):
+    def local_parameter_optimize(self, initial_parset=None, add_plot=True, method = 'Nelder-Mead', **kwargs):
         '''find parameters for optimal fit
         
         initial_parset: dict!!
@@ -319,12 +319,12 @@ class ode_optimizer(object):
         #first save the output with the 'old' parameters
         #if initial parameter set given, use this, run and save 
         parray = self._pre_optimize_save(initial_parset=initial_parset)
-        
+               
         #OPTIMIZATION
         #TODO: ADD OPTION FOR SAVING THE PARSETS (IN GETWSSE!!)
         #different algorithms: but implementation  Anneal and CG are not working 
         #a first fix made Powell work
-        self.optimize_info = optimize.minimize(self.get_WSSE, parray, method= method, *args, **kwargs)
+        self.optimize_info = optimize.minimize(self.get_WSSE, parray, method= method, **kwargs)
         print self.optimize_info.message
         
         if add_plot == True:

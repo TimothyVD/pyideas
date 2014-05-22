@@ -1000,6 +1000,9 @@ class odegenerator(object):
                                  index = self.ode_solved.index)
         
         self.getAlgLSA = alg_dict
+    
+    def set_ode_solver_options(self,**kwargs):
+            self._ode_solver_options = kwargs
 
     def solve_ode(self, TimeStepsDict = False, Initial_Conditions = False, 
                   plotit = True, with_sens = False, procedure = "odeint", write = False):
@@ -1052,9 +1055,9 @@ class odegenerator(object):
             if procedure == "odeint": 
                 print "Going for odeint..."
                 if self._has_stepfunction:
-                    res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,self.stepfunction,))
+                    res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,self.stepfunction,), **self._ode_solver_options)
                 else:
-                    res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,))
+                    res = spin.odeint(eval(self.modelname+'.system'),self.Initial_Conditions.values(), self._Time,args=(self.Parameters,), **self._ode_solver_options)
                 #put output in pandas dataframe
                 df = pd.DataFrame(res, index=self._Time, columns = self._Variables)                
     
@@ -1090,9 +1093,9 @@ class odegenerator(object):
             if procedure == "odeint":
                 print "Going for odeint..."
                 if self._has_stepfunction:
-                    res = spin.odeint(eval(self.modelname+'.system_with_sens'), np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,self.stepfunction,))
+                    res = spin.odeint(eval(self.modelname+'.system_with_sens'), np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,self.stepfunction,), *args, **kwargs)
                 else:
-                    res = spin.odeint(eval(self.modelname+'.system_with_sens'), np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,))
+                    res = spin.odeint(eval(self.modelname+'.system_with_sens'), np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,), *args, **kwargs)
                 #put output in pandas dataframe
                 df = pd.DataFrame(res[:,0:len(self._Variables)], index=self._Time,columns = self._Variables)
                 if self._has_algebraic:               
