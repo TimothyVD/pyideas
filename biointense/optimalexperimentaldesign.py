@@ -503,6 +503,9 @@ class ode_FIM(object):
             return corr
         
     def get_model_adequacy(self, variable):
+        '''
+        TODO!
+        '''
         
         repeated_meas = self._data.Data[variable].count()
         n_p_r = self._data.Data.count()-len(self.Parameters)-repeated_meas

@@ -142,8 +142,9 @@ class DAErunner(object):
         #self._write_model_to_file()
 
         self._ode_procedure = "odeint"
-        self._generate_model()
         self._has_generated_model = False
+        self._generate_model()
+        self._has_generated_model = True
 
         #Sensitivity stuff
         self.LSA_type = None
@@ -888,7 +889,7 @@ class DAErunner(object):
         self._check_for_time(TimeStepsDict)
         self._check_for_init(Initial_Conditions)
         
-        if (self._has_generated_model and self._ode_procedure is not procedure) or \
+        if (self._ode_procedure is not procedure) or \
                 (self._has_generated_model is False):
             if self._print_on:
                 print("Writing model to file for '" + procedure + "' procedure...")
@@ -1128,7 +1129,7 @@ class DAErunner(object):
                      sens_matrix[i] = sens_matrix[i]*self.Parameters.values()/df[i].mean()
             else:
                 if self._print_on:
-                    print(procedure+'ANASENS: Using EVOLUTION of output values')
+                    print(procedure+' Using EVOLUTION of output values')
                 for i in sens_variables:
                      sens_matrix[i] = sens_matrix[i]*self.Parameters.values()/np.tile(np.array(df[i]),(len(self.Parameters),1)).T
         elif sens_method != 'CAS':
@@ -1220,13 +1221,13 @@ class DAErunner(object):
             modout_min = self.solve_ode(plotit = False)        
 #            modout_min = pd.DataFrame(modout, columns = self._Variables)
             self.Parameters[parameter] = value2save
-            modout = self.solve_ode(plotit = False) 
+            modout = self.solve_ode(plotit = False)
             
             #calculate sensitivity for this parameter, all outputs    
             #sensitivity indices:
 #            CAS = (modout_plus-modout_min)/(2.*perturbation_factor*value2save) #dy/dp         
             #CAS
-            sensitivity_out = (modout_plus-modout)/(perturbation_factor*value2save) #dy/dp
+            sensitivity_out = (modout_plus-modout_min)/(2*perturbation_factor*value2save) #dy/dp
 
             #put on the rigth spot in the dictionary
             for var in self._Variables:

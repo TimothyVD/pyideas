@@ -499,7 +499,19 @@ class ode_optimizer(object):
         for c in candidates:
             fitness.append(emo.Pareto([self._track_WSSE(c), self.residuals['BZV'].sum()]))
             
-        return fitness        
+        return fitness      
+        
+    def scipy_basinhopping(self, initial_parset=None, *args, **kwargs):
+        
+        parray = self._pre_optimize_save(initial_parset=initial_parset)
+        self.optimize_evolution = []
+        self.optimize_evolution.append(self._get_fitting_parameters().values()+[self.get_WSSE()[0]])     
+        
+        
+        self.optimize_info = sp.optimize.basinhopping(self._track_WSSE, parray, *args)
+        self.optimize_evolution = pd.DataFrame(np.array(self.optimize_evolution),columns=self._get_fitting_parameters().keys()+['WSSE'])
+        
+        return self.optimize_info
 
     def bioinspyred_optimize(self,  prng = None, approach = 'PSO', initial_parset=None, add_plot=True,
                                    pop_size = 16, max_eval = 256,**kwargs):
@@ -516,7 +528,7 @@ class ode_optimizer(object):
         parray = self._pre_optimize_save(initial_parset=initial_parset)
         
         self.optimize_evolution = []
-        self.optimize_evolution.append(self._get_fitting_parameters().values()+[self.get_WSSE()[0,0]])
+        self.optimize_evolution.append(self._get_fitting_parameters().values()+[self.get_WSSE()[0]])
         
         #OPTIMIZATION
         if prng is None:
@@ -578,7 +590,7 @@ class ode_optimizer(object):
         parray = self._pre_optimize_save(initial_parset=initial_parset)
         
         self.optimize_evolution = []
-        self.optimize_evolution.append(self._get_fitting_parameters().values()+[self.get_WSSE()[0,0]])
+        self.optimize_evolution.append(self._get_fitting_parameters().values()+[self.get_WSSE()[0]])
                      
         if prng is None:
             prng = Random()
