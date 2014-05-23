@@ -141,6 +141,7 @@ class DAErunner(object):
         self._has_externalfunction = False     
         #self._write_model_to_file()
 
+        self._ode_solver_options = {}
         self._ode_procedure = "odeint"
         self._has_generated_model = False
         self._generate_model()
@@ -853,12 +854,17 @@ class DAErunner(object):
         alg_dict = {}
         
         for i,key in enumerate(self.Algebraic.keys()):
-            alg_dict[key] = pd.DataFrame(algeb_out[:,i,:], columns=self.Parameters.keys(), 
+            alg_dict[key] = pd.DataFrame(algeb_out[i,:,:].T, columns=self.Parameters.keys(), 
                                  index = self._Time)
        
         self.getAlgLSA = self._LSA_converter(self.algeb_solved, alg_dict, self.Algebraic.keys(), Sensitivity,'ALGSENS')
                 
         return self.getAlgLSA
+    
+    def set_ode_solver_options(self,**kwargs):
+        '''Set ode solver options (according to scipy.optimize.minimize functionality)
+        '''
+        self._ode_solver_options = kwargs 
 
     def solve_ode(self, TimeStepsDict = False, Initial_Conditions = False, 
                   plotit = True, with_sens = False, procedure = "odeint"):
@@ -909,9 +915,9 @@ class DAErunner(object):
                 if self._print_on:
                     print("Going for odeint...")
                 if self._has_externalfunction:
-                    res = spin.odeint(self._fun_ODE,self.Initial_Conditions.values(), self._Time,args=(self.Parameters,self.externalfunction,))
+                    res = spin.odeint(self._fun_ODE,self.Initial_Conditions.values(), self._Time,args=(self.Parameters,self.externalfunction,), **self._ode_solver_options)
                 else:
-                    res = spin.odeint(self._fun_ODE,self.Initial_Conditions.values(), self._Time,args=(self.Parameters,))
+                    res = spin.odeint(self._fun_ODE,self.Initial_Conditions.values(), self._Time,args=(self.Parameters,), **self._ode_solver_options)
                 #put output in pandas dataframe
                 df = pd.DataFrame(res, index=self._Time, columns = self._Variables)                
     
@@ -951,9 +957,9 @@ class DAErunner(object):
                 if self._print_on:
                     print("Going for odeint...")
                 if self._has_externalfunction:
-                    res = spin.odeint(self._fun_ODE_LSA, np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,self.externalfunction,))
+                    res = spin.odeint(self._fun_ODE_LSA, np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,self.externalfunction,), **self._ode_solver_options)
                 else:
-                    res = spin.odeint(self._fun_ODE_LSA, np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,))
+                    res = spin.odeint(self._fun_ODE_LSA, np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,), **self._ode_solver_options)
                 #put output in pandas dataframe
                 df = pd.DataFrame(res[:,0:len(self._Variables)], index=self._Time,columns = self._Variables)
                 if self._has_algebraic:               
