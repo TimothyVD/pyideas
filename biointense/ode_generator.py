@@ -112,14 +112,12 @@ class DAErunner(object):
             Algebraic = kwargs.get('Algebraic')
             if self._print_on:
                 print(str(len(Algebraic)) + ' Algebraic equation(s) was/were defined. Continuing...')
+            
+            self._has_def_algebraic = kwargs.get('has_def_algebraic')
+            if self._has_def_algebraic and self._print_on:
+                print('You defined your own function, please make sure this function is provided in\
+                    '+self.modelname+'.py as Algebraic_outputs'+'(self._Time, self.Parameters)')
         except:
-            try:
-                self._has_def_algebraic = kwargs.get('has_def_algebraic')
-                if self._has_def_algebraic and self._print_on:
-                    print('You defined your own function, please make sure this function is provided in\
-                        '+self.modelname+'.py as Algebraic_outputs'+'(self._Time, self.Parameters)')
-            except:
-                pass
             if self._has_ODE:
                 Algebraic = {}
                 for i in self._Variables:
@@ -155,6 +153,14 @@ class DAErunner(object):
         
         '''
         self.Parameters = collections.OrderedDict(sorted(Parameters.items(), key=lambda t: t[0]))
+
+    def set_externalODE(self, external_ODE):
+        self._fun_ODE = external_ODE
+        self._fun_ODE_LSA = None
+        
+    def set_externalAlgebraic(self, external_algebraic):
+        self._fun_alg = external_algebraic
+        self._fun_alg_LSA = None
 
     def set_time(self,timedict):
         '''define time to calculate model
@@ -812,55 +818,7 @@ class DAErunner(object):
                 self.algeb_solved.plot(subplots = False)
             else:
                 self.algeb_solved.plot(subplots = True)
-                                 
-    def calcAlgLSA(self, Sensitivity = 'CAS'):
-        """
-        """
-        try:
-            self.algeb_solved
-        except:
-            if self._print_on:
-                print('First running self.solve_algebraic()')
-            self.solve_algebraic(plotit = False)
-            
-        if not self._has_algebraic:
-            raise Exception('This model has no algebraic equations!')
-        if not self._has_ODE or self._has_generated_model:
-            self._generate_model()
-            self._has_generated_model = True
-        if self._has_ODE:
-            try:
-                self._ana_sens_matrix
-            except:
-                if self._print_on:
-                    print('Running ODE LSA...')
-                self.calcOdeLSA()
-                if self._print_on:
-                    print('...Done! Going to Algebraic LSA...')
-
-               
-        algeb_out = np.empty((self._Time.size, len(self.Algebraic.keys()) ,len(self.Parameters)))         
-        
-        if self._has_ODE:
-            if self._has_externalfunction:
-                algeb_out = self._fun_alg_LSA(np.array(self.ode_solved), self._Time, self.Parameters, self.externalfunction, self._ana_sens_matrix)
-            else:
-                algeb_out = self._fun_alg_LSA(np.array(self.ode_solved), self._Time, self.Parameters, self._ana_sens_matrix) 
-        elif self._has_externalfunction:
-            algeb_out = self._fun_alg_LSA(self._Time, self.Parameters, self.externalfunction)
-        else:
-            algeb_out = self._fun_alg_LSA(self._Time, self.Parameters)           
-               
-        alg_dict = {}
-        
-        for i,key in enumerate(self.Algebraic.keys()):
-            alg_dict[key] = pd.DataFrame(algeb_out[i,:,:].T, columns=self.Parameters.keys(), 
-                                 index = self._Time)
-       
-        self.getAlgLSA = self._LSA_converter(self.algeb_solved, alg_dict, self.Algebraic.keys(), Sensitivity,'ALGSENS')
-                
-        return self.getAlgLSA
-    
+                                   
     def set_ode_solver_options(self,**kwargs):
         '''Set ode solver options (according to scipy.optimize.minimize functionality)
         '''
@@ -1105,14 +1063,66 @@ class DAErunner(object):
             each variable gets a t timesteps x k par DataFrame
             
         '''
-        if approach == 'analytical':
+        if (approach == 'analytical') and not self._has_def_ODE:
             sens = self.analytic_local_sensitivity(**kwargs)
+        elif (approach == 'analytical') and self._has_def_ODE:
+            raise Exception("It is not possible to use analytical sensitivity for externally defined functions")
         elif approach == 'numerical':
             sens = self.numeric_local_sensitivity(**kwargs)
         else:
             raise Exception("Approach needs to be defined as 'analytical' or 'numerical'")
+        self.getOdeLSA = sens
         return sens
 
+
+    def calcAlgLSA(self, Sensitivity = 'CAS'):
+        """
+        """
+        try:
+            self.ode_solved
+        except:
+            if self._print_on:
+                print('First running self.solve_algebraic()')
+            self.solve_algebraic(plotit = False)
+            
+        if not self._has_algebraic:
+            raise Exception('This model has no algebraic equations!')
+        if not self._has_ODE or self._has_generated_model:
+            self._generate_model()
+            self._has_generated_model = True
+        if self._has_ODE:
+            try:
+                self._ana_sens_matrix
+            except:
+                if self._print_on:
+                    print('Running ODE LSA...')
+                self.calcOdeLSA()
+                if self._print_on:
+                    print('...Done! Going to Algebraic LSA...')
+
+               
+        algeb_out = np.empty((self._Time.size, len(self.Algebraic.keys()) ,len(self.Parameters)))         
+        
+        if self._has_ODE:
+            if self._has_externalfunction:
+                algeb_out = self._fun_alg_LSA(np.array(self.ode_solved), self._Time, self.Parameters, self.externalfunction, self._ana_sens_matrix)
+            else:
+                algeb_out = self._fun_alg_LSA(np.array(self.ode_solved), self._Time, self.Parameters, self._ana_sens_matrix) 
+        elif self._has_externalfunction:
+            algeb_out = self._fun_alg_LSA(self._Time, self.Parameters, self.externalfunction)
+        else:
+            algeb_out = self._fun_alg_LSA(self._Time, self.Parameters)           
+               
+        alg_dict = {}
+        
+        for i,key in enumerate(self.Algebraic.keys()):
+            alg_dict[key] = pd.DataFrame(algeb_out[i,:,:].T, columns=self.Parameters.keys(), 
+                                 index = self._Time)
+       
+        self.getAlgLSA = self._LSA_converter(self.algeb_solved, alg_dict, self.Algebraic.keys(), Sensitivity,'ALGSENS')
+                
+        return self.getAlgLSA
+        
     def _LSA_converter(self, df, sens_matrix, sens_variables, sens_method, procedure):
         '''
         '''
@@ -1241,10 +1251,29 @@ class DAErunner(object):
                
             #put back original value
             self.Parameters[parameter] = value2save
-               
+            
+        self._sens_plus = (modout_plus - modout)/(perturbation_factor*value2save)
+        self._sens_min = (modout - modout_min)/(perturbation_factor*value2save)
         self.numerical_sensitivity = self._LSA_converter(df, numerical_sens, self._Variables, Sensitivity, 'NUMSENS')
 
         return self.numerical_sensitivity
+    
+    def calcAccuracyNumericLSA(self, criterion = 'SRE'):
+        '''
+        '''
+        sens_len = len(self._sens_min)
+        if criterion == 'SSE':
+            np.sum((self._sens_plus - self._sens_min)**2)/sens_len
+        elif criterion == 'SAE':
+            np.sum(np.abs(self._sens_plus - self._sens_min))/sens_len            
+        elif criterion == 'MRE':
+            np.sum((self._sens_plus - self._sens_min)**2)/sens_len            
+        elif criterion == 'SRE':
+            np.sum((self._sens_plus - self._sens_min)**2)/sens_len            
+        else:
+            raise Exception('Criterion {1} is not a valid criterion, please select\
+            one of following criteria: SSE, SAE, MRE, SRE', criterion)
+        
 
     def visual_check_collinearity(self, output, analytic = False, layout = 'full', upperpane = 'pearson'):
         '''show scatterplot of sensitivities
