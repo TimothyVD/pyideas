@@ -17,17 +17,16 @@ TO DO
 	* ODEs (dx/dt = f(theta, theta_dep, u)
 	* Algebraic equations g(x, theta, theta_dep, u)
 * More logical names for different components
-	* odegenerator
-	* daerunner
+	* modelmaker
+	* modelrunner
 	* measurements
-	* daeoptimizer
-	* daeFIM
+	* modeloptimizer
+	* modelFIM
 * Make one function calcLSA to switch between numeric and analytical function
 * Rename output numerical and analytical sensitivity
 * Add algebraic sensitivity to calculation directly
 * See if algebraic sensitivity can be calculated more efficiently
 * Add documentation to every function
-* Add documentation within every function
 * Make bioinspyred optimization more generic
 * Automatically write out the version of biointense which was made to produce results
 * Fix/Update setup.py file
@@ -37,6 +36,11 @@ TO DO
 * Replace write to file with append to string and afterwards evaluate
 * Move model definition functionality from odegenerator to odemaker (odegenerator becomes DAErunner)
 * Better coupling with pySTAN
+* Check how current dense matrix operations can be replaced by sparse ones (especially important for ODE system with more than 1000 ODEs)
+* Allow biointense to do calculations with PDEs
+* Add log file functionality
+* Perform Optimization and FIM calculation for multiple experiments at the same time
+* ...
 
 
 Functionalities
