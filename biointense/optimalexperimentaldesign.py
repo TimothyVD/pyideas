@@ -30,6 +30,10 @@ from ode_generator import DAErunner
 from measurements import ode_measurements
 from ode_optimization import ode_optimizer
 
+from random import Random
+from time import time
+import inspyred #Global optimization
+
 class ode_FIM(object):
     '''
     OED aimed class functioning
@@ -66,6 +70,7 @@ class ode_FIM(object):
         self._model = odeoptimizer._model
         self._data = odeoptimizer._data
         self.Error_Covariance_Matrix = odeoptimizer._data._Error_Covariance_Matrix
+        self.Error_Covariance_Matrix_PD = odeoptimizer._data._Error_Covariance_Matrix_PD
         self.Parameters = odeoptimizer._get_fitting_parameters()
         
         self.criteria_optimality_info = {'A':'min', 'modA': 'max', 'D': 'max', 
@@ -82,14 +87,18 @@ class ode_FIM(object):
         
 #        self._model._Time = np.concatenate((np.array([0.]),self._data.get_measured_times()))
         if sensmethod == 'analytical':
-                self._model.calcAlgLSA()
-                self.sensitivities = dict(self._model.getAlgLSA.items())
+            self._model.calcAlgLSA()
+            self.sensitivities = dict(self._model.getAlgLSA.items())
         elif sensmethod == 'numerical':
             self._model.numeric_local_sensitivity(*args,**kwargs)
             self.sensitivities = self._model.numerical_sensitivity           
         self._model.set_time(self._model._TimeDict)
         #
-        self.get_FIM()        
+        self.get_FIM()
+        self.selected_criterion = None
+        self.time_max = None
+        self.time_min = None
+        self.number_of_samples = None
         
     def get_all_outputs(self):
         '''
@@ -140,13 +149,24 @@ class ode_FIM(object):
             else:
                 olddata #concatanate!!!
             
-        
-        
-
     def _get_nonFIM(self):
         '''
         '''
         return [x for x in self.get_measured_outputs() if not x in self.get_variables_for_FIM()]
+
+    def get_newFIM(self):
+        '''
+        '''
+        self.sensmatrix = np.zeros([len(self._data.get_measured_xdata()),len(self.Parameters),len(self.get_all_outputs())])
+        #create sensitivity matrix
+        for i, var in enumerate(self.get_measured_outputs()):
+            self.sensmatrix[:,:,i] = np.array(self.sensitivities[var][1:])
+
+        self.FIM_timestep = np.einsum('ijk,ilm->ijl',np.einsum('ijk,ill->ijl',self.sensmatrix,\
+                               np.linalg.inv(np.atleast_3d(self.Error_Covariance_Matrix_PD))),self.sensmatrix)
+        
+        self.FIM = np.sum(self.FIM_timestep, axis = 0)
+        return self.FIM
 
     def get_FIM(self):
         '''  
@@ -208,8 +228,8 @@ class ode_FIM(object):
             if self._print_on:
                 print('... done!')
 
-    def A_criterium(self):
-        '''OED design A criterium
+    def A_criterion(self, *args):
+        '''OED design A criterion
         With this criterion, the trace of the inverse of the FIM is minimized, 
         which is equivalent to minimizing the sum of the variances of the 
         parameter estimates. In other words, this criterion minimizes the 
@@ -217,13 +237,17 @@ class ode_FIM(object):
         Because this criterion is based on an inversion of the FIM, 
         numerical problems will arise when the FIM is close to singular.        
         '''
-        self._check_for_FIM()
+        if args:
+            FIM = args[0]
+        else:
+            self._check_for_FIM()
+            FIM = self.FIM
         if self._print_on:
-            print('MINIMIZE A criterium for OED')
-        return self.FIM.I.trace()
+            print('MINIMIZE A criterion for OED')
+        return np.linalg.inv(FIM).trace()
         
-    def modA_criterium(self):
-        '''OED design modified A criterium
+    def modA_criterion(self, *args):
+        '''OED design modified A criterion
         With this criterion, the trace of the inverse of the FIM is minimized, 
         which is equivalent to minimizing the sum of the variances of the 
         parameter estimates. In other words, this criterion minimizes the 
@@ -231,13 +255,17 @@ class ode_FIM(object):
         Because this criterion is based on an inversion of the FIM, 
         numerical problems will arise when the FIM is close to singular.        
         '''
-        self._check_for_FIM()
+        if args:
+            FIM = args[0]
+        else:
+            self._check_for_FIM()
+            FIM = self.FIM            
         if self._print_on:
-            print('MAXIMIZE modA criterium for OED')
-        return self.FIM.trace()                   
+            print('MAXIMIZE modA criterion for OED')
+        return FIM.trace()                   
         
-    def D_criterium(self):
-        '''OED design D criterium
+    def D_criterion(self, *args):
+        '''OED design D criterion
         Here, the idea is to maximize the determinant of the FIM 
         (Box and Lucas, 1959). The latter is inversely proportional to the 
         volume of the confidence region of the parameter es- timates, and this 
@@ -251,27 +279,34 @@ class ode_FIM(object):
         criterion tends to give excessive importance to the parameter which 
         is most influential.
         '''
-        self._check_for_FIM()
+        if args:
+            FIM = args[0]
+        else:
+            self._check_for_FIM()
         if self._print_on:
-            print('MAXIMIZE D criterium for OED')
-        return np.linalg.det(self.FIM)          
+            print('MAXIMIZE D criterion for OED')
+        return np.linalg.det(FIM)   
 
-    def E_criterium(self):
-        '''OED design E criterium
+    def E_criterion(self, *args):
+        '''OED design E criterion
         The E-optimal design criterion maximizes the smallest eigenvalue of 
         the FIM and thereby minimizes the length of the largest axis of the 
         confidence ellipsoid. Thus, these designs aim at minimizing the 
         largest parameter estimation variance and thereby at maximizing the 
         distance from the singular, unidentifiable case.
         '''
-        self._check_for_FIM()
+        if args:
+            FIM = args[0]
+        else:
+            self._check_for_FIM()
+            FIM = self.FIM
         if self._print_on:
-            print('MAXIMIZE E criterium for OED')
-        w, v = np.linalg.eig(self.FIM)
+            print('MAXIMIZE E criterion for OED')
+        w, v = np.linalg.eig(FIM)
         return min(w)
     
-    def modE_criterium(self):
-        '''OED design modE criterium
+    def modE_criterion(self, *args):
+        '''OED design modE criterion
         With this criterion, the focus is on the minimization of the condition 
         number, which is the ratio between the largest and the smallest 
         eigenvalue, or, in other words, the ratio of the shortest and the 
@@ -279,10 +314,14 @@ class ode_FIM(object):
         corresponds to the case where the shape of the confidence ellipsoid 
         is a (hyper)sphere.
         '''
-        self._check_for_FIM()
+        if args:
+            FIM = args[0]
+        else:
+            self._check_for_FIM()
+            FIM = self.FIM
         if self._print_on:
-            print('MINIMIZE modE criterium for OED')
-        w, v = np.linalg.eig(self.FIM)
+            print('MINIMIZE modE criterion for OED')
+        w, v = np.linalg.eig(FIM)
         return max(w)/min(w)
 
     def get_all_optimality_design_criteria(self):
@@ -290,8 +329,8 @@ class ode_FIM(object):
         
         '''
         self._check_for_FIM()
-        self._all_crit = {'A':self.A_criterium(), 'modA': self.modA_criterium(), 
-                          'D': self.D_criterium(), 'E':self.E_criterium(), 'modE':self.modE_criterium()}
+        self._all_crit = {'A':self.A_criterion(), 'modA': self.modA_criterion(), 
+                          'D': self.D_criterion(), 'E':self.E_criterion(), 'modE':self.modE_criterion()}
         return self._all_crit
         
     def get_parameter_correlation(self):
@@ -515,6 +554,127 @@ class ode_FIM(object):
         
         if self._print_on:
             print(stats.f_value(s_squared,0,n_p_r,1000))
+    
+    def _get_objective(self, candidates, args):
+        '''
+        '''
+        fitness = []
+        for cs in candidates:
+            fitness.append(self._evaluator(np.sum(self._FIM_interp1d(cs),axis = 2)))
+        return fitness
+        
+    def _sample_generator(self,random,args):
+        '''
+        '''
+        if not self.time_max or self.time_min == None or not self.number_of_samples:
+            raise Exception('Set number of samples, min time and max time!')
+        
+        sample_times = []
+        #use get_fitting_parameters, since this is ordered dict!!
+        for i in range(self.number_of_samples):
+            sample_times.append(random.random()*(self.time_max - self.time_min))
+        return sample_times
+        
+    def _bounder_generator(self):
+        '''
+        '''
+        minsample = list(np.zeros(self.number_of_samples)+self.time_min)
+        maxsample = list(np.zeros(self.number_of_samples)+self.time_max)
+        return minsample, maxsample  
+        
+    def calc_Error_Covariance_Matrix(self, measerr, method = 'absolute'):
+        '''
+        '''
+        self._ECM_PD = self._model.algeb_solved.copy()
+        if method == 'absolute':
+            for var in self._data.Data.columns:
+                self._ECM_PD[var] = 0.0*self._ECM_PD[var] + measerr[var]**2.  #De 1/sigma^2 komt bij inv berekening van FIM
+                
+        elif method == 'relative':   
+            #Error covariance matrix PD
+            for var in self.Data.columns:
+                measerr = self.Meas_Errors[var]
+                self._ECM_PD[var] = (measerr[var]*self._ECM_PD[var])**2.
+        
+    def OED_inner(self, criterion, approach = 'PSO', sensmethod = 'analytical', prng = None, pop_size = 16, max_eval = 256, add_plot = False):
+        '''
+        '''
+        self.selected_criterion = criterion
+        
+        if self.selected_criterion not in self.criteria_optimality_info:
+            raise Exception('First set the variable self.selected_criterion to the criterion of interest!')
+        else:
+            if self.criteria_optimality_info[self.selected_criterion] == 'max':
+                maximize = True
+            else:
+                maximize = False
+                
+        self._model._Time = np.linspace(self.time_min, self.time_max, 1e7)
+        if sensmethod == 'analytical':
+            self._model.calcAlgLSA()
+            self.sensitivities = dict(self._model.getAlgLSA.items())
+        elif sensmethod == 'numerical':
+            self._model.numeric_local_sensitivity(*args,**kwargs)
+            self.sensitivities = self._model.numerical_sensitivity   
+        
+        sensmatrix = np.zeros([len(self._model._Time),len(self.Parameters),len(self.get_all_outputs())])
+        
+        for i, var in enumerate(self.get_measured_outputs()):
+            sensmatrix[:,:,i] = np.array(self.sensitivities[var])
+            
+        self.calc_Error_Covariance_Matrix(self._data.Meas_Errors, method = self._data.Meas_Errors_type)
+        
+        FIM_timestep = np.einsum('ijk,ilm->ijl',np.einsum('ijk,ill->ijl',sensmatrix,\
+                               np.linalg.inv(np.atleast_3d(self._ECM_PD))),sensmatrix)
+            
+        self._FIM_interp1d = sp.interpolate.interp1d(self._model._Time, FIM_timestep.T)
+
+        if self.selected_criterion == 'A':
+            self._evaluator = self.A_criterion
+        elif self.selected_criterion == 'modA':
+            self._evaluator = self.modA_criterion
+        elif self.selected_criterion == 'D':
+            self._evaluator = self.D_criterion
+        elif self.selected_criterion == 'E':
+            self._evaluator = self.E_criterion
+        else:
+            self._evaluator = self.modE_criterion
+                
+        #OPTIMIZATION
+        if prng is None:
+            prng = Random()
+            prng.seed(time()) 
+        
+        if approach == 'PSO':
+            ea = inspyred.swarm.PSO(prng)
+        elif approach == 'DEA':
+            ea = inspyred.ec.DEA(prng)
+        elif approach == 'SA':
+            ea = inspyred.ec.SA(prng)
+        else:
+            raise Exception('This approach is currently not supported!')
+            
+        lower_bound, upper_bound = self._bounder_generator()
+
+        ea.terminator = inspyred.ec.terminators.evaluation_termination
+        final_pop = ea.evolve(generator=self._sample_generator, 
+                              evaluator=self._get_objective, 
+                              pop_size=pop_size, 
+                              bounder=inspyred.ec.Bounder(lower_bound = lower_bound, upper_bound = upper_bound),
+                              maximize=maximize,
+                              max_evaluations=max_eval)#3000
+
+        #put the best of the last population into the class attributes (WSSE, pars)
+       # self.optimize_evolution = pd.DataFrame(np.array(self.optimize_evolution),columns=self._get_fitting_parameters().keys()+['WSSE'])
+        
+                              
+        # Sort and print the best individual, who will be at index 0.
+        if add_plot == True:
+            self._add_optimize_plot()
+
+                              
+        final_pop.sort(reverse=True)
+        return final_pop, ea
 
 
     

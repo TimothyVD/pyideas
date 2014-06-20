@@ -511,8 +511,8 @@ class ode_optimizer(object):
         self.optimize_info = sp.optimize.basinhopping(self._track_WSSE, parray, *args)
         self.optimize_evolution = pd.DataFrame(np.array(self.optimize_evolution),columns=self._get_fitting_parameters().keys()+['WSSE'])
         
-        return self.optimize_info
-
+        return self.optimize_info                                  
+        
     def bioinspyred_optimize(self,  prng = None, approach = 'PSO', initial_parset=None, add_plot=True,
                                    pop_size = 16, max_eval = 256,**kwargs):
         """
