@@ -139,8 +139,10 @@ class DAErunner(object):
         self._has_externalfunction = False     
         #self._write_model_to_file()
 
-        self._ode_solver_options = {}
-        self._ode_procedure = "odeint"
+        self.ode_solver_options = {}
+        self.ode_procedure = "odeint"
+        self._generated_ode_procedure = "odeint"
+        self.ode_integrator = "lsoda"
         self._has_generated_model = False
         self._generate_model()
         self._has_generated_model = True
@@ -535,12 +537,12 @@ class DAErunner(object):
         algebraic_sens = ""
         if self._has_ODE and not self._has_def_ODE:
             if self._has_externalfunction:
-                if self._ode_procedure == "ode":
+                if self.ode_procedure == "ode":
                     system +='def _fun_ODE(t,ODES,Parameters,input):\n'
                 else:
                     system +='def _fun_ODE(ODES,t,Parameters,input):\n'
             else:
-                if self._ode_procedure == "ode":
+                if self.ode_procedure == "ode":
                     system +='def _fun_ODE(t,ODES,Parameters):\n'
                 else:
                     system +='def _fun_ODE(ODES,t,Parameters):\n'
@@ -572,12 +574,12 @@ class DAErunner(object):
 
             # Write function for solving ODEs of both system and analytical sensitivities
             if self._has_externalfunction:
-                if self._ode_procedure == "ode":
+                if self.ode_procedure == "ode":
                     LSA_analytical += 'def _fun_ODE_LSA(t,ODES,Parameters,input):\n'
                 else:
                     LSA_analytical += 'def _fun_ODE_LSA(ODES,t,Parameters,input):\n'
             else:
-                if self._ode_procedure == "ode":
+                if self.ode_procedure == "ode":
                     LSA_analytical += 'def _fun_ODE_LSA(t,ODES,Parameters):\n'
                 else:
                     LSA_analytical += 'def _fun_ODE_LSA(ODES,t,Parameters):\n'
@@ -807,8 +809,7 @@ class DAErunner(object):
                         algeb_out[i,:] = self._fun_alg(timestep, self.Parameters)
             #except:
              #   raise Exception('Maybe you should take the fast for loop way to results or adapt your functions? (self.solve_fast_way = True)')
-       
-        
+             
         self.algeb_solved = pd.DataFrame(algeb_out, columns=self.Algebraic.keys(), 
                                  index = self._Time)
         
@@ -819,13 +820,8 @@ class DAErunner(object):
             else:
                 self.algeb_solved.plot(subplots = True)
                                    
-    def set_ode_solver_options(self,**kwargs):
-        '''Set ode solver options (according to scipy.optimize.minimize functionality)
-        '''
-        self._ode_solver_options = kwargs 
-
     def solve_ode(self, TimeStepsDict = False, Initial_Conditions = False, 
-                  plotit = True, with_sens = False, procedure = "odeint"):
+                  plotit = True, with_sens = False):
         '''Solve the differential equation
         
         Solves the ode model with the given properties and model configuration
@@ -853,71 +849,74 @@ class DAErunner(object):
         self._check_for_time(TimeStepsDict)
         self._check_for_init(Initial_Conditions)
         
-        if (self._ode_procedure is not procedure) or \
+        if (self.ode_procedure is not self._generated_ode_procedure) or \
                 (self._has_generated_model is False):
             if self._print_on:
-                print("Writing model to file for '" + procedure + "' procedure...")
-            self._ode_procedure = procedure
-            self._generate_model(procedure = procedure)
+                print("Writing model to file for '" + self.ode_procedure + "' procedure...")
+            self._generated_ode_procedure = self.ode_procedure
+            self._generate_model(procedure = self.ode_procedure)
             self._has_generated_model = True
             if self._print_on:
                 print('...Finished writing to file!')
         elif self._print_on:
             print("Model was already written to file! We are using the '" + \
-                procedure + "' procedure for solving ODEs. If you want to rewrite \
+                self.ode_procedure + "' procedure for solving ODEs. If you want to rewrite \
                 the model to the file, please add 'write = True'.")
         
         	
         if with_sens == False:
-            if procedure == "odeint":
+            if self.ode_procedure == "odeint":
                 if self._print_on:
                     print("Going for odeint...")
                 if self._has_externalfunction:
-                    res = spin.odeint(self._fun_ODE,self.Initial_Conditions.values(), self._Time,args=(self.Parameters,self.externalfunction,), **self._ode_solver_options)
+                    res = spin.odeint(self._fun_ODE,self.Initial_Conditions.values(), self._Time,args=(self.Parameters,self.externalfunction,), **self.ode_solver_options)
                 else:
-                    res = spin.odeint(self._fun_ODE,self.Initial_Conditions.values(), self._Time,args=(self.Parameters,), **self._ode_solver_options)
+                    res = spin.odeint(self._fun_ODE,self.Initial_Conditions.values(), self._Time,args=(self.Parameters,), **self.ode_solver_options)
                 #put output in pandas dataframe
                 df = pd.DataFrame(res, index=self._Time, columns = self._Variables)                
     
     
-            elif procedure == "ode":
+            elif self.ode_procedure == "ode":
                 if self._print_on:
                     print("Going for generic methodology...")
                 #ode procedure-generic
                 #                f = eval(self.modelname+'.system')
-                r = spin.ode(self._fun_ODE).set_integrator('lsoda') #   method='bdf', with_jacobian = False
+                r = spin.ode(self._fun_ODE).set_integrator(self.ode_integrator, **self.ode_solver_options)
                     #                                                    nsteps = 300000)
-                r.set_initial_value(self.Initial_Conditions.values(), 0).set_f_params(self.Parameters)
-                dt = (self._TimeDict['end']-self._TimeDict['start'])/self._TimeDict['nsteps'] #needs genereic version
+                r.set_initial_value(self.Initial_Conditions.values(), 0)
+                if self._has_externalfunction:
+                    r.set_f_params(self.Parameters,self.externalfunction)                    
+                else:
+                    r.set_f_params(self.Parameters)
+                dtt = self._Time[1:]-self._Time[:-1]
+                print(dtt)
                 moutput = []
                 toutput = []
-                end_val = self._Time[-1]-self._TimeDict['end']/(10*self._TimeDict['nsteps'])             
                 if self._print_on:                
                     print("Starting ODE loop...")
-                while r.successful() and r.t < end_val:          
-                    r.integrate(r.t + dt)
-                    #print "This integration worked well?", r.successful()
-                    #print("%g %g" % (r.t, r.y[0]))
-                    #                    print "t: ", r.t
-                    #                    print "y: ", r.y
-    
-                    moutput.append(r.y)
-                    toutput.append(r.t)
+                self.r = r
+                moutput.append(r.y)
+                toutput.append(r.t)
+                for timestep in dtt:
+                    if r.successful():
+                        r.integrate(r.t + timestep)   
+                        moutput.append(r.y)
+                        toutput.append(r.t)
                 if self._print_on:
                     print("...Done!")
-                
+                                   
                 #make df
                 df = pd.DataFrame(moutput, index = toutput, 
-                                  columns = self._Variables)          
+                                  columns = self._Variables)
         else:
             #odeint procedure
-            if procedure == "odeint":
+            if self.ode_procedure == "odeint":
                 if self._print_on:
                     print("Going for odeint...")
                 if self._has_externalfunction:
-                    res = spin.odeint(self._fun_ODE_LSA, np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,self.externalfunction,), **self._ode_solver_options)
+                    res = spin.odeint(self._fun_ODE_LSA, np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,self.externalfunction,), **self.ode_solver_options)
                 else:
-                    res = spin.odeint(self._fun_ODE_LSA, np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,), **self._ode_solver_options)
+                    res = spin.odeint(self._fun_ODE_LSA, np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), self._Time,args=(self.Parameters,), **self.ode_solver_options)
                 #put output in pandas dataframe
                 df = pd.DataFrame(res[:,0:len(self._Variables)], index=self._Time,columns = self._Variables)
                 if self._has_algebraic:               
@@ -929,17 +928,16 @@ class DAErunner(object):
                     #analytical_sens[self._Variables[i]] = pd.DataFrame(res[:,len(self._Variables)*(1+i):len(self._Variables)*(1+i)+len(self.Parameters)], index=self._Time,columns = self.Parameters.keys())
                     analytical_sens[self._Variables[i]] = pd.DataFrame(res[:,len(self._Variables)+len(self.Parameters)*(i):len(self._Variables)+len(self.Parameters)*(1+i)], index=self._Time,columns = self.Parameters.keys())
                 
-            elif procedure == "ode":
+            elif self.ode_procedure == "ode":
                 if self._print_on:                
                     print("Going for generic methodology...")
                 #ode procedure-generic
                 r = spin.ode(self._fun_ODE_LSA)
-                r.set_integrator('vode', method='bdf', with_jacobian = False)
+                r.set_integrator('ode_integrator', **self.ode_solver_options)
+                r.set_initial_value(np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), 0)
                 if self._has_externalfunction:
-                    r.set_initial_value(np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), 0)
-                    r.set_f_params(self.Parameters,self.stepfunction)                    
+                    r.set_f_params(self.Parameters,self.externalfunction)                    
                 else:
-                    r.set_initial_value(np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]), 0)
                     r.set_f_params(self.Parameters)
                 dt = (self._TimeDict['end']-self._TimeDict['start'])/self._TimeDict['nsteps']
                 moutput = []
@@ -980,11 +978,11 @@ class DAErunner(object):
                 df.plot(subplots = True)
                
         self.ode_solved = df
-        if self._has_algebraic:
+        #if self._has_algebraic:
             #print "If you want the algebraic equations also, please rerun manually\
              #by using the 'self.solve_algebraic()' function!"
         
-            self.solve_algebraic(plotit = plotit)
+            #self.solve_algebraic(plotit = plotit)
 
         if with_sens == False:
             return df
@@ -1111,14 +1109,16 @@ class DAErunner(object):
         elif self._has_externalfunction:
             algeb_out = self._fun_alg_LSA(self._Time, self.Parameters, self.externalfunction)
         else:
-            algeb_out = self._fun_alg_LSA(self._Time, self.Parameters)           
+            algeb_out = self._fun_alg_LSA(self._Time, self.Parameters)   
+            
+        self.algeb_out = algeb_out
                
         alg_dict = {}
         
         for i,key in enumerate(self.Algebraic.keys()):
-            alg_dict[key] = pd.DataFrame(algeb_out[i,:,:].T, columns=self.Parameters.keys(), 
+            alg_dict[key] = pd.DataFrame(algeb_out[:,i,:], columns=self.Parameters.keys(), 
                                  index = self._Time)
-       
+              
         self.getAlgLSA = self._LSA_converter(self.algeb_solved, alg_dict, self.Algebraic.keys(), Sensitivity,'ALGSENS')
                 
         return self.getAlgLSA
@@ -1157,7 +1157,7 @@ class DAErunner(object):
                 forget to check whether outputs can be compared!')
         return sens_matrix
     
-    def analytic_local_sensitivity(self, Sensitivity = 'CAS', procedure = 'odeint'):
+    def analytic_local_sensitivity(self, Sensitivity = 'CAS'):
         '''Calculates analytic based local sensitivity 
         
         For every parameter calculate the sensitivity of the output variables.
@@ -1179,7 +1179,7 @@ class DAErunner(object):
             raise Exception('This model has no ODE equations!')
         self.LSA_type = Sensitivity
 
-        df, analytical_sens = self.solve_ode(with_sens = True, plotit = False, procedure = procedure)      
+        df, analytical_sens = self.solve_ode(with_sens = True, plotit = False)      
         
         self.analytical_sensitivity = self._LSA_converter(df, analytical_sens, self._Variables, Sensitivity,'ANASENS')
         

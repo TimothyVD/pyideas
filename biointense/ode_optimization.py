@@ -98,7 +98,7 @@ class ode_optimizer(object):
         else:
             self._model._Time = np.concatenate((np.array([0.]), 
                                                 self._data.get_measured_xdata()))
-
+                                                
         self.get_WSSE()
         
     def _parmapper(self, pararray):
