@@ -21,6 +21,8 @@ import os
 import pandas as pd
 import pprint
 
+import odespy
+
 from matplotlib import colors
 import matplotlib.pyplot as plt
 
@@ -819,6 +821,9 @@ class DAErunner(object):
                 self.algeb_solved.plot(subplots = False)
             else:
                 self.algeb_solved.plot(subplots = True)
+    
+    def get_list_ode_integrators(self):
+        return odespy.solvers.list_available_solvers()
                                    
     def solve_ode(self, TimeStepsDict = False, Initial_Conditions = False, 
                   plotit = True, with_sens = False):
@@ -908,6 +913,25 @@ class DAErunner(object):
                 #make df
                 df = pd.DataFrame(moutput, index = toutput, 
                                   columns = self._Variables)
+                
+            elif self.ode_procedure == "odespy":
+                if self._print_on:
+                    print("Going for odespy methodology...")
+                solver = eval("odespy." + self.ode_integrator + "(self._fun_ODE)")
+                if self.ode_solver_options != None:                
+                    solver.set(**self.ode_solver_options)
+                solver.set_initial_condition(self.Initial_Conditions.values())
+                if self._has_externalfunction:
+                    solver.set(f_args = (self.Parameters, self.externalfunction,))
+                else:
+                    solver.set(f_args = (self.Parameters,))
+                
+                self.solver = solver
+                
+                u, t = solver.solve(self._Time)
+                
+                df = pd.DataFrame(u, index = t, 
+                                  columns = self._Variables)
         else:
             #odeint procedure
             if self.ode_procedure == "odeint":
@@ -965,6 +989,33 @@ class DAErunner(object):
                     #analytical_sens[self._Variables[i]] = pd.DataFrame(res[:,len(self._Variables)*(1+i):len(self._Variables)*(1+i)+len(self.Parameters)], index=self._Time,columns = self.Parameters.keys())
                     analytical_sens[self._Variables[i]] = pd.DataFrame(moutput[:,len(self._Variables)+len(self.Parameters)*(i):len(self._Variables)+len(self.Parameters)*(1+i)], index=toutput,columns = self.Parameters.keys())
                 
+            elif self.ode_procedure == "odespy":
+                if self._print_on:
+                    print("Going for odespy methodology...")
+                solver = eval("odespy." + self.ode_integrator + "(self._fun_ODE_LSA)")
+                if self.ode_solver_options != None:              
+                    solver.set(**self.ode_solver_options)
+                solver.set_initial_condition(np.hstack([np.array(self.Initial_Conditions.values()),np.asarray(self.dxdtheta).flatten()]))
+                if self._has_externalfunction:
+                    solver.set(f_args = (self.Parameters, self.externalfunction,))
+                else:
+                    solver.set(f_args = (self.Parameters,))
+                
+                self.solver = solver
+                
+                u, t = solver.solve(self._Time)
+                
+                self.u = u
+                
+                df = pd.DataFrame(u[:,0:len(self._Variables)], index=self._Time,columns = self._Variables)
+                
+                if self._has_algebraic:               
+                    self._ana_sens_matrix = u[:,len(self._Variables):].reshape(len(self._Time),len(self._Variables),len(self.Parameters))
+                analytical_sens = {}
+                for i in range(len(self._Variables)):
+                    analytical_sens[self._Variables[i]] = pd.DataFrame(u[:,len(self._Variables)+len(self.Parameters)*(i):len(self._Variables)+len(self.Parameters)*(1+i)], index=self._Time,columns = self.Parameters.keys())
+                
+
                 #make df
 #                df = pd.DataFrame(moutput, index = toutput, 
 #                                  columns = self._Variables)

@@ -157,16 +157,29 @@ class ode_FIM(object):
     def get_newFIM(self):
         '''
         '''
-        self.sensmatrix = np.zeros([len(self._data.get_measured_xdata()),len(self.Parameters),len(self.get_all_outputs())])
+        self.FIM, self.FIM_timestep, self.sensmatrix = self._calcFIM(self.Error_Covariance_Matrix_PD)
+        
+        return self.FIM
+
+    def _calcFIM(self, ECM_PD):
+        '''
+        '''
+        #sensmatrix = np.zeros([len(self._data.get_measured_xdata()),len(self.Parameters),len(self.get_measured_outputs())])
+        sensmatrix = np.zeros([len(self._model._Time),len(self.Parameters),len(self.get_measured_outputs())])
         #create sensitivity matrix
         for i, var in enumerate(self.get_measured_outputs()):
-            self.sensmatrix[:,:,i] = np.array(self.sensitivities[var][1:])
-
-        self.FIM_timestep = np.einsum('ijk,ilm->ijl',np.einsum('ijk,ill->ijl',self.sensmatrix,\
-                               np.linalg.inv(np.atleast_3d(self.Error_Covariance_Matrix_PD))),self.sensmatrix)
+            if self._data.get_measured_xdata()[0] == 0:
+                sensmatrix[:,:,i] = np.array(self.sensitivities[var])
+            else:
+                sensmatrix[:,:,i] = np.array(self.sensitivities[var][0:])
         
-        self.FIM = np.sum(self.FIM_timestep, axis = 0)
-        return self.FIM
+        FIM_timestep = np.einsum('ijk,ikl->ijl',
+                                      np.einsum('ijk,ikl->ijl',sensmatrix, 
+                                      np.linalg.inv(np.eye(len(self.get_measured_outputs()))*np.atleast_3d(ECM_PD)))
+                               ,np.rollaxis(sensmatrix,2,1))
+        
+        FIM = np.sum(FIM_timestep, axis = 0)
+        return FIM, FIM_timestep, sensmatrix
 
     def get_FIM(self):
         '''  
@@ -344,7 +357,7 @@ class ode_FIM(object):
         
         '''
         self._check_for_FIM()
-        ECM = self.FIM.I
+        ECM = np.matrix(self.FIM).I
         self.ECM = ECM
         
         R = np.zeros(ECM.shape)
@@ -379,7 +392,7 @@ class ode_FIM(object):
         
         '''
         self._check_for_FIM()
-        self.ECM = self.FIM.I
+        self.ECM = np.matrix(self.FIM).I
 
         CI = np.zeros([self.ECM.shape[1],8]) 
         n_p = sum(self._data.Data.count())-len(self.Parameters)
@@ -425,7 +438,7 @@ class ode_FIM(object):
         
         '''
         self._check_for_FIM()
-        self.ECM = self.FIM.I
+        self.ECM = np.matrix(self.FIM).I
         
         time_len = len(self._data.get_measured_xdata())
         par_len = len(self.Parameters)
@@ -582,19 +595,21 @@ class ode_FIM(object):
         maxsample = list(np.zeros(self.number_of_samples)+self.time_max)
         return minsample, maxsample  
         
-    def calc_Error_Covariance_Matrix(self, measerr, method = 'absolute'):
+    def _calc_Error_Covariance_Matrix(self, measerr, method = 'absolute'):
         '''
         '''
-        self._ECM_PD = self._model.algeb_solved.copy()
+        ECM_PD = self._model.algeb_solved[self.get_measured_outputs()].copy()
         if method == 'absolute':
-            for var in self._data.Data.columns:
-                self._ECM_PD[var] = 0.0*self._ECM_PD[var] + measerr[var]**2.  #De 1/sigma^2 komt bij inv berekening van FIM
+            for var in self.get_measured_outputs():
+                ECM_PD[var] = 0.0*ECM_PD[var] + measerr[var]**2.  #De 1/sigma^2 komt bij inv berekening van FIM
                 
         elif method == 'relative':   
             #Error covariance matrix PD
-            for var in self.Data.columns:
+            for var in self.get_measured_outputs():
                 measerr = self.Meas_Errors[var]
-                self._ECM_PD[var] = (measerr[var]*self._ECM_PD[var])**2.
+                ECM_PD[var] = (measerr[var]*ECM_PD[var])**2.
+        
+        return ECM_PD
         
     def OED_inner(self, criterion, approach = 'PSO', sensmethod = 'analytical', prng = None, pop_size = 16, max_eval = 256, add_plot = False):
         '''
@@ -609,25 +624,35 @@ class ode_FIM(object):
             else:
                 maximize = False
                 
-        self._model._Time = np.linspace(self.time_min, self.time_max, 1e7)
+        self._model._Time = np.linspace(self.time_min, self.time_max, 1e4)
         if sensmethod == 'analytical':
+            if self._model._has_ODE:
+                self._model.calcOdeLSA()
             self._model.calcAlgLSA()
             self.sensitivities = dict(self._model.getAlgLSA.items())
         elif sensmethod == 'numerical':
             self._model.numeric_local_sensitivity(*args,**kwargs)
-            self.sensitivities = self._model.numerical_sensitivity   
-        
-        sensmatrix = np.zeros([len(self._model._Time),len(self.Parameters),len(self.get_all_outputs())])
-        
-        for i, var in enumerate(self.get_measured_outputs()):
-            sensmatrix[:,:,i] = np.array(self.sensitivities[var])
+            self.sensitivities = self._model.numerical_sensitivity
             
-        self.calc_Error_Covariance_Matrix(self._data.Meas_Errors, method = self._data.Meas_Errors_type)
+        self._model.solve_algebraic()
         
-        FIM_timestep = np.einsum('ijk,ilm->ijl',np.einsum('ijk,ill->ijl',sensmatrix,\
-                               np.linalg.inv(np.atleast_3d(self._ECM_PD))),sensmatrix)
+#        sensmatrix = np.zeros([len(self._model._Time),len(self.Parameters),len(self.get_measured_outputs())])
+#        
+#        for i, var in enumerate(self.get_measured_outputs()):
+#            sensmatrix[:,:,i] = np.array(self.sensitivities[var])
             
+        ECM_PD = self._calc_Error_Covariance_Matrix(self._data.Meas_Errors, method = self._data.Meas_Errors_type)
+        
+        FIM, FIM_timestep, sensmatrix = self._calcFIM(ECM_PD)       
+        
+#        FIM_timestep = np.einsum('ijk,ilm->ijl',np.einsum('ijk,ill->ijl',sensmatrix,\
+#                               np.linalg.inv(np.atleast_3d(self._ECM_PD))),sensmatrix)
+        
         self._FIM_interp1d = sp.interpolate.interp1d(self._model._Time, FIM_timestep.T)
+
+        FIM = None
+        sensmatrix = None        
+        FIM_timestep = None
 
         if self.selected_criterion == 'A':
             self._evaluator = self.A_criterion
