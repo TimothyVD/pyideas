@@ -94,11 +94,12 @@ class ode_FIM(object):
             self.sensitivities = self._model.numerical_sensitivity           
         self._model.set_time(self._model._TimeDict)
         #
-        self.get_FIM()
+        self.get_newFIM()
         self.selected_criterion = None
         self.time_max = None
         self.time_min = None
         self.number_of_samples = None
+        self._OEDmanipulations = None
         
     def get_all_outputs(self):
         '''
@@ -427,7 +428,7 @@ class ode_FIM(object):
         
         return CI
     
-    def get_model_prediction_ECM(self):
+    def _get_model_prediction_ECM(self):
         '''Calculate model prediction error covariance matrix
                
         Returns
@@ -455,9 +456,7 @@ class ode_FIM(object):
             omega[j,:,:] = sens_step.T*ECM*sens_step
               
         self.model_prediction_ECM = omega
-        
-        return omega
-    
+
     def get_model_confidence(self, alpha=0.95):
         '''Calculate confidence intervals for variables
         
@@ -478,6 +477,8 @@ class ode_FIM(object):
             and the relative uncertainty in percent.
         
         '''
+        self._get_model_prediction_ECM()
+            
         time_len = len(self._data.get_measured_xdata())
         par_len = len(self.Parameters)
            
@@ -522,6 +523,8 @@ class ode_FIM(object):
             represents the correlation between the two variables.
         
         '''
+        self._get_model_prediction_ECM()
+            
         time_len = len(self._data.get_measured_xdata())
         
         if len(self.get_all_outputs()) == 1:
@@ -558,6 +561,7 @@ class ode_FIM(object):
         '''
         TODO!
         '''
+        raise Exception('Implementation not yet terminated!')
         
         repeated_meas = self._data.Data[variable].count()
         n_p_r = self._data.Data.count()-len(self.Parameters)-repeated_meas
@@ -568,7 +572,7 @@ class ode_FIM(object):
         if self._print_on:
             print(stats.f_value(s_squared,0,n_p_r,1000))
     
-    def _get_objective(self, candidates, args):
+    def _get_objective_inner(self, candidates, args):
         '''
         '''
         fitness = []
@@ -576,7 +580,7 @@ class ode_FIM(object):
             fitness.append(self._evaluator(np.sum(self._FIM_interp1d(cs),axis = 2)))
         return fitness
         
-    def _sample_generator(self,random,args):
+    def _sample_generator_inner(self,random,args):
         '''
         '''
         if not self.time_max or self.time_min == None or not self.number_of_samples:
@@ -588,7 +592,7 @@ class ode_FIM(object):
             sample_times.append(random.random()*(self.time_max - self.time_min))
         return sample_times
         
-    def _bounder_generator(self):
+    def _bounder_generator_inner(self):
         '''
         '''
         minsample = list(np.zeros(self.number_of_samples)+self.time_min)
@@ -679,11 +683,11 @@ class ode_FIM(object):
         else:
             raise Exception('This approach is currently not supported!')
             
-        lower_bound, upper_bound = self._bounder_generator()
+        lower_bound, upper_bound = self._bounder_generator_inner()
 
         ea.terminator = inspyred.ec.terminators.evaluation_termination
-        final_pop = ea.evolve(generator=self._sample_generator, 
-                              evaluator=self._get_objective, 
+        final_pop = ea.evolve(generator=self._sample_generator_inner, 
+                              evaluator=self._get_objective_inner, 
                               pop_size=pop_size, 
                               bounder=inspyred.ec.Bounder(lower_bound = lower_bound, upper_bound = upper_bound),
                               maximize=maximize,
@@ -700,9 +704,139 @@ class ode_FIM(object):
                               
         final_pop.sort(reverse=True)
         return final_pop, ea
-
-
     
+    def setOEDmanipulations(self,dictionary):
+        '''
+        '''
+        self._OEDmanipulations = {}
+        for i in dictionary.keys():
+            self._OEDmanipulations[i] = collections.OrderedDict(sorted(dictionary[i].items(), key=lambda t: t[0]))
+
+    def getOEDmanipulations(self):
+        '''
+        '''
+        return self._OEDmanipulations
     
+    def _arraytodict(self, pararray):
+        '''converts parameter array for minimize function in dict
+        
+        Gets an array of values and converts into dictionary
+        '''
+        # A FIX FOR CERTAIN SCIPY MINIMIZE ALGORITHMS
+        try:
+            pararray = pararray[0,:]  
+        except:
+            pararray = pararray
+            
+        for i, key in enumerate(self._OEDmanipulations['initial']):
+            self._model.Initial_Conditions[key] = pararray[i]       
+
+    def _dicttoarray(self, pardict):
+        '''converts parameter dict in array for minimize function
+        
+        Gets an array of values and converts into dictionary
+        '''
+        #compare with existing pardict
+
+        pararray = np.zeros(len(self._OEDmanipulations['initial']))
+        for i, key in enumerate(pardict):
+#            print key, i
+            pararray[i] = pardict[key]
+        return pararray
+        
+    def _get_objective_outer(self, candidates, args):
+        '''
+        '''
+        fitness = []
+        for cs in candidates:
+            self._arraytodict(cs)
+            if self._model._has_ODE:
+                self._model.calcOdeLSA()
+            self._model.calcAlgLSA()
+            self.sensitivities = dict(self._model.getAlgLSA.items())              
+            self._model.solve_algebraic()
+                   
+            ECM_PD = self._calc_Error_Covariance_Matrix(self._data.Meas_Errors, method = self._data.Meas_Errors_type)
+        
+            FIM, FIM_timestep, sensmatrix = self._calcFIM(ECM_PD) 
+            
+            fitness.append(self._evaluator(FIM))
+        return fitness
+        
+    def _sample_generator_outer(self,random,args):
+        '''
+        '''
+        samples = []
+        #use get_fitting_parameters, since this is ordered dict!!
+        for initial_range in self._OEDmanipulations['initial'].values():
+            samples.append(random.random()*(initial_range[1] - initial_range[0]))
+        return samples
+        
+    def _bounder_generator_outer(self):
+        '''
+        '''
+        array = np.array(self._OEDmanipulations['initial'].values())
+        minsample = list(array[:,0])
+        maxsample = list(array[:,1])
+        return minsample, maxsample  
+
+    def OED_outer(self, criterion, approach = 'PSO', sensmethod = 'analytical', prng = None, pop_size = 16, max_eval = 256, add_plot = False):
+        '''
+        '''
+        self.selected_criterion = criterion
+        
+        if self.selected_criterion not in self.criteria_optimality_info:
+            raise Exception('First set the variable self.selected_criterion to the criterion of interest!')
+        else:
+            if self.criteria_optimality_info[self.selected_criterion] == 'max':
+                maximize = True
+            else:
+                maximize = False
+
+        if self.selected_criterion == 'A':
+            self._evaluator = self.A_criterion
+        elif self.selected_criterion == 'modA':
+            self._evaluator = self.modA_criterion
+        elif self.selected_criterion == 'D':
+            self._evaluator = self.D_criterion
+        elif self.selected_criterion == 'E':
+            self._evaluator = self.E_criterion
+        else:
+            self._evaluator = self.modE_criterion
+                
+        #OPTIMIZATION
+        if prng is None:
+            prng = Random()
+            prng.seed(time()) 
+        
+        if approach == 'PSO':
+            ea = inspyred.swarm.PSO(prng)
+        elif approach == 'DEA':
+            ea = inspyred.ec.DEA(prng)
+        elif approach == 'SA':
+            ea = inspyred.ec.SA(prng)
+        else:
+            raise Exception('This approach is currently not supported!')
+            
+        ea.terminator = inspyred.ec.terminators.evaluation_termination
+        final_pop = ea.evolve(generator=self._sample_generator_outer, 
+                              evaluator=self._get_objective_outer,
+                              pop_size=pop_size, 
+                              bounder=inspyred.ec.Bounder(self._bounder_generator_outer()),
+                              maximize=maximize,
+                              max_evaluations=max_eval)#3000
+
+        #put the best of the last population into the class attributes (WSSE, pars)
+       # self.optimize_evolution = pd.DataFrame(np.array(self.optimize_evolution),columns=self._get_fitting_parameters().keys()+['WSSE'])
+        self._model.set_time(self._model._TimeDict)
+                              
+        # Sort and print the best individual, who will be at index 0.
+        if add_plot == True:
+            self._add_optimize_plot()
+
+                              
+        final_pop.sort(reverse=True)
+        return final_pop, ea
+
     
     

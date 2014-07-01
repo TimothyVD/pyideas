@@ -932,6 +932,10 @@ class DAErunner(object):
                 
                 df = pd.DataFrame(u, index = t, 
                                   columns = self._Variables)
+            
+            else:
+                raise Exception('This ode_procedure is not available! Only odeint, ode and odespy are ')
+
         else:
             #odeint procedure
             if self.ode_procedure == "odeint":
@@ -1014,7 +1018,9 @@ class DAErunner(object):
                 analytical_sens = {}
                 for i in range(len(self._Variables)):
                     analytical_sens[self._Variables[i]] = pd.DataFrame(u[:,len(self._Variables)+len(self.Parameters)*(i):len(self._Variables)+len(self.Parameters)*(1+i)], index=self._Time,columns = self.Parameters.keys())
-                
+            
+            else:
+                raise Exception('This ode_procedure is not available! Only odeint, ode and odespy are ')
 
                 #make df
 #                df = pd.DataFrame(moutput, index = toutput, 
