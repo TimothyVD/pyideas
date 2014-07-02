@@ -34,6 +34,9 @@ from random import Random
 from time import time
 import inspyred #Global optimization
 
+# Parallel calculations
+import pp
+
 class ode_FIM(object):
     '''
     OED aimed class functioning
@@ -89,11 +92,11 @@ class ode_FIM(object):
         if sensmethod == 'analytical':
             self._model.calcAlgLSA()
             self.sensitivities = dict(self._model.getAlgLSA.items())
+            print(self.sensitivities)
         elif sensmethod == 'numerical':
             self._model.numeric_local_sensitivity(*args,**kwargs)
             self.sensitivities = self._model.numerical_sensitivity           
-        self._model.set_time(self._model._TimeDict)
-        #
+
         self.get_newFIM()
         self.selected_criterion = None
         self.time_max = None
@@ -170,9 +173,9 @@ class ode_FIM(object):
         #create sensitivity matrix
         for i, var in enumerate(self.get_measured_outputs()):
             if self._data.get_measured_xdata()[0] == 0:
-                sensmatrix[:,:,i] = np.array(self.sensitivities[var])
+                sensmatrix[:,:,i] = np.array(self.sensitivities[var][self.Parameters.keys()])
             else:
-                sensmatrix[:,:,i] = np.array(self.sensitivities[var][0:])
+                sensmatrix[:,:,i] = np.array(self.sensitivities[var][self.Parameters.keys()][0:])
         
         FIM_timestep = np.einsum('ijk,ikl->ijl',
                                       np.einsum('ijk,ikl->ijl',sensmatrix, 
@@ -743,26 +746,47 @@ class ode_FIM(object):
 #            print key, i
             pararray[i] = pardict[key]
         return pararray
+    
+    def _model_evaluation(self, cs):
+        '''
+        '''
+        self._arraytodict(cs)    
+        if self._model._has_ODE:
+            self._model.calcOdeLSA()
+        self._model.calcAlgLSA()
+        self.sensitivities = dict(self._model.getAlgLSA.items())              
+        self._model.solve_algebraic(plotit = False)
+               
+        ECM_PD = self._calc_Error_Covariance_Matrix(self._data.Meas_Errors, method = self._data.Meas_Errors_type)
+    
+        FIM, FIM_timestep, sensmatrix = self._calcFIM(ECM_PD)
+        
+        FIM_timestep = None
+        sensmatrix = None
+        
+        return self._evaluator(FIM)
         
     def _get_objective_outer(self, candidates, args):
         '''
         '''
         fitness = []
         for cs in candidates:
-            self._arraytodict(cs)
-            if self._model._has_ODE:
-                self._model.calcOdeLSA()
-            self._model.calcAlgLSA()
-            self.sensitivities = dict(self._model.getAlgLSA.items())              
-            self._model.solve_algebraic()
-                   
-            ECM_PD = self._calc_Error_Covariance_Matrix(self._data.Meas_Errors, method = self._data.Meas_Errors_type)
-        
-            FIM, FIM_timestep, sensmatrix = self._calcFIM(ECM_PD) 
+            fitness_cs = self._model_evaluation(cs)
             
-            fitness.append(self._evaluator(FIM))
+            fitness.append(fitness_cs)
         return fitness
-        
+
+    def _get_objective_outer_mp(self, candidates, args):
+        '''
+        '''
+        job_server = pp.Server()
+        job_list = []
+        for cs in candidates:
+            job_list.append(job_server.submit(self._model_evaluation, (cs,)))
+        fitness = [job() for job in job_list]
+
+        return fitness
+               
     def _sample_generator_outer(self,random,args):
         '''
         '''
@@ -780,10 +804,13 @@ class ode_FIM(object):
         maxsample = list(array[:,1])
         return minsample, maxsample  
 
-    def OED_outer(self, criterion, approach = 'PSO', sensmethod = 'analytical', prng = None, pop_size = 16, max_eval = 256, add_plot = False):
+    def OED_outer(self, criterion, approach = 'PSO', sensmethod = 'analytical', 
+                  prng = None, pop_size = 16, max_eval = 256, add_plot = False,
+                  parallel = False, nprocs = 1):
         '''
         '''
         self.selected_criterion = criterion
+        self._nprocs = int(nprocs)
         
         if self.selected_criterion not in self.criteria_optimality_info:
             raise Exception('First set the variable self.selected_criterion to the criterion of interest!')
@@ -818,9 +845,14 @@ class ode_FIM(object):
         else:
             raise Exception('This approach is currently not supported!')
             
+        if parallel:
+            _get_objective = self._get_objective_outer_mp
+        else:
+            _get_objective = self._get_objective_outer
+            
         ea.terminator = inspyred.ec.terminators.evaluation_termination
         final_pop = ea.evolve(generator=self._sample_generator_outer, 
-                              evaluator=self._get_objective_outer,
+                              evaluator=_get_objective,
                               pop_size=pop_size, 
                               bounder=inspyred.ec.Bounder(self._bounder_generator_outer()),
                               maximize=maximize,
@@ -837,6 +869,5 @@ class ode_FIM(object):
                               
         final_pop.sort(reverse=True)
         return final_pop, ea
-
     
     
