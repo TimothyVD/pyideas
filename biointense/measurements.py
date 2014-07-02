@@ -76,6 +76,7 @@ class ode_measurements(object):
                 
             #check if time is a column name
             if xdata in measdata.columns:
+                measdata[xdata] = measdata[xdata].astype(np.float64)
                 if 'variables' in measdata:
                     self.Data = measdata.pivot(index=xdata, columns='variables', values='values')
                 else:
@@ -90,7 +91,7 @@ class ode_measurements(object):
         
         else:
             raise Exception('Measured Data must be added as pandas DataFrame or dictionary of np arrays')
-        
+                
         #We provide for internal purposes also second data-type: dict with {'cvar1':Timeserie,'var': Timeserie}                
         self._data2dictsystem()
         self.get_measured_outputs()
@@ -225,9 +226,9 @@ class ode_measurements(object):
                 self.Data_dict[var]['error'] = measerr**2.
             
             for xstep in self.get_measured_xdata():   
-                temp = np.zeros((len(self.Data.ix[xstep].dropna()), len(self.Data.ix[xstep].dropna())))
-                self._Error_Covariance_Matrix[xstep] = pd.DataFrame(temp, index=self.Data.ix[xstep].dropna().index.tolist(), columns=self.Data.ix[xstep].dropna().index.tolist())
-                for ide, var in enumerate(self.Data.ix[xstep].dropna().index):
+                temp = np.zeros((len(self.Data.loc[xstep].dropna()), len(self.Data.loc[xstep].dropna())))
+                self._Error_Covariance_Matrix[xstep] = pd.DataFrame(temp, index=self.Data.loc[xstep].dropna().index.tolist(), columns=self.Data.loc[xstep].dropna().index.tolist())
+                for ide, var in enumerate(self.Data.loc[xstep].dropna().index):
                     measerr = self.Meas_Errors[var]
                     self._Error_Covariance_Matrix[xstep].values[ide,ide] = measerr**2.  #De 1/sigma^2 komt bij inv berekening van FIM
             #Error covariance matrix PD                
@@ -241,11 +242,11 @@ class ode_measurements(object):
                 self.Data_dict[var]['error'] = np.array((measerr*self.Data_dict[var][var])**2.).flatten()
             
             for xstep in self.get_measured_xdata():  
-                temp = np.zeros((len(self.Data.ix[xstep].dropna()), len(self.Data.ix[xstep].dropna())))
-                self._Error_Covariance_Matrix[xstep] = pd.DataFrame(temp, index=self.Data.ix[xstep].dropna().index.tolist(), columns=self.Data.ix[xstep].dropna().index.tolist())
-                for ide, var in enumerate(self.Data.ix[xstep].dropna().index):
+                temp = np.zeros((len(self.Data.loc[xstep].dropna()), len(self.Data.loc[xstep].dropna())))
+                self._Error_Covariance_Matrix[xstep] = pd.DataFrame(temp, index=self.Data.loc[xstep].dropna().index.tolist(), columns=self.Data.loc[xstep].dropna().index.tolist())
+                for ide, var in enumerate(self.Data.loc[xstep].dropna().index):
                     measerr = self.Meas_Errors[var]
-                    self._Error_Covariance_Matrix[xstep].values[ide,ide] = np.array((measerr*self.Data_dict[var].ix[xstep][var])**2.)#.flatten()
+                    self._Error_Covariance_Matrix[xstep].values[ide,ide] = np.array((measerr*self.Data_dict[var].loc[xstep][var])**2.)#.flatten()
             #Error covariance matrix PD
             for var in self.Data.columns:
                 measerr = self.Meas_Errors[var]
@@ -260,10 +261,10 @@ class ode_measurements(object):
                 self.Data_dict[var]['error'] = yti*minimal_relative_error*temp
             
             for xstep in self.get_measured_xdata():   
-                temp = np.zeros((len(self.Data.ix[xstep].dropna()), len(self.Data.ix[xstep].dropna())))
-                self._Error_Covariance_Matrix[xstep] = pd.DataFrame(temp, index=self.Data.ix[xstep].dropna().index.tolist(), columns=self.Data.ix[xstep].dropna().index.tolist())
-                for ide, var in enumerate(self.Data.ix[xstep].dropna().index):
-                    yti = self.Data_dict[var].ix[xstep][var]
+                temp = np.zeros((len(self.Data.loc[xstep].dropna()), len(self.Data.loc[xstep].dropna())))
+                self._Error_Covariance_Matrix[xstep] = pd.DataFrame(temp, index=self.Data.loc[xstep].dropna().index.tolist(), columns=self.Data.loc[xstep].dropna().index.tolist())
+                for ide, var in enumerate(self.Data.loc[xstep].dropna().index):
+                    yti = self.Data_dict[var].loc[xstep][var]
                     measerr = self.Meas_Errors[var]      
                     temp=1.+ 1./((yti/lower_accuracy_bound)**2 +(yti/lower_accuracy_bound))
                     self._Error_Covariance_Matrix[xstep].values[ide,ide] = yti*minimal_relative_error*temp
@@ -279,9 +280,9 @@ class ode_measurements(object):
                 self.Data_dict[var]['error'] = measerr
                 
             for jde, xstep in enumerate(self.get_measured_xdata()):  
-                temp = np.zeros((len(self.Data.ix[xstep].dropna()), len(self.Data.ix[xstep].dropna())))
-                self._Error_Covariance_Matrix[xstep] = pd.DataFrame(temp, index=self.Data.ix[xstep].dropna().index.tolist(), columns=self.Data.ix[xstep].dropna().index.tolist())
-                for ide, var in enumerate(self.Data.ix[xstep].dropna().index):
+                temp = np.zeros((len(self.Data.loc[xstep].dropna()), len(self.Data.loc[xstep].dropna())))
+                self._Error_Covariance_Matrix[xstep] = pd.DataFrame(temp, index=self.Data.loc[xstep].dropna().index.tolist(), columns=self.Data.loc[xstep].dropna().index.tolist())
+                for ide, var in enumerate(self.Data.loc[xstep].dropna().index):
                     measerr = self.Meas_Errors[var]
                     self._Error_Covariance_Matrix[xstep].values[ide,ide] = measerr[jde]
         
