@@ -94,8 +94,10 @@ class ode_optimizer(object):
         self._distributions_set = False
         
         if  self._data.get_measured_xdata()[0] == 0.:
+            self._original_first_point = True
             self._model._Time = self._data.get_measured_xdata()
         else:
+            self._original_first_point = False
             self._model._Time = np.concatenate((np.array([0.]), 
                                                 self._data.get_measured_xdata()))
                                                 

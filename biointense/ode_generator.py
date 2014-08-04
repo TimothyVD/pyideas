@@ -1229,6 +1229,8 @@ class DAErunner(object):
         
         self.analytical_sensitivity = self._LSA_converter(df, analytical_sens, self._Variables, Sensitivity,'ANASENS')
         
+        self.ode_solved = df
+        
         return analytical_sens
         
 

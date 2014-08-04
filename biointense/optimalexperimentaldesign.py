@@ -97,6 +97,7 @@ class ode_FIM(object):
             self._model.numeric_local_sensitivity(*args,**kwargs)
             self.sensitivities = self._model.numerical_sensitivity           
 
+        self._original_first_point = odeoptimizer._original_first_point
         self.get_newFIM()
         self.selected_criterion = None
         self.time_max = None
@@ -172,15 +173,21 @@ class ode_FIM(object):
         sensmatrix = np.zeros([len(self._model._Time),len(self.Parameters),len(self.get_measured_outputs())])
         #create sensitivity matrix
         for i, var in enumerate(self.get_measured_outputs()):
-            if self._data.get_measured_xdata()[0] == 0:
-                sensmatrix[:,:,i] = np.array(self.sensitivities[var][self.Parameters.keys()])
-            else:
-                sensmatrix[:,:,i] = np.array(self.sensitivities[var][self.Parameters.keys()][0:])
+            sensmatrix[:,:,i] = np.array(self.sensitivities[var][self.Parameters.keys()])
+#            if self._data.get_measured_xdata()[0] == 0:
+#                sensmatrix[:,:,i] = np.array(self.sensitivities[var][self.Parameters.keys()])
+#            else:
+#                sensmatrix[:,:,i] = np.array(self.sensitivities[var][self.Parameters.keys()][0:])
+
+        if self._original_first_point:
+            sens_start = 0
+        else:
+            sens_start = 1
         
         FIM_timestep = np.einsum('ijk,ikl->ijl',
-                                      np.einsum('ijk,ikl->ijl',sensmatrix, 
+                                      np.einsum('ijk,ikl->ijl',sensmatrix[sens_start:,:,:], 
                                       np.linalg.inv(np.eye(len(self.get_measured_outputs()))*np.atleast_3d(ECM_PD)))
-                               ,np.rollaxis(sensmatrix,2,1))
+                               ,np.rollaxis(sensmatrix[sens_start:,:,:],2,1))
         
         FIM = np.sum(FIM_timestep, axis = 0)
         return FIM, FIM_timestep, sensmatrix
@@ -361,8 +368,30 @@ class ode_FIM(object):
         
         '''
         self._check_for_FIM()
-        ECM = np.matrix(self.FIM).I
+        ECM = np.linalg.inv(self.FIM)
         self.ECM = ECM
+        
+        self.parameter_correlation = self._get_parameter_correlation(FIM)
+        return self.parameter_correlation
+    
+    def get_OED_parameter_correlation(self, FIM):
+        '''
+        '''
+        parameter_correlation = self._get_parameter_correlation(FIM)
+        
+        return parameter_correlation
+        
+    def _get_parameter_correlation(self, FIM):
+        '''Calculate correlations between parameters
+            
+        Returns
+        --------
+        R: pandas DataFrame
+            Contains for each parameter the correlation with all the other
+            parameters.
+        
+        '''
+        ECM = np.linalg.inv(FIM)
         
         R = np.zeros(ECM.shape)
         
@@ -372,9 +401,7 @@ class ode_FIM(object):
         
         R = pd.DataFrame(R,columns=self.Parameters.keys(),index=self.Parameters.keys())     
         
-        self.parameter_correlation = R
         return R
-        
         
     def get_parameter_confidence(self, alpha = 0.95):
         '''Calculate confidence intervals for all parameters
@@ -396,22 +423,55 @@ class ode_FIM(object):
         
         '''
         self._check_for_FIM()
-        self.ECM = np.matrix(self.FIM).I
+        self.ECM = np.linalg.inv(self.FIM)
 
-        CI = np.zeros([self.ECM.shape[1],8]) 
         n_p = sum(self._data.Data.count())-len(self.Parameters)
+                
+        self.parameter_confidence = self._get_parameter_confidence(alpha, self.FIM, n_p)
+        
+        return self.parameter_confidence
+    
+    def get_OED_parameter_confidence(self, alpha, FIM, n_p):
+        '''
+        '''
+        parameter_confidence = self._get_parameter_confidence(alpha, FIM, n_p)
+        
+        return parameter_confidence
+        
+    def _get_parameter_confidence(self, alpha, FIM, n_p):
+        '''Calculate confidence intervals for all parameters
+        
+        Parameters
+        -----------
+        alpha: float
+            confidence level of a two-sided student t-distribution (Do not divide 
+            the required alpha value by 2). For example for a confidence level of 
+            0.95, the lower and upper values of the interval are calculated at 0.025 
+            and 0.975.
+        
+        Returns
+        --------
+        CI: pandas DataFrame
+            Contains for each parameter the value of the variable, lower and 
+            upper value of the interval, the delta value which represents half 
+            the interval and the relative uncertainty in percent.
+        
+        '''
+        ECM = np.linalg.inv(FIM)
+
+        CI = np.zeros([ECM.shape[1],8]) 
         
         CI[:,0] = self.Parameters.values()
-        for i,variance in enumerate(np.array(self.ECM.diagonal())[0,:]):
+        for i,variance in enumerate(np.array(ECM.diagonal())):
             #TODO check whether sum or median or... should be used 
             #TODO Check of de absolute waarde hier gebruikt mag worden!!!!
             CI[i,1:3] =  stats.t.interval(alpha, n_p, loc=self.Parameters.values()[i],scale=np.sqrt(abs(variance)))
             #print stats.t.interval(alpha,self._data.Data.count()-len(self.Parameters),scale=np.sqrt(var))[1][0]
             CI[i,3] = stats.t.interval(alpha, n_p, scale=np.sqrt(abs(variance)))[1]
         CI[:,4] = abs(CI[:,3]/self.Parameters.values())*100
-        CI[:,5] = self.Parameters.values()/np.sqrt(abs(self.ECM.diagonal()))
+        CI[:,5] = self.Parameters.values()/np.sqrt(abs(ECM.diagonal()))
         CI[:,6] = stats.t.interval(alpha, n_p)[1]
-        for i in np.arange(self.ECM.shape[1]):
+        for i in np.arange(ECM.shape[1]):
             CI[i,7] = 1 if CI[i,5]>=CI[i,6] else 0
         
         if self._print_on:
@@ -426,9 +486,7 @@ class ode_FIM(object):
                 print('T_values seem ok, all parameters can be regarded as reliable.')
             
         CI = pd.DataFrame(CI,columns=['value','lower','upper','delta','percent','t_value','t_reference','significant'],index=self.Parameters.keys())
-        
-        self.parameter_confidence = CI
-        
+               
         return CI
     
     def _get_model_prediction_ECM(self):
@@ -592,7 +650,7 @@ class ode_FIM(object):
         sample_times = []
         #use get_fitting_parameters, since this is ordered dict!!
         for i in range(self.number_of_samples):
-            sample_times.append(random.random()*(self.time_max - self.time_min))
+            sample_times.append(random.random()*(self.time_max - self.time_min) + self.time_min)
         return sample_times
         
     def _bounder_generator_inner(self):
@@ -650,6 +708,9 @@ class ode_FIM(object):
             
         ECM_PD = self._calc_Error_Covariance_Matrix(self._data.Meas_Errors, method = self._data.Meas_Errors_type)
         
+        self._temp = ECM_PD
+        
+        self._original_first_point = True
         FIM, FIM_timestep, sensmatrix = self._calcFIM(ECM_PD)       
         
 #        FIM_timestep = np.einsum('ijk,ilm->ijl',np.einsum('ijk,ill->ijl',sensmatrix,\
@@ -707,6 +768,35 @@ class ode_FIM(object):
                               
         final_pop.sort(reverse=True)
         return final_pop, ea
+    
+    def selectOptimalIndividual(self, final_pop):
+        '''
+        '''
+        if type(final_pop)!= list:
+            raise Exception('final_pop has to be a list!')
+        
+        ref_indiv = None
+        if self.criteria_optimality_info[self.selected_criterion] == 'max':
+            print('Individual with maximum fitness is selected!')
+            ref_fitness = 0.0            
+            for i, indiv in enumerate(final_pop):
+                if indiv.fitness > ref_fitness:
+                    ref_indiv = i
+                    ref_fitness = indiv.fitness
+        else:
+            print('Individual with minimum fitness is selected!')
+            ref_fitness = np.Inf    
+            for i, indiv in enumerate(final_pop):
+                if indiv.fitness < ref_fitness:
+                    ref_indiv = i
+                    ref_fitness = indiv.fitness
+        
+        return final_pop[ref_indiv]
+        
+    def getFIMIndividual(self, individual):
+        '''
+        '''
+        return np.sum(self._FIM_interp1d(individual.candidate),axis = 2)
     
     def setOEDmanipulations(self,dictionary):
         '''
