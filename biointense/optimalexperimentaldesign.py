@@ -371,7 +371,7 @@ class ode_FIM(object):
         ECM = np.linalg.inv(self.FIM)
         self.ECM = ECM
         
-        self.parameter_correlation = self._get_parameter_correlation(FIM)
+        self.parameter_correlation = self._get_parameter_correlation(self.FIM)
         return self.parameter_correlation
     
     def get_OED_parameter_correlation(self, FIM):
@@ -671,8 +671,8 @@ class ode_FIM(object):
         elif method == 'relative':   
             #Error covariance matrix PD
             for var in self.get_measured_outputs():
-                measerr = self.Meas_Errors[var]
-                ECM_PD[var] = (measerr[var]*ECM_PD[var])**2.
+                measerr = self._data.Meas_Errors[var]
+                ECM_PD[var] = (measerr*ECM_PD[var])**2.
         
         return ECM_PD
         
