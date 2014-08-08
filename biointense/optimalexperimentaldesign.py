@@ -35,7 +35,10 @@ from time import time
 import inspyred #Global optimization
 
 # Parallel calculations
-import pp
+try:
+    import pp
+except:
+    print('Parallel python cannot be loaded!')
 
 class ode_FIM(object):
     '''
