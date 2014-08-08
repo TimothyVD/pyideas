@@ -164,6 +164,7 @@ class ode_FIM(object):
 
     def get_newFIM(self):
         '''
+        
         '''
         self.FIM, self.FIM_timestep, self.sensmatrix = self._calcFIM(self.Error_Covariance_Matrix_PD)
         
@@ -171,6 +172,13 @@ class ode_FIM(object):
 
     def _calcFIM(self, ECM_PD):
         '''
+        Help function for get_newFIM
+        
+        Parameters
+        -----------
+        ECM_PD: pandas DataFrame
+            The pandas DataFrame needs to contain the error covariance matrix for
+            the different measured outputs
         '''
         #sensmatrix = np.zeros([len(self._data.get_measured_xdata()),len(self.Parameters),len(self.get_measured_outputs())])
         sensmatrix = np.zeros([len(self._model._Time),len(self.Parameters),len(self.get_measured_outputs())])
@@ -187,6 +195,8 @@ class ode_FIM(object):
         else:
             sens_start = 1
         
+        # Perform FIM calculation
+        # FIM = dy/dx*1/Q*[dy/dx]^T
         FIM_timestep = np.einsum('ijk,ikl->ijl',
                                       np.einsum('ijk,ikl->ijl',sensmatrix[sens_start:,:,:], 
                                       np.linalg.inv(np.eye(len(self.get_measured_outputs()))*np.atleast_3d(ECM_PD)))
@@ -645,7 +655,7 @@ class ode_FIM(object):
         return fitness
         
     def _sample_generator_inner(self,random,args):
-        '''
+        '''Generate samples for inner OED optimization.
         '''
         if not self.time_max or self.time_min == None or not self.number_of_samples:
             raise Exception('Set number of samples, min time and max time!')
@@ -657,15 +667,38 @@ class ode_FIM(object):
         return sample_times
         
     def _bounder_generator_inner(self):
-        '''
+        '''Sets boundaries of inner OED optimization. The minimum time and maximum
+            time can be set.
+            TODO add possibility for minimum timespan between two points. 
         '''
         minsample = list(np.zeros(self.number_of_samples)+self.time_min)
         maxsample = list(np.zeros(self.number_of_samples)+self.time_max)
         return minsample, maxsample  
         
-    def _calc_Error_Covariance_Matrix(self, measerr, method = 'absolute'):
+    def _calc_Error_Covariance_Matrix(self, measerr, method):
+        '''Additional function to generate ECM_PD for the OED_inner function.
+            This is necessary because for the entire timespan the ECM needs to 
+            be defined.
+            
+            Parameters
+            -----------
+            measerr : pandas DataFrame
+                Pandas dataframe with the measurement errors (absolute or relative)
+                for the different variables.
+            method : 'absolute' | 'relative'
+                What kind of measurement error are we dealing with?
+                
+            Returns
+            --------
+            ECM_PD : pandas DataFrame
+                Pandas dataframe with for each variable and at each timestep the
+                corresponding error.
+            
+            See also
+            ---------
+            OED_inner
         '''
-        '''
+        
         ECM_PD = self._model.algeb_solved[self.get_measured_outputs()].copy()
         if method == 'absolute':
             for var in self.get_measured_outputs():
@@ -676,11 +709,54 @@ class ode_FIM(object):
             for var in self.get_measured_outputs():
                 measerr = self._data.Meas_Errors[var]
                 ECM_PD[var] = (measerr*ECM_PD[var])**2.
+            
+        else:
+            raise Exception('This type of measurement error cannot be used to \
+            generate ECM for OED')
         
         return ECM_PD
         
     def OED_inner(self, criterion, approach = 'PSO', sensmethod = 'analytical', prng = None, pop_size = 16, max_eval = 256, add_plot = False):
-        '''
+        '''The aim of the OED inner function is to optimize sampling times to reduce
+        overall uncertainty (by using the FIM matrix). 
+        
+        Parameters
+        -----------
+        criterion : string
+            Multiple objective functions can be used to reduce overall uncertainty,
+            one can choose between 'A', 'modA', 'D', 'E', 'modE'
+            
+        approach : string
+            A global optimization is used (based on the bioinspyred package),
+            current optimization approaches which are available: 
+            Particle Swarm Optimization ('PSO'), 
+            Differential Evolution Algorithm ('DEA') and 
+            Simulated Annealing ('SA')
+            
+        sensmethod : 'analytical'|'numerical'
+            Two possible ways to calculate the sensitivity: analytical or numerical.
+            If this option is not explicitly set the analytical sensitivity is taken.
+        
+        prng : None|numpy.array
+            Initial population, if None this is randomly generated.
+        
+        pop_size : int
+            The total population to do the optimization. 
+            
+        max_eval : int
+            Maximum number of function evaluations.   
+            
+        add_plot : False|True
+            Plot results afterwards (standard False)
+            
+        Returns
+        --------
+        finalpop : list
+            List with all individuals of population with optimized sampling times and
+            corresponding fitness
+        ea : list
+            Optimization instance
+        
         '''
         self.selected_criterion = criterion
         
@@ -709,7 +785,7 @@ class ode_FIM(object):
 #        for i, var in enumerate(self.get_measured_outputs()):
 #            sensmatrix[:,:,i] = np.array(self.sensitivities[var])
             
-        ECM_PD = self._calc_Error_Covariance_Matrix(self._data.Meas_Errors, method = self._data.Meas_Errors_type)
+        ECM_PD = self._calc_Error_Covariance_Matrix(self._data.Meas_Errors, self._data.Meas_Errors_type)
         
         self._temp = ECM_PD
         
@@ -733,8 +809,10 @@ class ode_FIM(object):
             self._evaluator = self.D_criterion
         elif self.selected_criterion == 'E':
             self._evaluator = self.E_criterion
-        else:
+        elif self.selected_criterion == 'modE':
             self._evaluator = self.modE_criterion
+        else:
+            raise Exception('This criterion is not available!')
                 
         #OPTIMIZATION
         if prng is None:
@@ -850,7 +928,7 @@ class ode_FIM(object):
         self.sensitivities = dict(self._model.getAlgLSA.items())              
         self._model.solve_algebraic(plotit = False)
                
-        ECM_PD = self._calc_Error_Covariance_Matrix(self._data.Meas_Errors, method = self._data.Meas_Errors_type)
+        ECM_PD = self._calc_Error_Covariance_Matrix(self._data.Meas_Errors, self._data.Meas_Errors_type)
     
         FIM, FIM_timestep, sensmatrix = self._calcFIM(ECM_PD)
         
