@@ -92,9 +92,9 @@ class ode_FIM(object):
         
         #Run sensitivity
         if  self._data.get_measured_xdata()[0] == 0.:
-            self._model._Time = self._data.get_measured_xdata()
+            self._model._xdatat = self._data.get_measured_xdata()
         else:
-            self._model._Time = np.concatenate((np.array([0.]),self._data.get_measured_xdata()))
+            self._model._xdata = np.concatenate((np.array([0.]),self._data.get_measured_xdata()))
         
 #        self._model._Time = np.concatenate((np.array([0.]),self._data.get_measured_times()))
         if sensmethod == 'analytical':
@@ -186,7 +186,7 @@ class ode_FIM(object):
             the different measured outputs
         '''
         #sensmatrix = np.zeros([len(self._data.get_measured_xdata()),len(self.Parameters),len(self.get_measured_outputs())])
-        sensmatrix = np.zeros([len(self._model._Time),len(self.Parameters),len(self.get_measured_outputs())])
+        sensmatrix = np.zeros([len(self._model._xdata),len(self.Parameters),len(self.get_measured_outputs())])
         #create sensitivity matrix
         for i, var in enumerate(self.get_measured_outputs()):
             sensmatrix[:,:,i] = np.array(self.sensitivities[var][self.Parameters.keys()])

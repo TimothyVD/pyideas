@@ -14,7 +14,12 @@ import os
 import datetime
 import numpy as np
 import sympy
-import inspyred #Global optimization
+try:
+    import inspyred #Global optimization
+    inspyred_import = True
+except:
+    print("Inspyred was not found, no global optimization possible!")
+    inspyred_import = False
 
 import pandas as pd
 from scipy import optimize
@@ -95,10 +100,10 @@ class ode_optimizer(object):
         
         if  self._data.get_measured_xdata()[0] == 0.:
             self._original_first_point = True
-            self._model._Time = self._data.get_measured_xdata()
+            self._model._xdata = self._data.get_measured_xdata()
         else:
             self._original_first_point = False
-            self._model._Time = np.concatenate((np.array([0.]), 
+            self._model._xdata = np.concatenate((np.array([0.]), 
                                                 self._data.get_measured_xdata()))
                                                 
         self.get_WSSE()

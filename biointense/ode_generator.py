@@ -11,6 +11,7 @@ from numpy import *
 import scipy.integrate as spin
 import scipy.interpolate as spint
 import sympy
+from sympy.abc import _clash
 import shutil
 import sys
 if sys.hexversion > 0x02070000:
@@ -84,7 +85,7 @@ class DAErunner(object):
     >>> M1 = DAErunner(ODE = ODE, Parameters = Parameters, Algebraic = Algebraic, Modelname = Modelname)
     >>> M1.set_measured_states(['SA', 'SB', 'PP', 'PQ'])
     >>> M1.set_initial_conditions({'SA':30.,'SB':10.,'En':1.,'EP':0.,'Es':0.,'EsQ':0.,'PP':0.,'PQ':0.})
-    >>> M1.set_time({'start':0,'end':20,'nsteps':10000})
+    >>> M1.set_xdata({'start':0,'end':20,'nsteps':10000})
     >>> #run the model
     >>> modeloutput = M1.solve_ode(plotit=False)
     >>> M1.solve_algebraic()
@@ -123,6 +124,16 @@ class DAErunner(object):
         
         
         self.modelname = kwargs.get('Modelname')
+        if self._has_ODE:
+            print('This model has ODE(s), so the x variable has to be t.')
+            self._x_var = 't'
+        else:
+            try:
+                self._x_var = kwargs.get('x_var')
+                print('The x variable was defined, so ' + self._x_var + ' is set as x variable.')
+            except:
+                print('No x variable was defined, so t is set as x variable.')
+                self._x_var = 't'
         
         try:
             Algebraic = kwargs.get('Algebraic')
@@ -132,7 +143,7 @@ class DAErunner(object):
             self._has_def_algebraic = kwargs.get('has_def_algebraic')
             if self._has_def_algebraic and self._print_on:
                 print('You defined your own function, please make sure this function is provided in\
-                    '+self.modelname+'.py as Algebraic_outputs'+'(self._Time, self.Parameters)')
+                    '+self.modelname+'.py as Algebraic_outputs'+'(self._xdata, self.Parameters)')
         except:
             if self._has_ODE:
                 Algebraic = {}
@@ -177,13 +188,13 @@ class DAErunner(object):
         allvariables = set()
         
         for i in self.Algebraic.values():
-            allvariables = allvariables.union(sympy.sympify(i, sympy.abc._clash).free_symbols)
+            allvariables = allvariables.union(sympy.sympify(i, _clash).free_symbols)
         
         if self._has_ODE:
             for i in self.System.values():
-                allvariables = allvariables.union(sympy.sympify(i, sympy.abc._clash).free_symbols)
+                allvariables = allvariables.union(sympy.sympify(i, _clash).free_symbols)
                    
-        parameters = set(sympy.sympify(self.Parameters.keys(), sympy.abc._clash))
+        parameters = set(sympy.sympify(self.Parameters.keys(), _clash))
         
         diff_par_allvar = parameters - allvariables
         
@@ -192,14 +203,14 @@ class DAErunner(object):
             Please check this! Continuing...')
             Fore.RESET
         
-        All_var = set(sympy.sympify(self.Algebraic.keys(), sympy.abc._clash))
+        All_var = set(sympy.sympify(self.Algebraic.keys(), _clash))
         if self._has_ODE:
-            All_var = All_var.union(set(sympy.sympify([i[1:] for i in self.System.keys()], sympy.abc._clash)))
+            All_var = All_var.union(set(sympy.sympify([i[1:] for i in self.System.keys()], _clash)))
         
         diff_allvar_par = allvariables - parameters
         diff_allvar_var = diff_allvar_par - All_var
         
-        if len(diff_allvar_var) != 0:
+        if len(diff_allvar_var) != 0 and str(list(diff_allvar_var)[0]) != self._x_var:
             raise Exception('Unknown parameters or variables are part of the\
             equation:' + str(diff_allvar_var)+'. Stopping calculation...!')
             
@@ -221,26 +232,26 @@ class DAErunner(object):
         self._fun_alg = external_algebraic
         self._fun_alg_LSA = None
 
-    def set_time(self,timedict):
-        '''define time to calculate model
+    def set_xdata(self,xdatadict):
+        '''define xdata to calculate model
         
         The start, end and number of steps (nsteps) for the ode-calculation
         
         Parameters
         -----------
-        timedict : dict
+        xdatadict : dict
             three elments dictionary; start, end and nsteps. The latter is the
             number of timesteps between start and end to get output from
         
         '''
-        if timedict['start'] > timedict['end']:
-            raise Exception('End timestep must be smaller then start!')
+        if xdatadict['start'] > xdatadict['end']:
+            raise Exception('End xdatastep must be smaller then start!')
         #if timedict['nsteps'] < (timedict['end'] - timedict['start']):
-        if timedict['nsteps'] < 10:
+        if xdatadict['nsteps'] < 10:
             raise Exception('Step too small')
         
-        self._TimeDict = timedict
-        self._Time = np.linspace(timedict['start'], timedict['end'], timedict['nsteps'])
+        self._xdataDict = xdatadict
+        self._xdata = np.linspace(xdatadict['start'], xdatadict['end'], xdatadict['nsteps'])
 
     def set_initial_conditions(self, inic):
         '''define initial conditions to calculate model
@@ -249,7 +260,7 @@ class DAErunner(object):
         
         Parameters
         -----------
-        timedict : dict
+        xdatadict : dict
             For every variable, an initial value (float) is needed
             
         Examples
@@ -317,16 +328,16 @@ class DAErunner(object):
             self.set_measured_states(self._Outputs)
         return self._MeasuredList
     
-    def get_time(self):
-        '''get the model-time characteristics
+    def get_xdata(self):
+        '''get the model-xdata characteristics
         
         '''
         try:
-            self._TimeDict['start']
+            self._xdataDict['start']
             if self._print_on:
-                print('start timestep is '+ str(self._TimeDict['start']))
-                print('end timestep is '+ str(self._TimeDict['end']))
-                print('number of timesteps for printing is '+ str(self._TimeDict['nsteps']))
+                print('start xdatastep is '+ str(self._xdataDict['start']))
+                print('end xdatastep is '+ str(self._xdataDict['end']))
+                print('number of xdatasteps for printing is '+ str(self._xdataDict['nsteps']))
         except:
             raise Exception('Please add a time-dictionary containing start, end and nsteps')
             
@@ -344,16 +355,16 @@ class DAErunner(object):
         '''    
         
         # Set up symbolic matrix of system states
-        system_matrix = sympy.Matrix(sympy.sympify(self.System.values(), sympy.abc._clash))
+        system_matrix = sympy.Matrix(sympy.sympify(self.System.values(), _clash))
         # Set up symbolic matrix of variables
-        states_matrix = sympy.Matrix(sympy.sympify(self._Variables, sympy.abc._clash))
+        states_matrix = sympy.Matrix(sympy.sympify(self._Variables, _clash))
         # Set up symbolic matrix of parameters
-        parameter_matrix = sympy.Matrix(sympy.sympify(self.Parameters.keys(), sympy.abc._clash))
+        parameter_matrix = sympy.Matrix(sympy.sympify(self.Parameters.keys(), _clash))
         
         # Replace algebraic stuff in system_matrix to perform LSA
         if self._has_algebraic:
             # Set up symbolic matrix of algebraic
-            algebraic_matrix = sympy.Matrix(sympy.sympify(self.Algebraic.keys(), sympy.abc._clash))
+            algebraic_matrix = sympy.Matrix(sympy.sympify(self.Algebraic.keys(), _clash))
             
             # Replace algebraic variables by its equations
             h = 0
@@ -389,8 +400,8 @@ class DAErunner(object):
             self.Algebraic_swapped
         except:        
             h = 0
-            algebraic_matrix = sympy.Matrix(sympy.sympify(self.Algebraic.values(), sympy.abc._clash))
-            algebraic_keys = sympy.Matrix(sympy.sympify(self.Algebraic.keys(), sympy.abc._clash))
+            algebraic_matrix = sympy.Matrix(sympy.sympify(self.Algebraic.values(), _clash))
+            algebraic_keys = sympy.Matrix(sympy.sympify(self.Algebraic.keys(), _clash))
             while (np.sum(np.abs(algebraic_matrix.jacobian(algebraic_keys))) != 0) and (h <= len(self.Algebraic.keys())):
                 for i, alg in enumerate(self.Algebraic.keys()):
                     algebraic_matrix = algebraic_matrix.replace(alg, self.Algebraic.values()[i])
@@ -414,9 +425,9 @@ class DAErunner(object):
         
         # Set up symbolic matrix of variables
         if self._has_ODE:
-            states_matrix = sympy.Matrix(sympy.sympify(self._Variables), sympy.abc._clash)
+            states_matrix = sympy.Matrix(sympy.sympify(self._Variables, _clash))
         # Set up symbolic matrix of parameters
-        parameter_matrix = sympy.Matrix(sympy.sympify(self.Parameters.keys(), sympy.abc._clash))
+        parameter_matrix = sympy.Matrix(sympy.sympify(self.Parameters.keys(), _clash))
  
         algebraic_matrix = self._alg_swap()             
                                 
@@ -462,19 +473,19 @@ class DAErunner(object):
             if self._print_on:          
                 print('Updated initial conditions are used')
 
-    def _check_for_time(self, Timesteps):
-        '''verify presence of model time information
+    def _check_for_xdata(self, xdatasteps):
+        '''verify presence of model xdata information
         
         '''
         #CHECK FOR THE INITIAL CONDITIONS
-        if Timesteps == False:
+        if xdatasteps == False:
             try:
 #                print 'Used timesteps: ', self._TimeDict
-                self._TimeDict
+                self._xdataDict
             except:
-                raise Exception('No time step information is provided for the current model')            
+                raise Exception('No xdata step information is provided for the current model')            
         else:
-            self.set_time(Timesteps)
+            self.set_xdata(xdatasteps)
             if self._print_on:             
                 print('Updated initial conditions are used')
               
@@ -666,13 +677,13 @@ class DAErunner(object):
         if self._has_algebraic and not self._has_def_algebraic:
             if self._has_ODE:
                 if self._has_externalfunction:
-                    algebraic += '\ndef _fun_alg(ODES,t,Parameters, input):\n'
+                    algebraic += '\ndef _fun_alg(ODES,'+self._x_var+',Parameters, input):\n'
                 else:
-                    algebraic += '\ndef _fun_alg(ODES,t,Parameters):\n'
+                    algebraic += '\ndef _fun_alg(ODES,'+self._x_var+',Parameters):\n'
             elif self._has_externalfunction:
-                algebraic += '\ndef _fun_alg(t,Parameters, input):\n'
+                algebraic += '\ndef _fun_alg('+self._x_var+',Parameters, input):\n'
             else:
-                algebraic += '\ndef _fun_alg(t,Parameters):\n'
+                algebraic += '\ndef _fun_alg('+self._x_var+',Parameters):\n'
             for i in range(len(self.Parameters)):
                 #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
                 algebraic += '    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n"
@@ -686,13 +697,13 @@ class DAErunner(object):
                 algebraic += '\n'
             if self._has_externalfunction:
                 for i, step in enumerate(self.externalfunction):
-                    algebraic += '    input'+str(i) + ' = input['+str(i)+'](t)'+'\n'
+                    algebraic += '    input'+str(i) + ' = input['+str(i)+']('+self._x_var+')'+'\n'
                 algebraic += '\n'
             for i in range(len(self.Algebraic)):
                 #file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+' + zeros(len(t))\n')
                 algebraic += '    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic_swapped[i])
                 if self.solve_fast_way:
-                    algebraic += ' + np.zeros(len(t))\n'
+                    algebraic += ' + np.zeros(len('+self._x_var+'))\n'
                 else:
                     algebraic += '\n'
             algebraic += '\n'
@@ -704,9 +715,9 @@ class DAErunner(object):
             if self._has_ODE and not self._has_def_ODE:
                 #Algebraic sens
                 if self._has_externalfunction:
-                    algebraic_sens += '\ndef _fun_alg_LSA(ODES,t,Parameters, input, dxdtheta):\n'
+                    algebraic_sens += '\ndef _fun_alg_LSA(ODES,'+self._x_var+',Parameters, input, dxdtheta):\n'
                 else:
-                    algebraic_sens += '\ndef _fun_alg_LSA(ODES,t,Parameters, dxdtheta):\n'
+                    algebraic_sens += '\ndef _fun_alg_LSA(ODES,'+self._x_var+',Parameters, dxdtheta):\n'
                 for i in range(len(self.Parameters)):
                     #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
                     algebraic_sens += '    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n"
@@ -749,9 +760,9 @@ class DAErunner(object):
             else:
                 #Algebraic sens
                 if self._has_externalfunction:
-                    algebraic_sens += '\ndef _fun_alg_LSA(t,Parameters, input):\n'
+                    algebraic_sens += '\ndef _fun_alg_LSA('+self._x_var+',Parameters, input):\n'
                 else:
-                    algebraic_sens += '\ndef _fun_alg_LSA(t,Parameters):\n'
+                    algebraic_sens += '\ndef _fun_alg_LSA('+self._x_var+',Parameters):\n'
                 for i in range(len(self.Parameters)):
                     #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
                     algebraic_sens += '    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n"
@@ -828,36 +839,36 @@ class DAErunner(object):
             #try:
                 if self._has_ODE:
                     if self._has_externalfunction:
-                        algeb_out = self._fun_alg(np.array(self.ode_solved), self._Time, self.Parameters, self.externalfunction)
+                        algeb_out = self._fun_alg(np.array(self.ode_solved), self._xdata, self.Parameters, self.externalfunction)
                     else:
-                        algeb_out =self._fun_alg(np.array(self.ode_solved), self._Time, self.Parameters)             
+                        algeb_out =self._fun_alg(np.array(self.ode_solved), self._xdata, self.Parameters)             
                 elif self._has_externalfunction:
-                    algeb_out = self._fun_alg(np.array(self.ode_solved), self._Time, self.Parameters)
+                    algeb_out = self._fun_alg(np.array(self.ode_solved), self._xdata, self.Parameters)
                 else:
-                    algeb_out = self._fun_alg(self._Time, self.Parameters)  
+                    algeb_out = self._fun_alg(self._xdata, self.Parameters)  
             #except:
              #   raise Exception('Maybe you should take the slow for loop way to results or adapt your functions? (self.solve_fast_way = False)')
         else:
             #try:
-                algeb_out = np.zeros([len(self._Time),len(self.Algebraic)])
+                algeb_out = np.zeros([len(self._xdata),len(self.Algebraic)])
                 if self._has_ODE:
                     if self._has_externalfunction:
-                        for i, timestep in enumerate(self._Time):
-                            algeb_out[i,:] = self._fun_alg(np.array(self.ode_solved.ix[timestep]), timestep, self.Parameters, self.externalfunction)
+                        for i, xdatastep in enumerate(self._xdata):
+                            algeb_out[i,:] = self._fun_alg(np.array(self.ode_solved.ix[xdatastep]), xdatastep, self.Parameters, self.externalfunction)
                     else:
-                        for i, timestep in enumerate(self._Time):
-                            algeb_out[i,:] = self._fun_alg(np.array(self.ode_solved.ix[timestep]), timestep, self.Parameters)
+                        for i, xdatastep in enumerate(self._xdata):
+                            algeb_out[i,:] = self._fun_alg(np.array(self.ode_solved.ix[xdatastep]), xdatastep, self.Parameters)
                 elif self._has_externalfunction:
-                    for i, timestep in enumerate(self._Time):
-                        algeb_out[i,:] = self._fun_alg(np.array(self.ode_solved.ix[timestep]), timestep, self.Parameters)
+                    for i, xdatastep in enumerate(self._xdata):
+                        algeb_out[i,:] = self._fun_alg(np.array(self.ode_solved.ix[xdatastep]), xdatastep, self.Parameters)
                 else:
-                    for i, timestep in enumerate(self._Time):
-                        algeb_out[i,:] = self._fun_alg(timestep, self.Parameters)
+                    for i, xdatastep in enumerate(self._xdata):
+                        algeb_out[i,:] = self._fun_alg(xdatastep, self.Parameters)
             #except:
              #   raise Exception('Maybe you should take the fast for loop way to results or adapt your functions? (self.solve_fast_way = True)')
              
         self.algeb_solved = pd.DataFrame(algeb_out, columns=self.Algebraic.keys(), 
-                                 index = self._Time)
+                                 index = self._xdata)
         
         #plotfunction
         if plotit == True:
@@ -869,7 +880,7 @@ class DAErunner(object):
     def get_list_ode_integrators(self):
         return odespy.solvers.list_available_solvers()
                                    
-    def solve_ode(self, TimeStepsDict = False, Initial_Conditions = False, 
+    def solve_ode(self, xdataDict = False, Initial_Conditions = False, 
                   plotit = True):
         '''Solve the differential equation
         
@@ -877,8 +888,8 @@ class DAErunner(object):
         
         Parameters
         -----------
-        TimeStepsDict : False|dict
-            If False, the time-attribute is checked for and used. 
+        xdataDict : False|dict
+            If False, the xdata-attribute is checked for and used. 
         Initial_Conditions : False|dict
             If False, the initial conditions  attribute is checked for and used. 
         
@@ -889,19 +900,19 @@ class DAErunner(object):
         
         See Also
         ---------
-        set_initial_conditions, set_time
+        set_initial_conditions, set_xdata
                 
         '''
         if not self._has_ODE:
             raise Exception('This model has no ODE equations!')
         #        print 'Current parameters', self.Parameters.values()
-        self._check_for_time(TimeStepsDict)
+        self._check_for_xdata(xdataDict)
         self._check_for_init(Initial_Conditions)
         
         if self._has_externalfunction:
-            df = self._solve_ode(self.Initial_Conditions.values(), self._Time, False, externalfunction = self.externalfunction)
+            df = self._solve_ode(self.Initial_Conditions.values(), self._xdata, False, externalfunction = self.externalfunction)
         else:
-            df = self._solve_ode(self.Initial_Conditions.values(), self._Time, False)
+            df = self._solve_ode(self.Initial_Conditions.values(), self._xdata, False)
         #plotfunction
         if plotit == True:
             if len(self._Variables) == 1:
@@ -913,7 +924,7 @@ class DAErunner(object):
 
         return df
             
-    def _solve_ode(self, Initial_Conditions, Time, with_sens, **kwargs):
+    def _solve_ode(self, Initial_Conditions, xdata, with_sens, **kwargs):
         '''
         '''
         if self._has_externalfunction:
@@ -943,11 +954,11 @@ class DAErunner(object):
                 if self._print_on:
                     print("Going for odeint...")
                 if self._has_externalfunction:
-                    res = spin.odeint(self._fun_ODE, Initial_Conditions, Time,args=(self.Parameters,externalfunction,), **self.ode_solver_options)
+                    res = spin.odeint(self._fun_ODE, Initial_Conditions, xdata,args=(self.Parameters,externalfunction,), **self.ode_solver_options)
                 else:
-                    res = spin.odeint(self._fun_ODE, Initial_Conditions, Time,args=(self.Parameters,), **self.ode_solver_options)
+                    res = spin.odeint(self._fun_ODE, Initial_Conditions, xdata,args=(self.Parameters,), **self.ode_solver_options)
                 #put output in pandas dataframe
-                df = pd.DataFrame(res, index=Time, columns = self._Variables)                
+                df = pd.DataFrame(res, index=xdata, columns = self._Variables)                
     
     
             elif self.ode_procedure == "ode":
@@ -961,7 +972,7 @@ class DAErunner(object):
                     r.set_f_params(self.Parameters,externalfunction)                    
                 else:
                     r.set_f_params(self.Parameters)
-                dtt = Time[1:]-Time[:-1]
+                dtt = xdata[1:]-xdata[:-1]
                 print(dtt)
                 moutput = []
                 toutput = []
@@ -994,7 +1005,7 @@ class DAErunner(object):
                 else:
                     solver.set(f_args = (self.Parameters,))
                                 
-                u, t = solver.solve(Time)
+                u, t = solver.solve(xdata)
                 
                 df = pd.DataFrame(u, index = t, 
                                   columns = self._Variables)
@@ -1008,19 +1019,19 @@ class DAErunner(object):
                 if self._print_on:
                     print("Going for odeint...")
                 if self._has_externalfunction:
-                    res = spin.odeint(self._fun_ODE_LSA, np.hstack([np.array(Initial_Conditions),np.asarray(self.dxdtheta).flatten()]), Time,args=(self.Parameters,externalfunction,), **self.ode_solver_options)
+                    res = spin.odeint(self._fun_ODE_LSA, np.hstack([np.array(Initial_Conditions),np.asarray(self.dxdtheta).flatten()]), xdata,args=(self.Parameters,externalfunction,), **self.ode_solver_options)
                 else:
-                    res = spin.odeint(self._fun_ODE_LSA, np.hstack([np.array(Initial_Conditions),np.asarray(self.dxdtheta).flatten()]), Time,args=(self.Parameters,), **self.ode_solver_options)
+                    res = spin.odeint(self._fun_ODE_LSA, np.hstack([np.array(Initial_Conditions),np.asarray(self.dxdtheta).flatten()]), xdata,args=(self.Parameters,), **self.ode_solver_options)
                 #put output in pandas dataframe
-                df = pd.DataFrame(res[:,0:len(self._Variables)], index=Time,columns = self._Variables)
+                df = pd.DataFrame(res[:,0:len(self._Variables)], index=xdata,columns = self._Variables)
                 if self._has_algebraic:               
-                    self._ana_sens_matrix = res[:,len(self._Variables):].reshape(len(Time),len(self._Variables),len(self.Parameters))
+                    self._ana_sens_matrix = res[:,len(self._Variables):].reshape(len(xdata),len(self._Variables),len(self.Parameters))
                     #self._ana_sens_matrix = np.rollaxis(np.rollaxis(self._ana_sens_matrix,1,0),2,1)
                 analytical_sens = {}
                 for i in range(len(self._Variables)):
                     #Comment was bug!
                     #analytical_sens[self._Variables[i]] = pd.DataFrame(res[:,len(self._Variables)*(1+i):len(self._Variables)*(1+i)+len(self.Parameters)], index=self._Time,columns = self.Parameters.keys())
-                    analytical_sens[self._Variables[i]] = pd.DataFrame(res[:,len(self._Variables)+len(self.Parameters)*(i):len(self._Variables)+len(self.Parameters)*(1+i)], index=Time,columns = self.Parameters.keys())
+                    analytical_sens[self._Variables[i]] = pd.DataFrame(res[:,len(self._Variables)+len(self.Parameters)*(i):len(self._Variables)+len(self.Parameters)*(1+i)], index=xdata,columns = self.Parameters.keys())
                 
             elif self.ode_procedure == "ode":
                 if self._print_on:                
@@ -1033,10 +1044,10 @@ class DAErunner(object):
                     r.set_f_params(self.Parameters,externalfunction)                    
                 else:
                     r.set_f_params(self.Parameters)
-                dt = (Time[-1]-Time[0])/len(Time)
+                dt = (xdata[-1]-xdata[0])/len(xdata)
                 moutput = []
                 toutput = []
-                end_val = Time[-2]+1e-8
+                end_val = xdata[-2]+1e-8
                 if self._print_on:                
                     print("Starting ODE loop...")
                 while r.successful() and r.t < end_val:
@@ -1073,15 +1084,15 @@ class DAErunner(object):
                 
                 self.solver = solver
                 
-                u, t = solver.solve(Time)
+                u, t = solver.solve(xdata)
                                
-                df = pd.DataFrame(u[:,0:len(self._Variables)], index=Time,columns = self._Variables)
+                df = pd.DataFrame(u[:,0:len(self._Variables)], index=xdata,columns = self._Variables)
                 
                 if self._has_algebraic:               
-                    self._ana_sens_matrix = u[:,len(self._Variables):].reshape(len(Time),len(self._Variables),len(self.Parameters))
+                    self._ana_sens_matrix = u[:,len(self._Variables):].reshape(len(xdata),len(self._Variables),len(self.Parameters))
                 analytical_sens = {}
                 for i in range(len(self._Variables)):
-                    analytical_sens[self._Variables[i]] = pd.DataFrame(u[:,len(self._Variables)+len(self.Parameters)*(i):len(self._Variables)+len(self.Parameters)*(1+i)], index=Time,columns = self.Parameters.keys())
+                    analytical_sens[self._Variables[i]] = pd.DataFrame(u[:,len(self._Variables)+len(self.Parameters)*(i):len(self._Variables)+len(self.Parameters)*(1+i)], index=xdata,columns = self.Parameters.keys())
             
             else:
                 raise Exception('This ode_procedure is not available! Only odeint, ode and odespy are ')
@@ -1201,17 +1212,17 @@ class DAErunner(object):
                     print('...Done! Going to Algebraic LSA...')
 
                
-        algeb_out = np.empty((self._Time.size, len(self.Algebraic.keys()) ,len(self.Parameters)))         
+        algeb_out = np.empty((self._xdata.size, len(self.Algebraic.keys()) ,len(self.Parameters)))         
         
         if self._has_ODE:
             if self._has_externalfunction:
-                algeb_out = self._fun_alg_LSA(np.array(self.ode_solved), self._Time, self.Parameters, self.externalfunction, self._ana_sens_matrix)
+                algeb_out = self._fun_alg_LSA(np.array(self.ode_solved), self._xdata, self.Parameters, self.externalfunction, self._ana_sens_matrix)
             else:
-                algeb_out = self._fun_alg_LSA(np.array(self.ode_solved), self._Time, self.Parameters, self._ana_sens_matrix) 
+                algeb_out = self._fun_alg_LSA(np.array(self.ode_solved), self._xdata, self.Parameters, self._ana_sens_matrix) 
         elif self._has_externalfunction:
-            algeb_out = self._fun_alg_LSA(self._Time, self.Parameters, self.externalfunction)
+            algeb_out = self._fun_alg_LSA(self._xdata, self.Parameters, self.externalfunction)
         else:
-            algeb_out = self._fun_alg_LSA(self._Time, self.Parameters)   
+            algeb_out = self._fun_alg_LSA(self._xdata, self.Parameters)   
             
         self.algeb_out = algeb_out
                
@@ -1219,7 +1230,7 @@ class DAErunner(object):
         
         for i,key in enumerate(self.Algebraic.keys()):
             alg_dict[key] = pd.DataFrame(algeb_out[:,i,:], columns=self.Parameters.keys(), 
-                                 index = self._Time)
+                                 index = self._xdata)
               
         self.getAlgLSA = self._LSA_converter(self.algeb_solved, alg_dict, self.Algebraic.keys(), Sensitivity,'ALGSENS')
                 
@@ -1282,9 +1293,9 @@ class DAErunner(object):
         self.LSA_type = Sensitivity
 
         if self._has_externalfunction:
-            df, analytical_sens = self._solve_ode(self.Initial_Conditions.values(), self._Time, True, externalfunction = self.externalfunction)
+            df, analytical_sens = self._solve_ode(self.Initial_Conditions.values(), self._xdata, True, externalfunction = self.externalfunction)
         else:
-            df, analytical_sens = self._solve_ode(self.Initial_Conditions.values(), self._Time, True)   
+            df, analytical_sens = self._solve_ode(self.Initial_Conditions.values(), self._xdata, True)   
         
         self.analytical_sensitivity = self._LSA_converter(df, analytical_sens, self._Variables, Sensitivity,'ANASENS')
         
@@ -1294,7 +1305,7 @@ class DAErunner(object):
         
 
     def numeric_local_sensitivity(self, perturbation_factor = 0.0001, 
-                                  TimeStepsDict = False, 
+                                  xdataDict = False, 
                                   Initial_Conditions = False,
                                   Sensitivity = 'CAS'):
         '''Calculates numerical based local sensitivity 
@@ -1306,8 +1317,8 @@ class DAErunner(object):
         perturbation_factor : float (default 0.0001)
             factor for perturbation of the parameter value to approximate 
             the derivative
-        TimeStepsDict : False|dict
-            If False, the time-attribute is checked for and used. 
+        xdataStepsDict : False|dict
+            If False, the xdata-attribute is checked for and used. 
         Initial_Conditions : False|dict
             If False, the initial conditions  attribute is checked for and used.
         Sensitivity : string
@@ -1318,10 +1329,10 @@ class DAErunner(object):
         Returns
         --------
         numerical_sens : dict
-            each variable gets a t timesteps x k par DataFrame
+            each variable gets a t xdatasteps x k par DataFrame
             
         '''
-        self._check_for_time(TimeStepsDict)
+        self._check_for_xdata(xdataDict)
         self._check_for_init(Initial_Conditions)
         self.LSA_type = Sensitivity
          
@@ -1329,8 +1340,8 @@ class DAErunner(object):
         numerical_sens = {}
         for key in self._Variables:
             #belangrijk dat deze dummy in loop wordt geschreven!
-            dummy = np.empty((self._Time.size,len(self.Parameters)))
-            numerical_sens[key] = pd.DataFrame(dummy, index=self._Time, columns = self.Parameters.keys())
+            dummy = np.empty((self._xdata.size,len(self.Parameters)))
+            numerical_sens[key] = pd.DataFrame(dummy, index=self._xdata, columns = self.Parameters.keys())
         self._sens_plus = deepcopy(numerical_sens)
         self._sens_min = deepcopy(numerical_sens)
         
@@ -1574,9 +1585,9 @@ class DAErunner(object):
                 enzyme_forms.append(var)
 
         # Set up symbolic matrix of enzyme states
-        enzyme_equations = sympy.Matrix(sympy.sympify([self.System['d'+i] for i in enzyme_forms], sympy.abc._clash))       
+        enzyme_equations = sympy.Matrix(sympy.sympify([self.System['d'+i] for i in enzyme_forms], _clash))       
         # Set up symbolic matrix of enzymes
-        enzyme_forms = sympy.Matrix(sympy.sympify(enzyme_forms), sympy.abc._clash)
+        enzyme_forms = sympy.Matrix(sympy.sympify(enzyme_forms), _clash)
 
         coeff_matrix = sympy.zeros(len(enzyme_equations),len(enzyme_forms))        
         
@@ -1653,7 +1664,7 @@ class DAErunner(object):
         QSSE_enz = sympy.solve_linear_system(linear_system[1:,:],*list(enzyme_forms))
 
         # Replace enzyme forms by its QSSE in rate equation of variable of interest
-        QSSE_var = sympy.sympify(self.System['d' + variable], sympy.abc._clash)
+        QSSE_var = sympy.sympify(self.System['d' + variable], _clash)
         for enz in enzyme_forms:
             QSSE_var = QSSE_var.replace(enz,QSSE_enz[enz])
         
@@ -1727,14 +1738,14 @@ class DAErunner(object):
                 if var.startswith(variables):
                     var_forms.append(var)
                     string = string + '+' + self.System['d'+var]
-            massBalance = sympy.sympify(string, sympy.abc._clash)
+            massBalance = sympy.sympify(string, _clash)
         
         elif len_var > 1:
-            var_sym = sympy.sympify(variables, sympy.abc._clash)
+            var_sym = sympy.sympify(variables, _clash)
             # Set up symbolic matrix of system
-            system_matrix = sympy.Matrix(sympy.sympify(self.System.values(), sympy.abc._clash))
+            system_matrix = sympy.Matrix(sympy.sympify(self.System.values(), _clash))
             # Set up symbolic matrix of variables
-            states_matrix = sympy.Matrix(sympy.sympify(self._Variables, sympy.abc._clash))
+            states_matrix = sympy.Matrix(sympy.sympify(self._Variables, _clash))
             
             massBalance = 0
             for i,var in enumerate(states_matrix):
