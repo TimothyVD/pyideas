@@ -32,7 +32,12 @@ from ode_optimization import ode_optimizer
 
 from random import Random
 from time import time
-import inspyred #Global optimization
+try:
+    import inspyred #Global optimization
+    inspyred_import = True
+except:
+    print("Inspyred was not found, no global optimization possible!")
+    inspyred_import = False
 
 # Parallel calculations
 try:
@@ -758,6 +763,10 @@ class ode_FIM(object):
             Optimization instance
         
         '''
+        if not inspyred_import:
+            raise Exception('Inspyred could not be imported, please fix this before\
+                using OED_inner')            
+            
         self.selected_criterion = criterion
         
         if self.selected_criterion not in self.criteria_optimality_info:
@@ -991,6 +1000,9 @@ class ode_FIM(object):
                   parallel = False, nprocs = 1):
         '''
         '''
+        if not inspyred_import:
+            raise Exception('Inspyred could not be imported, please fix this before\
+                using OED_inner')          
         self.selected_criterion = criterion
         self._nprocs = int(nprocs)
         
