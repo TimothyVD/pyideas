@@ -20,6 +20,8 @@ else:
 import os
 import pandas as pd
 import pprint
+from colorama import init, Fore # Colored printing
+init()
 
 try:
     import odespy
@@ -146,7 +148,10 @@ class DAErunner(object):
         self._has_algebraic = True
         self._Outputs = self.Algebraic.keys()
         if self._has_ODE and not self._has_def_ODE:
+            self._checkParinODEandAlg()
             self._analytic_local_sensitivity()
+        else:
+            self._checkParinODEandAlg()
         self._alg_LSA()
         self.solve_fast_way = True
         
@@ -164,6 +169,40 @@ class DAErunner(object):
         #Sensitivity stuff
         self.LSA_type = None
         
+    def _checkParinODEandAlg(self):
+        '''Function checks whether all parameters are effectively used, if not
+           a red announcement is printed. If unknown parameters or variables are
+           present in the ODEs or Algebraic equation, an exception is raised.
+        '''       
+        allvariables = set()
+        
+        for i in self.Algebraic.values():
+            allvariables = allvariables.union(sympy.sympify(i, sympy.abc._clash).free_symbols)
+        
+        if self._has_ODE:
+            for i in self.System.values():
+                allvariables = allvariables.union(sympy.sympify(i, sympy.abc._clash).free_symbols)
+                   
+        parameters = set(sympy.sympify(self.Parameters.keys(), sympy.abc._clash))
+        
+        diff_par_allvar = parameters - allvariables
+        
+        if len(diff_par_allvar) != 0:
+            print(Fore.RED + 'Following parameters were not used: '+str(diff_par_allvar)+'\
+            Please check this! Continuing...')
+            Fore.RESET
+        
+        All_var = set(sympy.sympify(self.Algebraic.keys(), sympy.abc._clash))
+        if self._has_ODE:
+            All_var = All_var.union(set(sympy.sympify([i[1:] for i in self.System.keys()], sympy.abc._clash)))
+        
+        diff_allvar_par = allvariables - parameters
+        diff_allvar_var = diff_allvar_par - All_var
+        
+        if len(diff_allvar_var) != 0:
+            raise Exception('Unknown parameters or variables are part of the\
+            equation:' + str(diff_allvar_var)+'. Stopping calculation...!')
+            
     def _reset_parameters(self, Parameters):
         '''Parameter stuff
         
@@ -305,16 +344,16 @@ class DAErunner(object):
         '''    
         
         # Set up symbolic matrix of system states
-        system_matrix = sympy.Matrix(sympy.sympify(self.System.values()))
+        system_matrix = sympy.Matrix(sympy.sympify(self.System.values(), sympy.abc._clash))
         # Set up symbolic matrix of variables
-        states_matrix = sympy.Matrix(sympy.sympify(self._Variables))
+        states_matrix = sympy.Matrix(sympy.sympify(self._Variables, sympy.abc._clash))
         # Set up symbolic matrix of parameters
-        parameter_matrix = sympy.Matrix(sympy.sympify(self.Parameters.keys()))
+        parameter_matrix = sympy.Matrix(sympy.sympify(self.Parameters.keys(), sympy.abc._clash))
         
         # Replace algebraic stuff in system_matrix to perform LSA
         if self._has_algebraic:
             # Set up symbolic matrix of algebraic
-            algebraic_matrix = sympy.Matrix(sympy.sympify(self.Algebraic.keys()))
+            algebraic_matrix = sympy.Matrix(sympy.sympify(self.Algebraic.keys(), sympy.abc._clash))
             
             # Replace algebraic variables by its equations
             h = 0
@@ -350,8 +389,8 @@ class DAErunner(object):
             self.Algebraic_swapped
         except:        
             h = 0
-            algebraic_matrix = sympy.Matrix(sympy.sympify(self.Algebraic.values()))
-            algebraic_keys = sympy.Matrix(sympy.sympify(self.Algebraic.keys()))
+            algebraic_matrix = sympy.Matrix(sympy.sympify(self.Algebraic.values(), sympy.abc._clash))
+            algebraic_keys = sympy.Matrix(sympy.sympify(self.Algebraic.keys(), sympy.abc._clash))
             while (np.sum(np.abs(algebraic_matrix.jacobian(algebraic_keys))) != 0) and (h <= len(self.Algebraic.keys())):
                 for i, alg in enumerate(self.Algebraic.keys()):
                     algebraic_matrix = algebraic_matrix.replace(alg, self.Algebraic.values()[i])
@@ -375,9 +414,9 @@ class DAErunner(object):
         
         # Set up symbolic matrix of variables
         if self._has_ODE:
-            states_matrix = sympy.Matrix(sympy.sympify(self._Variables))
+            states_matrix = sympy.Matrix(sympy.sympify(self._Variables), sympy.abc._clash)
         # Set up symbolic matrix of parameters
-        parameter_matrix = sympy.Matrix(sympy.sympify(self.Parameters.keys()))
+        parameter_matrix = sympy.Matrix(sympy.sympify(self.Parameters.keys(), sympy.abc._clash))
  
         algebraic_matrix = self._alg_swap()             
                                 
@@ -1535,9 +1574,9 @@ class DAErunner(object):
                 enzyme_forms.append(var)
 
         # Set up symbolic matrix of enzyme states
-        enzyme_equations = sympy.Matrix(sympy.sympify([self.System['d'+i] for i in enzyme_forms]))       
+        enzyme_equations = sympy.Matrix(sympy.sympify([self.System['d'+i] for i in enzyme_forms], sympy.abc._clash))       
         # Set up symbolic matrix of enzymes
-        enzyme_forms = sympy.Matrix(sympy.sympify(enzyme_forms))
+        enzyme_forms = sympy.Matrix(sympy.sympify(enzyme_forms), sympy.abc._clash)
 
         coeff_matrix = sympy.zeros(len(enzyme_equations),len(enzyme_forms))        
         
@@ -1614,7 +1653,7 @@ class DAErunner(object):
         QSSE_enz = sympy.solve_linear_system(linear_system[1:,:],*list(enzyme_forms))
 
         # Replace enzyme forms by its QSSE in rate equation of variable of interest
-        QSSE_var = sympy.sympify(self.System['d' + variable])
+        QSSE_var = sympy.sympify(self.System['d' + variable], sympy.abc._clash)
         for enz in enzyme_forms:
             QSSE_var = QSSE_var.replace(enz,QSSE_enz[enz])
         
@@ -1688,14 +1727,14 @@ class DAErunner(object):
                 if var.startswith(variables):
                     var_forms.append(var)
                     string = string + '+' + self.System['d'+var]
-            massBalance = sympy.sympify(string)
+            massBalance = sympy.sympify(string, sympy.abc._clash)
         
         elif len_var > 1:
-            var_sym = sympy.sympify(variables)
+            var_sym = sympy.sympify(variables, sympy.abc._clash)
             # Set up symbolic matrix of system
-            system_matrix = sympy.Matrix(sympy.sympify(self.System.values()))
+            system_matrix = sympy.Matrix(sympy.sympify(self.System.values(), sympy.abc._clash))
             # Set up symbolic matrix of variables
-            states_matrix = sympy.Matrix(sympy.sympify(self._Variables))
+            states_matrix = sympy.Matrix(sympy.sympify(self._Variables, sympy.abc._clash))
             
             massBalance = 0
             for i,var in enumerate(states_matrix):
