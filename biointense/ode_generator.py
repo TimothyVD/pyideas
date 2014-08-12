@@ -21,7 +21,12 @@ import os
 import pandas as pd
 import pprint
 
-import odespy
+try:
+    import odespy
+    odespy_import = True
+except:
+    odespy_import = False
+    print("Odespy was not found, ODE integration is limited to 'odeint'!")
 
 from matplotlib import colors
 import matplotlib.pyplot as plt
@@ -874,6 +879,10 @@ class DAErunner(object):
         '''
         if self._has_externalfunction:
             externalfunction = kwargs.get('externalfunction')
+        
+        if self.ode_integrator == 'odespy' and odespy_import == False:
+            raise Exception('Odespy was not imported, so please choose another\
+            ode_procedure!')
 
         if (self.ode_procedure is not self._generated_ode_procedure) or \
                 (self._has_generated_model is False):
@@ -1617,6 +1626,8 @@ class DAErunner(object):
         self.QSSE_enz = QSSE_enz
         
     def QSSAtoModel(self, substrates, products):
+        '''
+        '''
         system = {}
         for i in substrates:
             system['d'+i] = '-QSSE'
@@ -1647,22 +1658,22 @@ class DAErunner(object):
             terms are shown.
             
         Examples
-        ----------
-        >>>System = {'dEn':'-k1*En*SA + k2*EnSA + kcat*EnSA',
+        ---------
+        >>> System = {'dEn':'-k1*En*SA + k2*EnSA + kcat*EnSA',
                      'dEnSA':'k1*En*SA - k2*EnSA - kcat*EnSA',
                      'dSA':'-k1*En*SA + k2*EnSA',
                      'dPP':'kcat*EnSA'}
-        >>>Parameters = {'k1':0,'k2':0,'kcat':0}
-        >>>Modelname = 'QSSA_MM'
-        >>>#INITIATE MODEL
-        >>>M1 = odegenerator(System, Parameters, Modelname = Modelname)
-        >>>M1.checkMassBalance(variables='En')
-        >>>#Or one could also write
-        >>>M1.checkMassBalance(variables='En + EnSA')
-        >>>#One could also make linear combination of mass balances, this is
+        >>> Parameters = {'k1':0,'k2':0,'kcat':0}
+        >>> Modelname = 'QSSA_MM'
+        >>> #INITIATE MODEL
+        >>> M1 = odegenerator(System, Parameters, Modelname = Modelname)
+        >>> M1.checkMassBalance(variables='En')
+        >>> #Or one could also write
+        >>> M1.checkMassBalance(variables='En + EnSA')
+        >>> #One could also make linear combination of mass balances, this is
         especially useful for systems like NO, NO2 and N2. In which the mass balance
         for N is equal to NO + NO2 + 2*N2 = 0.
-        >>>M1.checkMassBalance(variables='En + 2*EnSA')
+        >>> M1.checkMassBalance(variables='En + 2*EnSA')
             
         '''
         
