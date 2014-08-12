@@ -839,8 +839,19 @@ class ode_FIM(object):
                               max_evaluations=max_eval)#3000
 
         #put the best of the last population into the class attributes (WSSE, pars)
-       # self.optimize_evolution = pd.DataFrame(np.array(self.optimize_evolution),columns=self._get_fitting_parameters().keys()+['WSSE'])
+        # self.optimize_evolution = pd.DataFrame(np.array(self.optimize_evolution),columns=self._get_fitting_parameters().keys()+['WSSE'])    
+        
         self._model.set_time(self._model._TimeDict)
+        if sensmethod == 'analytical':
+            if self._model._has_ODE:
+                self._model.calcOdeLSA()
+            self._model.calcAlgLSA()
+            self.sensitivities = dict(self._model.getAlgLSA.items())
+        elif sensmethod == 'numerical':
+            self._model.numeric_local_sensitivity(*args,**kwargs)
+            self.sensitivities = self._model.numerical_sensitivity
+            
+        self._model.solve_algebraic()
                               
         # Sort and print the best individual, who will be at index 0.
         if add_plot == True:
