@@ -193,8 +193,9 @@ class DAErunner(object):
         if self._has_ODE:
             for i in self.System.values():
                 allvariables = allvariables.union(sympy.sympify(i, _clash).free_symbols)
-                   
+
         parameters = set(sympy.sympify(self.Parameters.keys(), _clash))
+      
         
         diff_par_allvar = parameters - allvariables
         
@@ -204,15 +205,18 @@ class DAErunner(object):
             Fore.RESET
         
         All_var = set(sympy.sympify(self.Algebraic.keys(), _clash))
+        print(All_var)
         if self._has_ODE:
             All_var = All_var.union(set(sympy.sympify([i[1:] for i in self.System.keys()], _clash)))
-        
+
         diff_allvar_par = allvariables - parameters
         diff_allvar_var = diff_allvar_par - All_var
         
-        if len(diff_allvar_var) != 0 and str(list(diff_allvar_var)[0]) != self._x_var:
+        if (len(diff_allvar_var) == 1) and str(list(diff_allvar_var)[0]) == self._x_var:
+            pass
+        elif len(diff_allvar_var) > 1:
             raise Exception('Unknown parameters or variables are part of the\
-            equation:' + str(diff_allvar_var)+'. Stopping calculation...!')
+            equation:' + str(diff_allvar_var - set([sympy.sympify(self._x_var, _clash)]))+'. Stopping calculation...!')
             
     def _reset_parameters(self, Parameters):
         '''Parameter stuff
