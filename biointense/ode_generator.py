@@ -196,7 +196,6 @@ class DAErunner(object):
 
         parameters = set(sympy.sympify(self.Parameters.keys(), _clash))
       
-        
         diff_par_allvar = parameters - allvariables
         
         if len(diff_par_allvar) != 0:
@@ -205,7 +204,6 @@ class DAErunner(object):
             Fore.RESET
         
         All_var = set(sympy.sympify(self.Algebraic.keys(), _clash))
-        print(All_var)
         if self._has_ODE:
             All_var = All_var.union(set(sympy.sympify([i[1:] for i in self.System.keys()], _clash)))
 
@@ -764,9 +762,10 @@ class DAErunner(object):
             else:
                 #Algebraic sens
                 if self._has_externalfunction:
-                    algebraic_sens += '\ndef _fun_alg_LSA('+self._x_var+',Parameters, input):\n'
+                    algebraic_sens += '\ndef _fun_alg_LSA('+self._x_var+',Parameters, input):\n\n'
                 else:
-                    algebraic_sens += '\ndef _fun_alg_LSA('+self._x_var+',Parameters):\n'
+                    algebraic_sens += '\ndef _fun_alg_LSA('+self._x_var+',Parameters):\n\n'
+                algebraic_sens += '    _temp_fix = np.zeros([len('+self._x_var+')])\n\n'
                 for i in range(len(self.Parameters)):
                     #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
                     algebraic_sens += '    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n"
@@ -785,11 +784,11 @@ class DAErunner(object):
                            
                 # Write dgdtheta as symbolic array
                 algebraic_sens += '    dgdtheta = '   
-                algebraic_sens += pprint.pformat(self.dgdtheta)
-
-                algebraic_sens += '\n\n    dydtheta = np.rollaxis(dgdtheta,2,0)\n'
+                algebraic_sens += pprint.pformat(self.dgdtheta + sympy.sympify('_temp_fix'))
+                
+                algebraic_sens += '\n\n    dydtheta = np.rollaxis(dgdtheta,2,0)'
     
-            algebraic_sens += '    return dydtheta'+'\n\n\n'
+            algebraic_sens += '\n\n    return dydtheta'+'\n\n\n'
         
         if self._has_ODE:
             exec(system)
@@ -1226,7 +1225,7 @@ class DAErunner(object):
         elif self._has_externalfunction:
             algeb_out = self._fun_alg_LSA(self._xdata, self.Parameters, self.externalfunction)
         else:
-            algeb_out = self._fun_alg_LSA(self._xdata, self.Parameters)   
+            algeb_out = self._fun_alg_LSA(self._xdata, self.Parameters)          
             
         self.algeb_out = algeb_out
                
