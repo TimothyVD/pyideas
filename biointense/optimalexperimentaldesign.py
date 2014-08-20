@@ -100,7 +100,6 @@ class ode_FIM(object):
         if sensmethod == 'analytical':
             self._model.calcAlgLSA()
             self.sensitivities = dict(self._model.getAlgLSA.items())
-            print(self.sensitivities)
         elif sensmethod == 'numerical':
             self._model.numeric_local_sensitivity(*args,**kwargs)
             self.sensitivities = self._model.numerical_sensitivity           

@@ -125,14 +125,17 @@ class DAErunner(object):
         
         self.modelname = kwargs.get('Modelname')
         if self._has_ODE:
-            print('This model has ODE(s), so the x variable has to be t.')
+	    if self._print_on:
+            	print('This model has ODE(s), so the x variable has to be t.')
             self._x_var = 't'
         else:
             try:
                 self._x_var = kwargs.get('x_var')
-                print('The x variable was defined, so ' + self._x_var + ' is set as x variable.')
+                if self._print_on:
+	            print('The x variable was defined, so ' + self._x_var + ' is set as x variable.')
             except:
-                print('No x variable was defined, so t is set as x variable.')
+		if self._print_on:
+                    print('No x variable was defined, so t is set as x variable.')
                 self._x_var = 't'
         
         try:
@@ -1269,7 +1272,8 @@ class DAErunner(object):
             raise Exception('You have to choose one of the sensitivity\
              methods which are available: CAS, CPRS or CTRS')
         
-        print(procedure+': The ' + sens_method + ' sensitivity method is used, do not\
+	if self._print_on:
+            print(procedure+': The ' + sens_method + ' sensitivity method is used, do not\
                 forget to check whether outputs can be compared!')
         return sens_matrix
     
