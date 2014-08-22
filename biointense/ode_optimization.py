@@ -373,6 +373,28 @@ class ode_optimizer(object):
 
         return self.optimize_info
 
+    def basinhopping(self, initial_parset=None, niter=100, T=1.0, stepsize=0.5, minimizer_kwargs=None, 
+                     take_step=None, accept_test=None, callback=None, interval=50, 
+                     disp=False, niter_success=None, add_plot = True):
+        '''Use the basinhopping algorithm to find global minima
+        
+        '''
+        
+        #if initial parameter set given, use this, run and save 
+        parray = self._pre_optimize_save(initial_parset=initial_parset)
+        self.optimize_evolution = []
+        self.optimize_evolution.append(self._get_fitting_parameters().values()+[self.get_WSSE()[0]])
+
+
+        self.optimize_info = optimize.basinhopping(self._track_WSSE, parray, niter=niter, T=T, stepsize=stepsize, 
+                              minimizer_kwargs=minimizer_kwargs, take_step=take_step, accept_test=accept_test,
+                              callback=callback, interval=interval, disp=disp, niter_success=niter_success)
+        self.optimize_evolution = pd.DataFrame(np.array(self.optimize_evolution),columns=self._get_fitting_parameters().keys()+['WSSE'])
+        
+        if add_plot == True:
+            self._add_optimize_plot()
+
+        return self.optimize_info
 
     def set_fitting_par_distributions(self,pardistrlist):
         """

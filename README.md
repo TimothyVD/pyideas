@@ -9,6 +9,7 @@ TO DO
 -----
 * Unit testing
 * SBML support (export and import)
+* Add ABC package (MCMC) (http://www.theosysbio.bio.ic.ac.uk/resources/abc-sysbio/Background/)
 * Use ode_FIM directly on odegenerator
 * Make input structure of model definition more generic
 	* Parameters (theta)
