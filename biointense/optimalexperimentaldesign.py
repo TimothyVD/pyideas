@@ -849,7 +849,7 @@ class ode_FIM(object):
         #put the best of the last population into the class attributes (WSSE, pars)
         # self.optimize_evolution = pd.DataFrame(np.array(self.optimize_evolution),columns=self._get_fitting_parameters().keys()+['WSSE'])    
         
-        self._model.set_time(self._model._xdataDict)
+        self._model.set_xdata(self._model._xdataDict)
         if sensmethod == 'analytical':
             if self._model._has_ODE:
                 self._model.calcOdeLSA()
@@ -1053,7 +1053,7 @@ class ode_FIM(object):
 
         #put the best of the last population into the class attributes (WSSE, pars)
        # self.optimize_evolution = pd.DataFrame(np.array(self.optimize_evolution),columns=self._get_fitting_parameters().keys()+['WSSE'])
-        self._model.set_time(self._model._xdataDict)
+        self._model.set_xdata(self._model._xdataDict)
                               
         # Sort and print the best individual, who will be at index 0.
         if add_plot == True:
