@@ -776,7 +776,7 @@ class ode_FIM(object):
             else:
                 maximize = False
                 
-        self._model._Time = np.linspace(self.time_min, self.time_max, 1e4)
+        self._model._xdata = np.linspace(self.time_min, self.time_max, 1e4)
         if sensmethod == 'analytical':
             if self._model._has_ODE:
                 self._model.calcOdeLSA()
@@ -803,7 +803,7 @@ class ode_FIM(object):
 #        FIM_timestep = np.einsum('ijk,ilm->ijl',np.einsum('ijk,ill->ijl',sensmatrix,\
 #                               np.linalg.inv(np.atleast_3d(self._ECM_PD))),sensmatrix)
         
-        self._FIM_interp1d = sp.interpolate.interp1d(self._model._Time, FIM_timestep.T)
+        self._FIM_interp1d = sp.interpolate.interp1d(self._model._xdata, FIM_timestep.T)
 
         FIM = None
         sensmatrix = None        
@@ -849,7 +849,7 @@ class ode_FIM(object):
         #put the best of the last population into the class attributes (WSSE, pars)
         # self.optimize_evolution = pd.DataFrame(np.array(self.optimize_evolution),columns=self._get_fitting_parameters().keys()+['WSSE'])    
         
-        self._model.set_time(self._model._TimeDict)
+        self._model.set_time(self._model._xdataDict)
         if sensmethod == 'analytical':
             if self._model._has_ODE:
                 self._model.calcOdeLSA()
@@ -1053,7 +1053,7 @@ class ode_FIM(object):
 
         #put the best of the last population into the class attributes (WSSE, pars)
        # self.optimize_evolution = pd.DataFrame(np.array(self.optimize_evolution),columns=self._get_fitting_parameters().keys()+['WSSE'])
-        self._model.set_time(self._model._TimeDict)
+        self._model.set_time(self._model._xdataDict)
                               
         # Sort and print the best individual, who will be at index 0.
         if add_plot == True:
