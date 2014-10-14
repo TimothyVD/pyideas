@@ -1594,7 +1594,7 @@ class DAErunner(object):
         # Set up symbolic matrix of enzyme states
         enzyme_equations = sympy.Matrix(sympy.sympify([self.System['d'+i] for i in enzyme_forms], _clash))       
         # Set up symbolic matrix of enzymes
-        enzyme_forms = sympy.Matrix(sympy.sympify(enzyme_forms), _clash)
+        enzyme_forms = sympy.Matrix(sympy.sympify(enzyme_forms, _clash))
 
         coeff_matrix = sympy.zeros(len(enzyme_equations),len(enzyme_forms))        
         
