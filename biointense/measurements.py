@@ -82,7 +82,11 @@ class ode_measurements(object):
                 else:
                     self.Data = measdata.set_index(xdata)                                
             else:
-                self.Data = measdata
+		xdata_index = measdata.index.name
+		measdata = measdata.reset_index()
+		measdata[xdata_index] = measdata[xdata_index].astype(np.float64)
+		measdata = measdata.set_index(xdata_index)
+		self.Data = measdata
                 if self._print_on:
                     print('index of dataframe is seen as measurement xdata, and colnames are the measured variables')
                 
