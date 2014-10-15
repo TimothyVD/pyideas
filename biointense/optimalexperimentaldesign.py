@@ -775,7 +775,8 @@ class ode_FIM(object):
                 maximize = True
             else:
                 maximize = False
-                
+               
+        _temp_xdata = self._model._xdata 
         self._model._xdata = np.linspace(self.time_min, self.time_max, 1e4)
         if sensmethod == 'analytical':
             if self._model._has_ODE:
@@ -848,8 +849,9 @@ class ode_FIM(object):
 
         #put the best of the last population into the class attributes (WSSE, pars)
         # self.optimize_evolution = pd.DataFrame(np.array(self.optimize_evolution),columns=self._get_fitting_parameters().keys()+['WSSE'])    
-        
-        self._model.set_xdata(self._model._xdataDict)
+       
+        self._original_first_point = False 
+        self._model._xdata = _temp_xdata
         if sensmethod == 'analytical':
             if self._model._has_ODE:
                 self._model.calcOdeLSA()
