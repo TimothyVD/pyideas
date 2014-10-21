@@ -23,6 +23,8 @@ TO DO
 	* measurements
 	* modeloptimizer
 	* modelFIM
+* Make calculations with only Algebraic equation easier (allow multiple undependent variables)
+* Allow data to be added for multiple experiments (using multi-index or ....) so that all those experiments can be used at once to optimize/fit the model
 * Make one function calcLSA to switch between numeric and analytical function
 * Rename output numerical and analytical sensitivity
 * Add algebraic sensitivity to calculation directly
