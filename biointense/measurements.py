@@ -11,6 +11,7 @@ from __future__ import division
 import warnings
 import sys
 import os
+import math
 
 import numpy as np
 import pandas as pd
@@ -294,6 +295,11 @@ class ode_measurements(object):
             for var in self.Data.columns:
                 measerr = self.Meas_Errors[var]
                 self._Error_Covariance_Matrix_PD[var] = measerr
+
+	# All values which should be nan are set to 1e30 (this is done by checking this with the data)
+        # because in that way they are ignored. This is of importance when data is missing for one var
+        # but not for the other one. Otherwise the FIM would be altered.
+	self._Error_Covariance_Matrix_PD *= self.Data.applymap(lambda x: 1e30 if math.isnan(x) else 1)
                            
         
 
