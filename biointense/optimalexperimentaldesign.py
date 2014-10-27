@@ -14,6 +14,7 @@ import datetime
 import numpy as np
 import scipy as sp
 import sympy
+import math
 
 import pandas as pd
 from scipy import optimize,stats
@@ -201,11 +202,16 @@ class ode_FIM(object):
         
         # Perform FIM calculation
         # FIM = dy/dx*1/Q*[dy/dx]^T
+
+	# Calculate inverse of ECM_PD
+        ECM_inv = np.linalg.inv(np.eye(len(self.get_measured_outputs()))*np.atleast_3d(ECM_PD))
+        # Set all very low numbers to zero (just a precaution, so that solutions would be the
+        # the same as the old get_FIM method). This is probably not necessary!
+	ECM_inv[ECM_inv < 1e-20] = 0.
         FIM_timestep = np.einsum('ijk,ikl->ijl',
                                       np.einsum('ijk,ikl->ijl',sensmatrix[sens_start:,:,:], 
-                                      np.linalg.inv(np.eye(len(self.get_measured_outputs()))*np.atleast_3d(ECM_PD)))
+                                      ECM_inv)
                                ,np.rollaxis(sensmatrix[sens_start:,:,:],2,1))
-        
         FIM = np.sum(FIM_timestep, axis = 0)
         return FIM, FIM_timestep, sensmatrix
 
@@ -474,7 +480,7 @@ class ode_FIM(object):
             the interval and the relative uncertainty in percent.
         
         '''
-        ECM = np.linalg.inv(FIM)
+        ECM = np.array(np.linalg.inv(FIM))
 
         CI = np.zeros([ECM.shape[1],8]) 
         
@@ -501,7 +507,7 @@ class ode_FIM(object):
                 between the parameters.')
             else:
                 print('T_values seem ok, all parameters can be regarded as reliable.')
-            
+           
         CI = pd.DataFrame(CI,columns=['value','lower','upper','delta','percent','t_value','t_reference','significant'],index=self.Parameters.keys())
                
         return CI
@@ -530,7 +536,8 @@ class ode_FIM(object):
         
         for j,timestep in enumerate(self._data.get_measured_xdata()):
             for i, var in enumerate(self.sensitivities.values()):
-                sens_step[:,i] = var.ix[timestep]
+                # Only use sensitivity of fitting parameters
+                sens_step[:,i] = var.ix[timestep][self.Parameters.keys()]
             omega[j,:,:] = sens_step.T*ECM*sens_step
               
         self.model_prediction_ECM = omega
