@@ -298,7 +298,28 @@ class ode_measurements(object):
 	# All values which should be nan are set to 1e50 (this is done by checking this with the data)
         # because in that way they are ignored. This is of importance when data is missing for one var
         # but not for the other one. Otherwise the FIM would be altered.
-	self._Error_Covariance_Matrix_PD += self.Data.applymap(lambda x: 1e50 if math.isnan(x) else 0)
+	self._Error_Covariance_Matrix_PD += self.Data.applymap(lambda x: 1e50 if math.isnan(x) else 0)            
+        
+    def set_error_datapoint(self, time, output, error):
+        r'''
+        A function to set the absolute error of a certain output at a certain
+        time. Especially handy if you want to set the error of some points
+        specifically.
+        
+        Parameters
+        -----------
+        time : int or float
+            time at which the error of the output should be set
+        output : string
+            output of interest
+        error : float
+            absolute error for that specific time/variable
+            
+        '''
+        # Error should be set in ECM dict and ECM pd, however we
+        # ignore any covariance between the different outputs.
+        self._Error_Covariance_Matrix_PD[var].loc[time] = error
+        self._Error_Covariance_Matrix[time][var][var] = error
 
         #Create Multi-Index -> not working
 #        arrays = [['Model']*len(self._data.get_measured_variables())+['Meas']*len(self._data.get_measured_variables()),self._data.get_measured_variables()*2]
