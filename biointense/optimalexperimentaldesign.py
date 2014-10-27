@@ -956,7 +956,11 @@ class ode_FIM(object):
         FIM_timestep = None
         sensmatrix = None
         
-        return self._evaluator(FIM)
+        self._evaluated_FIM = self._evaluator(FIM)
+        return self._evaluated_FIM
+    
+    def _get_evaluated_FIM(self):
+            return self._evaluated_FIM
         
     def _get_objective_outer(self, candidates, args):
         '''
@@ -974,7 +978,7 @@ class ode_FIM(object):
         job_server = pp.Server()
         job_list = []
         for cs in candidates:
-            job_list.append(job_server.submit(self._model_evaluation, (cs,)))
+            job_list.append(job_server.submit(self._model_evaluation, args=(cs,), callback=self._get_evaluated_FIM), globals=globals())
         fitness = [job() for job in job_list]
 
         return fitness
