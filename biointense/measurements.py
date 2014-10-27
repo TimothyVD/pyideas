@@ -40,14 +40,13 @@ class ode_measurements(object):
     
     def __init__(self, measdata, xdata = 'time', *args, **kwargs):
         '''
-        '''
+        '''       
         if kwargs.get('print_on') == None:
             self._print_on = True
         else:
             self._print_on = kwargs.get('print_on')
             
         if isinstance(measdata, dict):
-            self.xdata = xdata
             #Different variables names in key-names
             if 'variables' in measdata:
                 if not 'values' in measdata:
@@ -83,11 +82,11 @@ class ode_measurements(object):
                 else:
                     self.Data = measdata.set_index(xdata)                                
             else:
-		xdata_index = measdata.index.name
-		measdata = measdata.reset_index()
-		measdata[xdata_index] = measdata[xdata_index].astype(np.float64)
-		measdata = measdata.set_index(xdata_index)
-		self.Data = measdata
+                measdata.index.name = xdata
+                measdata = measdata.reset_index()
+                measdata[xdata] = measdata[xdata].astype(np.float64)
+                measdata = measdata.set_index(xdata)
+                self.Data = measdata
                 if self._print_on:
                     print('index of dataframe is seen as measurement xdata, and colnames are the measured variables')
                 
