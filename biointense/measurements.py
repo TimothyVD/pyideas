@@ -295,13 +295,10 @@ class ode_measurements(object):
                 measerr = self.Meas_Errors[var]
                 self._Error_Covariance_Matrix_PD[var] = measerr
 
-	# All values which should be nan are set to 1e30 (this is done by checking this with the data)
+	# All values which should be nan are set to 1e50 (this is done by checking this with the data)
         # because in that way they are ignored. This is of importance when data is missing for one var
         # but not for the other one. Otherwise the FIM would be altered.
-	self._Error_Covariance_Matrix_PD *= self.Data.applymap(lambda x: 1e30 if math.isnan(x) else 1)
-                           
-        
-
+	self._Error_Covariance_Matrix_PD += self.Data.applymap(lambda x: 1e50 if math.isnan(x) else 0)
 
         #Create Multi-Index -> not working
 #        arrays = [['Model']*len(self._data.get_measured_variables())+['Meas']*len(self._data.get_measured_variables()),self._data.get_measured_variables()*2]
