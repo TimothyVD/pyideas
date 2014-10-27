@@ -161,11 +161,11 @@ class DAErunner(object):
         self.Algebraic =  collections.OrderedDict(sorted(Algebraic.items(),key=lambda t: t[0]))
         self._has_algebraic = True
         self._Outputs = self.Algebraic.keys()
+        self._check_parameters = kwargs.get('check_parameters')
+        if self._check_parameters:
+            self._checkParinODEandAlg()
         if self._has_ODE and not self._has_def_ODE:
-            self._checkParinODEandAlg()
             self._analytic_local_sensitivity()
-        else:
-            self._checkParinODEandAlg()
         self._alg_LSA()
         self.solve_fast_way = True
         
