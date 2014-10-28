@@ -128,7 +128,7 @@ class odemaker(object):
         self.system_list = system_list
         
         if self._print_on:
-            print('...Done!')
+            print('... Done!')
         
     def passToOdeGenerator(self):
         return DAErunner(ODE = self.system, Parameters = self.parameters, Modelname = self.modelname)
