@@ -162,7 +162,11 @@ class DAErunner(object):
         self._has_algebraic = True
         self._Outputs = self.Algebraic.keys()
         self._check_parameters = kwargs.get('check_parameters')
-        if self._check_parameters:
+        if self._check_parameters is None:
+            self._check_parameters = True
+        else:
+            self._check_parameters = False
+	if self._check_parameters:
             self._checkParinODEandAlg()
         if self._has_ODE and not self._has_def_ODE:
             self._analytic_local_sensitivity()
@@ -494,7 +498,7 @@ class DAErunner(object):
             if self._print_on:             
                 print('Updated initial conditions are used')
               
-    def makeStepFunction(self,array_list, accuracy=0.001):
+    def makeStepFunction(self,array_list, accuracy=0.001, method='pre'):
         '''makeStepFunction
         
         A function for making multiple steps or pulses, the function can be used
@@ -504,15 +508,21 @@ class DAErunner(object):
         
         Parameters
         -----------
-        array_list: list
+        array_list : list
             Contains list of arrays with 2 columns and an undefined number of rows. 
             In the first column of the individual arrays the time at which a step
             is made. In the second column the value the function should go to.
-        accuracy: float
+        accuracy : float
             What is the maximal timestep for going from one value to another. By 
             increasing this value, less problems are expected with the solver. However
             accuracy will be decreases. The standard value is 0.001, but depending 
             on the system dynamics this can be altered.
+        method : string
+            How should the stepfunction be made? Two options: center means that at a
+            certain point x-accuracy/2 the previous value will be valid and for 
+            x+accuracy/2 the new value will be valid. If you use 'pre' at a point
+            x-accuracy the previous value will be valid while at x the new value is
+            valid.
 
         Returns
         -------
@@ -533,11 +543,18 @@ class DAErunner(object):
                 raise Exception("The first value of the stepfunction should be given at time 0!")
             x[0] = array[0,0]
             y[0] = array[0,1]
-            for i in range(array_len-1):
-                x[2*i+1] = array[i+1,0]-accuracy/2
-                y[2*i+1] = array[i,1]
-                x[2*(i+1)] = array[i+1,0]+accuracy/2
-                y[2*(i+1)] = array[i+1,1]
+            if method == 'center':
+                for i in range(array_len-1):
+                    x[2*i+1] = array[i+1,0]-accuracy/2
+                    y[2*i+1] = array[i,1]
+                    x[2*(i+1)] = array[i+1,0]+accuracy/2
+                    y[2*(i+1)] = array[i+1,1]
+            elif method == 'pre':
+                for i in range(array_len-1):
+                    x[2*i+1] = array[i+1,0]-accuracy
+                    y[2*i+1] = array[i,1]
+                    x[2*(i+1)] = array[i+1,0]
+                    y[2*(i+1)] = array[i+1,1]
             x[-1] = 1e15
             y[-1] = array[-1,1]
             
@@ -819,7 +836,7 @@ class DAErunner(object):
             self._fun_alg = None
             self._fun_alg_LSA = None
         if self._print_on:
-            print('...All functions are generated!')
+            print('... All functions are generated!')
 
         
     def solve_algebraic(self, plotit = True):
@@ -849,7 +866,7 @@ class DAErunner(object):
                     else:
                         algeb_out =self._fun_alg(np.array(self.ode_solved), self._xdata, self.Parameters)             
                 elif self._has_externalfunction:
-                    algeb_out = self._fun_alg(np.array(self.ode_solved), self._xdata, self.Parameters)
+                    algeb_out = self._fun_alg(self._xdata, self.Parameters, self.externalfunction)
                 else:
                     algeb_out = self._fun_alg(self._xdata, self.Parameters)  
             #except:
@@ -948,7 +965,7 @@ class DAErunner(object):
             self._generate_model(procedure = self.ode_procedure)
             self._has_generated_model = True
             if self._print_on:
-                print('...Finished writing to file!')
+                print('... Finished writing to file!')
         elif self._print_on:
             print("Model was already written to file! We are using the '" + \
                 self.ode_procedure + "' procedure for solving ODEs. If you want to rewrite \
@@ -993,7 +1010,7 @@ class DAErunner(object):
                         moutput.append(r.y)
                         toutput.append(r.t)
                 if self._print_on:
-                    print("...Done!")
+                    print("... Done!")
                                    
                 #make df
                 df = pd.DataFrame(moutput, index = toutput, 
@@ -1062,7 +1079,7 @@ class DAErunner(object):
                     moutput.append(r.y)
                     toutput.append(r.t)
                 if self._print_on:
-                    print("...Done!")
+                    print("... Done!")
                 
                 moutput = np.array(moutput)
                 df = pd.DataFrame(moutput[:,0:len(self._Variables)], index=toutput,columns = self._Variables)
@@ -1215,7 +1232,7 @@ class DAErunner(object):
                     print('Running ODE LSA...')
                 self.calcOdeLSA()
                 if self._print_on:
-                    print('...Done! Going to Algebraic LSA...')
+                    print('... Done! Going to Algebraic LSA...')
 
                
         algeb_out = np.empty((self._xdata.size, len(self.Algebraic.keys()) ,len(self.Parameters)))         
