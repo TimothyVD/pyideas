@@ -273,7 +273,7 @@ class ode_FIM(object):
                 print('FIM matrix is calculated...')
             self.get_FIM()
             if self._print_on:
-                print('... done!')
+                print('... Done!')
 
     def A_criterion(self, *args):
         '''OED design A criterion
@@ -570,19 +570,22 @@ class ode_FIM(object):
         sigma = {}
         np.zeros([time_len,5])
         
-        if self._data.get_measured_xdata()[0] == 0:
-            time_uncertainty = self._data.get_measured_xdata()[1:]
-        else:
-            time_uncertainty = self._data.get_measured_xdata()
+        #if self._data.get_measured_xdata()[0] == 0:
+	#    time_uncertainty = self._data.get_measured_xdata()[1:]
+        #else:
+        time_uncertainty = self._data.get_measured_xdata()
 
         for i,var in enumerate(self.get_measured_outputs()):
             sigma_var = np.zeros([time_len,5])
-            sigma_var[0,0:3] = self._model.algeb_solved[var].ix[0]
+            #sigma_var[0,0:3] = self._model.algeb_solved[var].ix[0]
             for j,timestep in enumerate(time_uncertainty):
-                sigma_var[j,0] = self._model.algeb_solved[var].ix[timestep]
-                sigma_var[j,1:3] = stats.t.interval(alpha,sum(self._data.Data.count())-par_len,loc=sigma_var[j,0],scale=np.sqrt(self.model_prediction_ECM[j,:,:].diagonal()[i]))
-                sigma_var[j,3] = abs((sigma_var[j,2]-sigma_var[j,0]))
-                sigma_var[j,4] = abs(sigma_var[j,3]/sigma_var[j,0])*100
+                if self._model.algeb_solved[var].ix[timestep] == 0:
+                    sigma_var[j,0:5] = 0
+                else:
+		    sigma_var[j,0] = self._model.algeb_solved[var].ix[timestep]
+                    sigma_var[j,1:3] = stats.t.interval(alpha,sum(self._data.Data.count())-par_len,loc=sigma_var[j,0],scale=np.sqrt(self.model_prediction_ECM[j,:,:].diagonal()[i]))
+                    sigma_var[j,3] = abs((sigma_var[j,2]-sigma_var[j,0]))
+                    sigma_var[j,4] = abs(sigma_var[j,3]/sigma_var[j,0])*100
             sigma_var = pd.DataFrame(sigma_var,columns=['value','lower','upper','delta','percent'],index=self._data.get_measured_xdata())       
             sigma[var] = sigma_var
         
