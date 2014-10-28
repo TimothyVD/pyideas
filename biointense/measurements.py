@@ -92,6 +92,10 @@ class ode_measurements(object):
                 
         elif isinstance(measdata, pd.Series):
             self.Data = pd.DataFrame(measdata)
+            self.Data.index.name = xdata
+            self.Data = self.Data.reset_index()
+            self.Data[xdata] = self.Data[xdata].astype(np.float64)
+            self.Data = self.Data.set_index(xdata)
         
         else:
             raise Exception('Measured Data must be added as pandas DataFrame or dictionary of np arrays')
