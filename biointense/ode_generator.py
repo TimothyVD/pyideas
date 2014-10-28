@@ -145,8 +145,8 @@ class DAErunner(object):
             
             self._has_def_algebraic = kwargs.get('has_def_algebraic')
             if self._has_def_algebraic and self._print_on:
-                print('You defined your own function, please make sure this function is provided in\
-                    '+self.modelname+'.py as Algebraic_outputs'+'(self._xdata, self.Parameters)')
+                print(('You defined your own function, please make sure this function is provided in\n'
+                       ''+self.modelname+'.py as Algebraic_outputs'+'(self._xdata, self.Parameters)'))
         except:
             if self._has_ODE:
                 Algebraic = {}
@@ -220,8 +220,8 @@ class DAErunner(object):
         if (len(diff_allvar_var) == 1) and str(list(diff_allvar_var)[0]) == self._x_var:
             pass
         elif len(diff_allvar_var) > 1:
-            raise Exception('Unknown parameters or variables are part of the\
-            equation:' + str(diff_allvar_var - set([sympy.sympify(self._x_var, _clash)]))+'. Stopping calculation...!')
+            raise Exception(('Unknown parameters or variables are part of the\n'
+            'equation:' + str(diff_allvar_var - set([sympy.sympify(self._x_var, _clash)]))+'. Stopping calculation...!'))
             
     def _reset_parameters(self, Parameters):
         '''Parameter stuff
@@ -1270,10 +1270,10 @@ class DAErunner(object):
             #CTRS
             if min(df.mean()) == 0 or max(df.mean()) == 0:
                 self.LSA_type = None
-                raise Exception(procedure+': It is not possible to use the CTRS method for\
-                    calculating sensitivity, because one or more variables are\
-                    fixed at zero. Try to use another method or to change the\
-                    initial conditions!')
+                raise Exception(procedure+': It is not possible to use the CTRS method for\n'
+                    'calculating sensitivity, because one or more variables are\n'
+                    'fixed at zero. Try to use another method or to change the\n'
+                    'initial conditions!')
             elif min(df.min()) == 0 or max(df.max()) == 0:
                 if self._print_on:                
                     print(procedure+' Using AVERAGE of output values')
@@ -1286,12 +1286,12 @@ class DAErunner(object):
                      sens_matrix[i] = sens_matrix[i]*self.Parameters.values()/np.tile(np.array(df[i]),(len(self.Parameters),1)).T
         elif sens_method != 'CAS':
             self.LSA_type = None
-            raise Exception('You have to choose one of the sensitivity\
-             methods which are available: CAS, CPRS or CTRS')
+            raise Exception('You have to choose one of the sensitivity\n'
+             'methods which are available: CAS, CPRS or CTRS')
         
 	if self._print_on:
-            print(procedure+': The ' + sens_method + ' sensitivity method is used, do not\
-                forget to check whether outputs can be compared!')
+            print((procedure+': The ' + sens_method + ' sensitivity method is used, do not\n'
+                  'forget to check whether outputs can be compared!'))
         return sens_matrix
     
     def analytic_local_sensitivity(self, Sensitivity = 'CAS'):
@@ -1782,7 +1782,7 @@ class DAErunner(object):
             if massBalance == 0:
                 print("The mass balance is closed!")
             else:
-                print("The mass balance is NOT closed for the enzyme forms of '" + variables +"'! \
-                    The following term(s) cannot be striked out: " + str(massBalance))
+                print(("The mass balance is NOT closed for the enzyme forms of '" + variables +"'! \n"
+                    "The following term(s) cannot be striked out: " + str(massBalance)))
         
         return massBalance

@@ -91,9 +91,9 @@ class ode_optimizer(object):
         
         #All parameters are set as fitting
         if self._print_on:
-	    print("All parameters are set as fitting parameters, if you want to \
-            fit only some parameters, one should use \
-            self.set_fitting_parameters({'par1':val1,'par2':val2})")
+	    print(("All parameters are set as fitting parameters, if you want to\n"
+            "fit only some parameters, one should use\n"
+            "self.set_fitting_parameters({'par1':val1,'par2':val2})"))
         self.set_fitting_parameters(self._model.Parameters)
         
         self._distributions_set = False
