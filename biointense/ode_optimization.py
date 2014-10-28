@@ -57,7 +57,7 @@ class ode_optimizer(object):
         '''
         '''
         
-        if kwargs.get('print_on') == None:
+        if kwargs.get('print_on') is None:
             self._print_on = True
         else:
             self._print_on = kwargs.get('print_on')
@@ -167,7 +167,7 @@ class ode_optimizer(object):
         ATTENTION: Zero-point also added, need to be excluded for optimization
         '''
         #run option        
-        if parset != None:
+        if parset is not None:
             #run model first with new parameters
             for par in self._get_fitting_parameters().keys():
                 self._model.Parameters[par] = parset[par]
@@ -195,7 +195,7 @@ class ode_optimizer(object):
         ATTENTION: Zero-point also added, need to be excluded for optimization
         '''
         #run option        
-        if parset != None:
+        if parset is not None:
             #run model first with new parameters
             for par in self._get_fitting_parameters().keys():
                 self._model.Parameters[par] = parset[par]
@@ -223,7 +223,8 @@ class ode_optimizer(object):
         Omlin and Reichert, 1999; Vanrolleghem and Dochain, 1998)
 
         '''
-        if pararray != None:
+	# Was !=, but this gives future_warning numpy
+        if pararray is not None:
             self._solve_for_opt(parset = self._parmapper(pararray))
         else:
             self._solve_for_opt()
@@ -309,7 +310,7 @@ class ode_optimizer(object):
         """
         """
         self._Pre_Optimize = ode_optim_saver()
-        if initial_parset != None:
+        if initial_parset is not None:
             #control for similarity and update the fitting pars 
             initial_parset = collections.OrderedDict(sorted(initial_parset.items(), key=lambda t: t[0]))
             if (sorted(initial_parset.keys()) != sorted(self._get_fitting_parameters().keys())) and self._print_on:
@@ -773,7 +774,7 @@ class ode_optimizer(object):
         if variable not in self._data.get_measured_variables():
             raise Exception('This variable is not listed as measurement')
         
-        if ax == None:
+        if ax is None:
             fig,ax = plt.subplots(1,1)
 
         #prepare dataframe
