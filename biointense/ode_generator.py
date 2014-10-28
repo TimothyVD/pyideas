@@ -125,16 +125,16 @@ class DAErunner(object):
         
         self.modelname = kwargs.get('Modelname')
         if self._has_ODE:
-	    if self._print_on:
-            	print('This model has ODE(s), so the x variable has to be t.')
+            if self._print_on:
+                print('This model has ODE(s), so the x variable has to be t.')
             self._x_var = 't'
         else:
             try:
                 self._x_var = kwargs.get('x_var')
                 if self._print_on:
-	            print('The x variable was defined, so ' + self._x_var + ' is set as x variable.')
+                    print('The x variable was defined, so ' + self._x_var + ' is set as x variable.')
             except:
-		if self._print_on:
+                if self._print_on:
                     print('No x variable was defined, so t is set as x variable.')
                 self._x_var = 't'
         
@@ -565,6 +565,60 @@ class DAErunner(object):
                 
         return stepfunction
         
+                  
+    def makeStepFunctionNew(self,array_dict, accuracy=0.001):
+        '''makeStepFunction
+        
+        A function for making multiple steps or pulses, the function can be used
+        as an Algebraic equation. Just call stepfunction(t) for using the stepfunction 
+        functionality. At this moment only one stepfunction can be used at a time, but
+        can be included in multiple variables.
+        
+        Parameters
+        -----------
+        array_dict: dict
+            Contains list of arrays with 2 columns and an undefined number of rows. 
+            In the first column of the individual arrays the time at which a step
+            is made. In the second column the value the function should go to.
+        accuracy: float
+            What is the maximal timestep for going from one value to another. By 
+            increasing this value, less problems are expected with the solver. However
+            accuracy will be decreases. The standard value is 0.001, but depending 
+            on the system dynamics this can be altered.
+
+        Returns
+        -------
+        stepfunction: function
+            Function which automatically interpolates in between the steps which
+            were given. Can also be called as self.stepfunction
+       
+        '''
+        functions_dict = {}        
+        
+        for item in array_dict.items():
+            array = item[1]            
+            if array.shape[1] != 2:
+                raise Exception("The input array should have 2 columns!")
+            array_len = array.shape[0]
+            x = np.zeros(2*array_len)
+            y = np.zeros(2*array_len)
+            if array[0,0] != 0:
+                raise Exception("The first value of the stepfunction should be given at time 0!")
+            x[0] = array[0,0]
+            y[0] = array[0,1]
+            for i in range(array_len-1):
+                x[2*i+1] = array[i+1,0]-accuracy/2
+                y[2*i+1] = array[i,1]
+                x[2*(i+1)] = array[i+1,0]+accuracy/2
+                y[2*(i+1)] = array[i+1,1]
+            x[-1] = 1e15
+            y[-1] = array[-1,1]
+            
+            functions_dict[item[0]] = spint.interp1d(x, y)
+                
+        return functions_dict
+
+        
     def addExternalFunction(self, function):
         '''
         Add external function to the biointense module
@@ -575,7 +629,20 @@ class DAErunner(object):
         self.externalfunction = function
         self._has_externalfunction = True  
         self._has_generated_model = False
+
+    def addExternalFunctionNew(self, functions_dict):
+        '''
+        Add external function to the biointense module
         
+        Comparable to stepfunction but more general now!
+        '''
+        functions_dict = collections.OrderedDict(sorted(functions_dict.items(), key=lambda t: t[0]))
+        
+        self._externalvariables = functions_dict.keys()
+        self.externalfunction = functions_dict.values()
+        self._has_externalfunction = True  
+        self._has_generated_model = False
+       
     def _generate_model(self, procedure = 'ode'):
         '''Write derivative of model as definition in file
         
@@ -631,8 +698,9 @@ class DAErunner(object):
             system +='\n'
             
             if self._has_externalfunction:
-                for i, step in enumerate(self.externalfunction):
-                    system +='    input'+str(i) + ' = input['+str(i)+'](t)'+'\n'
+                for i, ext_var in enumerate(self._externalvariables):
+                    system +='    '+ ext_var + ' = input['+str(i)+'](t)'+'\n'
+                    #system +='    input'+str(i) + ' = input['+str(i)+'](t)'+'\n'
                 system +='\n'
                 
             if self._has_algebraic:
@@ -665,8 +733,10 @@ class DAErunner(object):
                 LSA_analytical += '    '+str(self.System.keys()[i])[1:] + ' = ODES['+str(i)+']\n'
             LSA_analytical += '\n'
             if self._has_externalfunction:
-                for i, step in enumerate(self.externalfunction):
-                    LSA_analytical += '    input'+str(i) + ' = input['+str(i)+'](t)'+'\n'
+                #for i, step in enumerate(self.externalfunction):
+                for i, ext_var in enumerate(self._externalvariables):
+                    LSA_analytical +='    '+ ext_var + ' = input['+str(i)+'](t)'+'\n'
+                    #LSA_analytical += '    input'+str(i) + ' = input['+str(i)+'](t)'+'\n'
                 LSA_analytical += '\n'
             if self._has_algebraic:
                 for i in range(len(self.Algebraic)):
@@ -718,8 +788,10 @@ class DAErunner(object):
                         algebraic += '    '+str(self.System.keys()[i])[1:] + ' = ODES['+str(i)+']\n'
                 algebraic += '\n'
             if self._has_externalfunction:
-                for i, step in enumerate(self.externalfunction):
-                    algebraic += '    input'+str(i) + ' = input['+str(i)+']('+self._x_var+')'+'\n'
+                for i, ext_var in enumerate(self._externalvariables):
+                    algebraic +='    '+ ext_var + ' = input['+str(i)+']('+self._x_var+')'+'\n'
+                #for i, step in enumerate(self.externalfunction):
+                    #algebraic += '    input'+str(i) + ' = input['+str(i)+']('+self._x_var+')'+'\n'
                 algebraic += '\n'
             for i in range(len(self.Algebraic)):
                 #file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+' + zeros(len(t))\n')
@@ -751,8 +823,10 @@ class DAErunner(object):
                         algebraic_sens += '    '+str(self.System.keys()[i])[1:] + ' = ODES['+str(i)+']\n'
                 algebraic_sens += '\n'
                 if self._has_externalfunction:
-                    for i, step in enumerate(self.externalfunction):
-                        algebraic_sens += '    input'+str(i) + ' = input['+str(i)+'](t)'+'\n'
+                    for i, ext_var in enumerate(self._externalvariables):
+                        algebraic_sens +='    '+ ext_var + ' = input['+str(i)+'](t)'+'\n'
+                    #for i, step in enumerate(self.externalfunction):
+                    #    algebraic_sens += '    input'+str(i) + ' = input['+str(i)+'](t)'+'\n'
                     algebraic_sens += '\n'
                 for i in range(len(self.Algebraic)):
                     algebraic_sens += '    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic_swapped[i]) +'\n'
@@ -791,8 +865,10 @@ class DAErunner(object):
                     algebraic_sens += '    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n"
                 algebraic_sens += '\n'
                 if self._has_externalfunction:
-                    for i, step in enumerate(self.externalfunction):
-                        algebraic_sens += '    input'+str(i) + ' = input['+str(i)+'](t)'+'\n'
+                    #for i, step in enumerate(self.externalfunction):
+                    for i, ext_var in enumerate(self._externalvariables):
+                        algebraic_sens +='    '+ ext_var + ' = input['+str(i)+'](t)'+'\n'
+                     #   algebraic_sens += '    input'+str(i) + ' = input['+str(i)+'](t)'+'\n'
                     algebraic_sens += '\n'
                 for i in range(len(self.Algebraic)):
                     #file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
