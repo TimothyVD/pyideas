@@ -96,10 +96,17 @@ class DAErunner(object):
 
         '''
         
-        if kwargs.get('print_on') == None:
-            self._print_on = True
-        else:
+        self._check_kwargs(kwargs.keys())
+        
+        if 'print_on' in kwargs:
             self._print_on = kwargs.get('print_on')
+        else:
+            self._print_on = True
+            
+        if 'external_par' in kwargs:
+            self._external_par = kwargs.get('external_par')
+        else:
+            self._external_par = []
 
         self._has_def_algebraic = False
         self._has_def_ODE = False
@@ -161,13 +168,7 @@ class DAErunner(object):
         self.Algebraic =  collections.OrderedDict(sorted(Algebraic.items(),key=lambda t: t[0]))
         self._has_algebraic = True
         self._Outputs = self.Algebraic.keys()
-        self._check_parameters = kwargs.get('check_parameters')
-        if self._check_parameters is None:
-            self._check_parameters = True
-        else:
-            self._check_parameters = False
-	if self._check_parameters:
-            self._checkParinODEandAlg()
+        self._checkParinODEandAlg()
         if self._has_ODE and not self._has_def_ODE:
             self._analytic_local_sensitivity()
         self._alg_LSA()
@@ -186,6 +187,29 @@ class DAErunner(object):
 
         #Sensitivity stuff
         self.LSA_type = None
+    
+    @staticmethod
+    def _check_kwargs(kwargs_keys):
+        '''
+        '''
+        valid_kwargs = ['Algebraic','external_par','has_def_ODE','has_def_algebraic',
+                        'Modelname','Parameters','print_on','ODE','x_var']
+        
+        unvalid_kwargs = set(kwargs_keys) - set(valid_kwargs)
+
+        unvalid = ', '.join(unvalid_kwargs)
+        valid0 = ', '.join(valid_kwargs[:4])
+        valid1 = ', '.join(valid_kwargs[4:])        
+        
+        if len(unvalid_kwargs) > 0:
+            raise Exception(
+            ('Following kwargs are not valid: \n'
+            ''+unvalid+' !\n'
+            'Only the following kwargs are valid:\n'
+            ''+valid0+'\n'
+            ''+valid1+''))
+        else:
+            pass
         
     def _checkParinODEandAlg(self):
         '''Function checks whether all parameters are effectively used, if not
@@ -193,6 +217,7 @@ class DAErunner(object):
            present in the ODEs or Algebraic equation, an exception is raised.
         '''       
         allvariables = set()
+        external_par = set(sympy.sympify(self._external_par))
         
         for i in self.Algebraic.values():
             allvariables = allvariables.union(sympy.sympify(i, _clash).free_symbols)
@@ -203,25 +228,30 @@ class DAErunner(object):
 
         parameters = set(sympy.sympify(self.Parameters.keys(), _clash))
       
+        # Check whether unused parameters where defined
         diff_par_allvar = parameters - allvariables
         
         if len(diff_par_allvar) != 0:
-            print(Fore.RED + 'Following parameters were not used: '+str(diff_par_allvar)+'\
-            Please check this! Continuing...')
-            Fore.RESET
+            print((Fore.RED + 'Following parameters were not used: \n'
+            ''+ str(diff_par_allvar) +'\n'
+            'Please check this! Continuing...'+Fore.RESET))
         
         All_var = set(sympy.sympify(self.Algebraic.keys(), _clash))
         if self._has_ODE:
             All_var = All_var.union(set(sympy.sympify([i[1:] for i in self.System.keys()], _clash)))
 
+        # Check whether necessary parameters where not defined
         diff_allvar_par = allvariables - parameters
-        diff_allvar_var = diff_allvar_par - All_var
+        diff_allvar_var = diff_allvar_par - All_var - external_par
         
-        if (len(diff_allvar_var) == 1) and str(list(diff_allvar_var)[0]) == self._x_var:
+        if (len(diff_allvar_var) == 0):
             pass
-        elif len(diff_allvar_var) > 1:
+        elif (len(diff_allvar_var) == 1) and (str(list(diff_allvar_var)[0]) == self._x_var):
+            pass
+        else:
             raise Exception(('Unknown parameters or variables are part of the\n'
-            'equation:' + str(diff_allvar_var - set([sympy.sympify(self._x_var, _clash)]))+'. Stopping calculation...!'))
+            'equation:' + str(diff_allvar_var - set([sympy.sympify(self._x_var, _clash)])- external_par) +'\n'
+            +'. Stopping calculation...!'))
             
     def _reset_parameters(self, Parameters):
         '''Parameter stuff
@@ -496,77 +526,10 @@ class DAErunner(object):
         else:
             self.set_xdata(xdatasteps)
             if self._print_on:             
-                print('Updated initial conditions are used')
-              
-    def makeStepFunction(self,array_list, accuracy=0.001, method='pre'):
-        '''makeStepFunction
-        
-        A function for making multiple steps or pulses, the function can be used
-        as an Algebraic equation. Just call stepfunction(t) for using the stepfunction 
-        functionality. At this moment only one stepfunction can be used at a time, but
-        can be included in multiple variables.
-        
-        Parameters
-        -----------
-        array_list : list
-            Contains list of arrays with 2 columns and an undefined number of rows. 
-            In the first column of the individual arrays the time at which a step
-            is made. In the second column the value the function should go to.
-        accuracy : float
-            What is the maximal timestep for going from one value to another. By 
-            increasing this value, less problems are expected with the solver. However
-            accuracy will be decreases. The standard value is 0.001, but depending 
-            on the system dynamics this can be altered.
-        method : string
-            How should the stepfunction be made? Two options: center means that at a
-            certain point x-accuracy/2 the previous value will be valid and for 
-            x+accuracy/2 the new value will be valid. If you use 'pre' at a point
-            x-accuracy the previous value will be valid while at x the new value is
-            valid.
-
-        Returns
-        -------
-        stepfunction: function
-            Function which automatically interpolates in between the steps which
-            were given. Can also be called as self.stepfunction
-       
-        '''
-        stepfunction = []        
-        
-        for n,array in enumerate(array_list):
-            if array.shape[1] != 2:
-                raise Exception("The input array should have 2 columns!")
-            array_len = array.shape[0]
-            x = np.zeros(2*array_len)
-            y = np.zeros(2*array_len)
-            if array[0,0] != 0:
-                raise Exception("The first value of the stepfunction should be given at time 0!")
-            x[0] = array[0,0]
-            y[0] = array[0,1]
-            if method == 'center':
-                for i in range(array_len-1):
-                    x[2*i+1] = array[i+1,0]-accuracy/2
-                    y[2*i+1] = array[i,1]
-                    x[2*(i+1)] = array[i+1,0]+accuracy/2
-                    y[2*(i+1)] = array[i+1,1]
-            elif method == 'pre':
-                for i in range(array_len-1):
-                    x[2*i+1] = array[i+1,0]-accuracy
-                    y[2*i+1] = array[i,1]
-                    x[2*(i+1)] = array[i+1,0]
-                    y[2*(i+1)] = array[i+1,1]
-            x[-1] = 1e15
-            y[-1] = array[-1,1]
-            
-            if n is 0:
-                stepfunction = [spint.interp1d(x, y)]
-            else:
-                stepfunction.append(spint.interp1d(x, y))
-                
-        return stepfunction
-        
-                  
-    def makeStepFunctionNew(self,array_dict, accuracy=0.001):
+                print('Updated initial conditions are used')  
+    
+    @staticmethod           
+    def makeStepFunction(array_dict, accuracy=0.001, method='full'):
         '''makeStepFunction
         
         A function for making multiple steps or pulses, the function can be used
@@ -585,6 +548,14 @@ class DAErunner(object):
             increasing this value, less problems are expected with the solver. However
             accuracy will be decreases. The standard value is 0.001, but depending 
             on the system dynamics this can be altered.
+        method : string
+            There are two possible interpolation methods available: the standard
+            method is 'full', in which the value of a certain xdata t is reached
+            at that specific t. The interpolation will already start at t-accuracy.
+            For the second method 'half' the value at a certain xdata t is only half
+            of the value it should reached. For example y is now equal to 200 and
+            you want to go to 400 (by using a step at t), then by using the method
+            'half' you will be at 300 at t. You will only reach 400 at t+accuracy.
 
         Returns
         -------
@@ -606,11 +577,18 @@ class DAErunner(object):
                 raise Exception("The first value of the stepfunction should be given at time 0!")
             x[0] = array[0,0]
             y[0] = array[0,1]
-            for i in range(array_len-1):
-                x[2*i+1] = array[i+1,0]-accuracy/2
-                y[2*i+1] = array[i,1]
-                x[2*(i+1)] = array[i+1,0]+accuracy/2
-                y[2*(i+1)] = array[i+1,1]
+            if method == 'half':
+                for i in range(array_len-1):
+                    x[2*i+1] = array[i+1,0]-accuracy/2
+                    y[2*i+1] = array[i,1]
+                    x[2*(i+1)] = array[i+1,0]+accuracy/2
+                    y[2*(i+1)] = array[i+1,1]
+            elif method == 'full':
+                for i in range(array_len-1):
+                    x[2*i+1] = array[i+1,0]-accuracy
+                    y[2*i+1] = array[i,1]
+                    x[2*(i+1)] = array[i+1,0]
+                    y[2*(i+1)] = array[i+1,1]
             x[-1] = 1e15
             y[-1] = array[-1,1]
             
@@ -618,19 +596,7 @@ class DAErunner(object):
                 
         return functions_dict
 
-        
-    def addExternalFunction(self, function):
-        '''
-        Add external function to the biointense module
-        
-        Comparable to stepfunction but more general now!
-        '''
-        
-        self.externalfunction = function
-        self._has_externalfunction = True  
-        self._has_generated_model = False
-
-    def addExternalFunctionNew(self, functions_dict):
+    def addExternalFunction(self, functions_dict):
         '''
         Add external function to the biointense module
         
@@ -699,7 +665,7 @@ class DAErunner(object):
             
             if self._has_externalfunction:
                 for i, ext_var in enumerate(self._externalvariables):
-                    system +='    '+ ext_var + ' = input['+str(i)+'](t)'+'\n'
+                    system +='    '+ ext_var + ' = input['+str(i)+']('+self._x_var+')'+'\n'
                     #system +='    input'+str(i) + ' = input['+str(i)+'](t)'+'\n'
                 system +='\n'
                 
@@ -717,14 +683,14 @@ class DAErunner(object):
             # Write function for solving ODEs of both system and analytical sensitivities
             if self._has_externalfunction:
                 if self.ode_procedure == "ode":
-                    LSA_analytical += 'def _fun_ODE_LSA(t,ODES,Parameters,input):\n'
+                    LSA_analytical += 'def _fun_ODE_LSA('+self._x_var+',ODES,Parameters,input):\n'
                 else:
-                    LSA_analytical += 'def _fun_ODE_LSA(ODES,t,Parameters,input):\n'
+                    LSA_analytical += 'def _fun_ODE_LSA(ODES,'+self._x_var+',Parameters,input):\n'
             else:
                 if self.ode_procedure == "ode":
-                    LSA_analytical += 'def _fun_ODE_LSA(t,ODES,Parameters):\n'
+                    LSA_analytical += 'def _fun_ODE_LSA('+self._x_var+',ODES,Parameters):\n'
                 else:
-                    LSA_analytical += 'def _fun_ODE_LSA(ODES,t,Parameters):\n'
+                    LSA_analytical += 'def _fun_ODE_LSA(ODES,'+self._x_var+',Parameters):\n'
             for i in range(len(self.Parameters)):
                 #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
                 LSA_analytical += '    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n"
@@ -735,7 +701,7 @@ class DAErunner(object):
             if self._has_externalfunction:
                 #for i, step in enumerate(self.externalfunction):
                 for i, ext_var in enumerate(self._externalvariables):
-                    LSA_analytical +='    '+ ext_var + ' = input['+str(i)+'](t)'+'\n'
+                    LSA_analytical +='    '+ ext_var + ' = input['+str(i)+']('+self._x_var+')'+'\n'
                     #LSA_analytical += '    input'+str(i) + ' = input['+str(i)+'](t)'+'\n'
                 LSA_analytical += '\n'
             if self._has_algebraic:
@@ -824,7 +790,7 @@ class DAErunner(object):
                 algebraic_sens += '\n'
                 if self._has_externalfunction:
                     for i, ext_var in enumerate(self._externalvariables):
-                        algebraic_sens +='    '+ ext_var + ' = input['+str(i)+'](t)'+'\n'
+                        algebraic_sens +='    '+ ext_var + ' = input['+str(i)+']('+self._x_var+')'+'\n'
                     #for i, step in enumerate(self.externalfunction):
                     #    algebraic_sens += '    input'+str(i) + ' = input['+str(i)+'](t)'+'\n'
                     algebraic_sens += '\n'
@@ -836,13 +802,13 @@ class DAErunner(object):
                 algebraic_sens += '\n    #Sensitivities\n\n'
                            
                 # Write dgdtheta as symbolic array
-                algebraic_sens += '    dgdtheta = np.zeros([len(t), ' + str(len(self.Algebraic.keys())) + ', ' + str(len(self.Parameters.keys())) + '])\n'
+                algebraic_sens += '    dgdtheta = np.zeros([len('+self._x_var+'), ' + str(len(self.Algebraic.keys())) + ', ' + str(len(self.Parameters.keys())) + '])\n'
                 for i, alg in enumerate(self.Algebraic.keys()):
                     for j, par in enumerate(self.Parameters.keys()):
                         algebraic_sens += '    dgdtheta[:,' + str(i) + ',' + str(j) +'] = ' + str(self.dgdtheta[i,j])+'\n'
 
                 # Write dgdx as symbolic array
-                algebraic_sens += '    dgdx = np.zeros([len(t), ' + str(len(self.Algebraic.keys())) + ', ' + str(len(self.System.keys())) + '])\n'
+                algebraic_sens += '    dgdx = np.zeros([len('+self._x_var+'), ' + str(len(self.Algebraic.keys())) + ', ' + str(len(self.System.keys())) + '])\n'
                 for i, alg in enumerate(self.Algebraic.keys()):
                     for j, par in enumerate(self.System.keys()):
                         algebraic_sens += '    dgdx[:,' + str(i) + ',' + str(j) +'] = ' + str(self.dgdx[i,j])+'\n'
@@ -867,7 +833,7 @@ class DAErunner(object):
                 if self._has_externalfunction:
                     #for i, step in enumerate(self.externalfunction):
                     for i, ext_var in enumerate(self._externalvariables):
-                        algebraic_sens +='    '+ ext_var + ' = input['+str(i)+'](t)'+'\n'
+                        algebraic_sens +='    '+ ext_var + ' = input['+str(i)+']('+self._x_var+')'+'\n'
                      #   algebraic_sens += '    input'+str(i) + ' = input['+str(i)+'](t)'+'\n'
                     algebraic_sens += '\n'
                 for i in range(len(self.Algebraic)):
