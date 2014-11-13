@@ -825,33 +825,33 @@ class DAErunner(object):
                     algebraic_sens += '\ndef _fun_alg_LSA('+self._x_var+',Parameters, input):\n\n'
                 else:
                     algebraic_sens += '\ndef _fun_alg_LSA('+self._x_var+',Parameters):\n\n'
-                algebraic_sens += '    _temp_fix = np.zeros([len('+self._x_var+')])\n\n'
+                algebraic_sens += ' _temp_fix = np.zeros([len('+self._x_var+')])\n\n'
                 for i in range(len(self.Parameters)):
-                    #file.write('    '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
-                    algebraic_sens += '    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n"
+                    #file.write(' '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
+                    algebraic_sens += ' '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n"
                 algebraic_sens += '\n'
                 if self._has_externalfunction:
                     #for i, step in enumerate(self.externalfunction):
                     for i, ext_var in enumerate(self._externalvariables):
-                        algebraic_sens +='    '+ ext_var + ' = input['+str(i)+']('+self._x_var+')'+'\n'
-                     #   algebraic_sens += '    input'+str(i) + ' = input['+str(i)+'](t)'+'\n'
+                        algebraic_sens +=' '+ ext_var + ' = input['+str(i)+']('+self._x_var+')'+'\n'
+                     # algebraic_sens += ' input'+str(i) + ' = input['+str(i)+'](t)'+'\n'
                     algebraic_sens += '\n'
                 for i in range(len(self.Algebraic)):
-                    #file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
-                    algebraic_sens += '    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic_swapped[i])+'\n'
+                    #file.write(' '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
+                    algebraic_sens += ' '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic_swapped[i])+'\n'
                 algebraic_sens += '\n'
                 if self._print_on:
                     print('Algebraic sensitivities are printed to the file....')
-                algebraic_sens += '\n    #Sensitivities\n\n'
+                algebraic_sens += '\n #Sensitivities\n\n'
                            
                 # Write dgdtheta as symbolic array
-                algebraic_sens += '    dgdtheta = '   
+                algebraic_sens += ' dgdtheta = '
                 algebraic_sens += pprint.pformat(self.dgdtheta + sympy.sympify('_temp_fix'))
                 
-                algebraic_sens += '\n\n    dydtheta = np.rollaxis(dgdtheta,2,0)'
+                algebraic_sens += '\n\n dydtheta = np.rollaxis(dgdtheta,2,0)'
     
-            algebraic_sens += '\n\n    return dydtheta'+'\n\n\n'
-        
+            algebraic_sens += '\n\n return dydtheta'+'\n\n\n'
+            
         if self._has_ODE:
             exec(system)
             exec(LSA_analytical)
