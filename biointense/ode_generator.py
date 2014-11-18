@@ -134,17 +134,17 @@ class DAErunner(object):
         if self._has_ODE:
             if self._print_on:
                 print('This model has ODE(s), so the x variable has to be t.')
-            self._x_var = 't'
+	    self._x_var = 't'
         else:
-            try:
+            if 'x_var' in kwargs:
                 self._x_var = kwargs.get('x_var')
                 if self._print_on:
                     print('The x variable was defined, so ' + self._x_var + ' is set as x variable.')
-            except:
+            else:
+                self._x_var = 't'
                 if self._print_on:
                     print('No x variable was defined, so t is set as x variable.')
-                self._x_var = 't'
-        
+                     
         try:
             Algebraic = kwargs.get('Algebraic')
             if self._print_on:

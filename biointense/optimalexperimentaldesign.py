@@ -659,14 +659,35 @@ class ode_FIM(object):
         
         if self._print_on:
             print(stats.f_value(s_squared,0,n_p_r,1000))
-    
-    def _get_objective_inner(self, candidates, args):
+
+    def _get_objective_inner_bioinspyred(self, candidates, args):
         '''
         '''
         fitness = []
         for cs in candidates:
-            fitness.append(self._evaluator(np.sum(self._FIM_interp1d(cs),axis = 2)))
+            fitness.append(self._get_objective_inner(cs))
         return fitness
+    
+    def _get_objective_inner(self, cs):
+        '''
+        '''
+        cs_fitness = self._evaluator(np.sum(self._FIM_interp1d(cs),axis = 2))
+        # If minimum distance is set between the experiments, then this is checked
+        # and penalized if not ok
+        if self.min_distance != None:
+            if np.min(np.ediff1d(np.sort(cs))) < self.min_distance:
+                # Dependent on the criterium, a maximization/minimization is
+                # performed. This has to be taken into account for penalizing
+                # bad experiments.
+	        if self.criteria_optimality_info[self.selected_criterion] == 'max':
+                    constraint_fitness = 0.0
+                else:
+                    constraint_fitness = 1E6*cs_fitness
+            else:
+                constraint_fitness = cs_fitness
+        else:
+            constraint_fitness = cs_fitness
+        return constraint_fitness
         
     def _sample_generator_inner(self,random,args):
         '''Generate samples for inner OED optimization.
@@ -851,7 +872,7 @@ class ode_FIM(object):
 
         ea.terminator = inspyred.ec.terminators.evaluation_termination
         final_pop = ea.evolve(generator=self._sample_generator_inner, 
-                              evaluator=self._get_objective_inner, 
+                              evaluator=self._get_objective_inner_bioinspyred, 
                               pop_size=pop_size, 
                               bounder=inspyred.ec.Bounder(lower_bound = lower_bound, upper_bound = upper_bound),
                               maximize=maximize,
