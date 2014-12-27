@@ -95,7 +95,6 @@ class DAErunner(object):
         '''
 
         '''
-        
         self._check_kwargs(kwargs.keys())
         
         if 'print_on' in kwargs:
@@ -111,20 +110,20 @@ class DAErunner(object):
         self._has_def_algebraic = False
         self._has_def_ODE = False
         self.Parameters = collections.OrderedDict(sorted(kwargs.get('Parameters').items(), key=lambda t: t[0]))  
-        try:        
+        if 'ODE' in kwargs:        
             self.System = collections.OrderedDict(sorted(kwargs.get('ODE').items(), key=lambda t: t[0]))    
             self._Variables = [i[1:] for i in self.System.keys()]  
             self._has_ODE = True
-            try:
+            if 'has_def_ODE' in kwargs:
                 self._has_def_ODE = kwargs.get('has_def_ODE')
                 if self._has_def_ODE and self._print_on:
                     print('ODE(s) were defined by user')
-            except:
+            else:
                 pass
             
             if self._print_on:
                 print(str(len(self.System)) + ' ODE(s) was/were defined. Continuing...')
-        except:
+        else:
             if self._print_on:
                 print('No ODES defined. Continuing...')
             self._has_ODE = False
@@ -144,8 +143,8 @@ class DAErunner(object):
                 self._x_var = 't'
                 if self._print_on:
                     print('No x variable was defined, so t is set as x variable.')
-                     
-        try:
+        
+        if 'Algebraic' in kwargs:
             Algebraic = kwargs.get('Algebraic')
             if self._print_on:
                 print(str(len(Algebraic)) + ' Algebraic equation(s) was/were defined. Continuing...')
@@ -154,7 +153,7 @@ class DAErunner(object):
             if self._has_def_algebraic and self._print_on:
                 print(('You defined your own function, please make sure this function is provided in\n'
                        ''+self.modelname+'.py as Algebraic_outputs'+'(self._xdata, self.Parameters)'))
-        except:
+        else:
             if self._has_ODE:
                 Algebraic = {}
                 for i in self._Variables:
@@ -404,12 +403,11 @@ class DAErunner(object):
         if self._has_algebraic:
             # Set up symbolic matrix of algebraic
             algebraic_matrix = sympy.Matrix(sympy.sympify(self.Algebraic.keys(), _clash))
-            
             # Replace algebraic variables by its equations
             h = 0
             while (np.sum(np.abs(system_matrix.jacobian(algebraic_matrix))) != 0) and (h <= len(self.Algebraic.keys())):
                 for i, alg in enumerate(self._Outputs):
-                    system_matrix = system_matrix.replace(alg, self.Algebraic.values()[i])
+                    system_matrix = system_matrix.replace(sympy.sympify(alg, _clash), sympy.sympify(self.Algebraic.values()[i], _clash))
                 h += 1
                          
         # Initialize and calculate matrices for analytic sensitivity calculation
@@ -443,7 +441,7 @@ class DAErunner(object):
             algebraic_keys = sympy.Matrix(sympy.sympify(self.Algebraic.keys(), _clash))
             while (np.sum(np.abs(algebraic_matrix.jacobian(algebraic_keys))) != 0) and (h <= len(self.Algebraic.keys())):
                 for i, alg in enumerate(self.Algebraic.keys()):
-                    algebraic_matrix = algebraic_matrix.replace(alg, self.Algebraic.values()[i])
+                    algebraic_matrix = algebraic_matrix.replace(sympy.sympify(alg, _clash), sympy.sympify(self.Algebraic.values()[i], _clash))
                 h += 1
             
             self.Algebraic_swapped = algebraic_matrix
