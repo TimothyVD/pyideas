@@ -1060,7 +1060,7 @@ class DAErunner(object):
                 if self._print_on:
                     print("Going for odespy methodology...")
                 solver = eval("odespy." + self.ode_integrator + "(self._fun_ODE)")
-                if self.ode_solver_options != None:                
+                if self.ode_solver_options != None:
                     solver.set(**self.ode_solver_options)
                 solver.set_initial_condition(Initial_Conditions)
                 if self._has_externalfunction:
