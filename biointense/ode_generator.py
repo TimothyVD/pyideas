@@ -21,8 +21,6 @@ else:
 import os
 import pandas as pd
 import pprint
-from colorama import init, Fore # Colored printing
-init()
 
 try:
     import odespy
@@ -231,9 +229,9 @@ class DAErunner(object):
         diff_par_allvar = parameters - allvariables
         
         if len(diff_par_allvar) != 0:
-            print((Fore.RED + 'Following parameters were not used: \n'
+            print(('Following parameters were not used: \n'
             ''+ str(diff_par_allvar) +'\n'
-            'Please check this! Continuing...'+Fore.RESET))
+            'Please check this! Continuing...'))
         
         All_var = set(sympy.sympify(self.Algebraic.keys(), _clash))
         if self._has_ODE:
