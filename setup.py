@@ -68,9 +68,7 @@ setup(name='Biointense',
       author='Timothy Van Daele & Stijn Van Hoey',
       author_email='github@biomath.ugent.be',
       url='https://github.ugent.be/biomath/biointense',
-      packages=['biointense', 'biointense.odemaker','biointense.odegenerator',
-                'biointense.ode_measurements','biointense.ode_optimizer',
-                'biointense.ode_FIM'],
+      packages=['biointense'],
       platforms='any'
      )
 
