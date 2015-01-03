@@ -849,8 +849,6 @@ class DAErunner(object):
             algebraic_sens += '\n\n    return dydtheta'+'\n\n\n'
             
         if self._has_ODE:
-            print(system)
-            print(LSA_analytical)
             exec(system)
             exec(LSA_analytical)
             self._fun_ODE_str = system
@@ -864,8 +862,6 @@ class DAErunner(object):
             self._fun_ODE_LSA = None
 
         if self._has_algebraic:
-            print(algebraic)
-            print(algebraic_sens)
             exec(algebraic)
             exec(algebraic_sens)
             self._fun_alg_str = algebraic
