@@ -6,6 +6,8 @@ pySTAN: python STructure Analyst
 E-mail: stvhoey.vanhoey@ugent.be
 """
 
+from biointense.version import version as __version__
+
 from ode_maker import odemaker
 from ode_generator import odegenerator
 from optimalexperimentaldesign import *
@@ -14,8 +16,6 @@ from ode_optimization import *
 from plotfunctions import *
 from measurements import *
 from parameterdistribution import *
-
-__version__ = "0.01"
 
 
 if __name__ == '__main__':
