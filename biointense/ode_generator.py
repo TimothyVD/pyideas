@@ -821,7 +821,7 @@ class DAErunner(object):
                     algebraic_sens += '\ndef _fun_alg_LSA('+self._x_var+',Parameters, input):\n\n'
                 else:
                     algebraic_sens += '\ndef _fun_alg_LSA('+self._x_var+',Parameters):\n\n'
-                algebraic_sens += ' _temp_fix = np.zeros([len('+self._x_var+')])\n\n'
+                algebraic_sens += '    _temp_fix = np.zeros([len('+self._x_var+')])\n\n'
                 for i in range(len(self.Parameters)):
                     #file.write(' '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
                     algebraic_sens += '    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n"
@@ -841,14 +841,16 @@ class DAErunner(object):
                 algebraic_sens += '\n #Sensitivities\n\n'
                            
                 # Write dgdtheta as symbolic array
-                algebraic_sens += ' dgdtheta = '
+                algebraic_sens += '    dgdtheta = '
                 algebraic_sens += pprint.pformat(self.dgdtheta + sympy.sympify('_temp_fix'))
                 
-                algebraic_sens += '\n\n dydtheta = np.rollaxis(dgdtheta,2,0)'
+                algebraic_sens += '\n\n    dydtheta = np.rollaxis(dgdtheta,2,0)'
     
-            algebraic_sens += '\n\n return dydtheta'+'\n\n\n'
+            algebraic_sens += '\n\n    return dydtheta'+'\n\n\n'
             
         if self._has_ODE:
+            print(system)
+            print(LSA_analytical)
             exec(system)
             exec(LSA_analytical)
             self._fun_ODE_str = system
@@ -862,6 +864,8 @@ class DAErunner(object):
             self._fun_ODE_LSA = None
 
         if self._has_algebraic:
+            print(algebraic)
+            print(algebraic_sens)
             exec(algebraic)
             exec(algebraic_sens)
             self._fun_alg_str = algebraic
