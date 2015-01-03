@@ -3,7 +3,7 @@ biointense
 
 Biointense FP7 WP9
 
-Authors: Timothy Van Daele, Stijn Van Hoey
+Authors: Timothy Van Daele, Stijn Van Hoey, Daan Van Hauwermeiren, Joris Van den Bossche
 
 TO DO
 -----
