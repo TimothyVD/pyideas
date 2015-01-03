@@ -19,15 +19,41 @@ EXTRA_INFO = dict(
 )
 
 
-def get_version():
-    """Obtain the version number"""
-    import imp
-    mod = imp.load_source('version', os.path.join(PACKAGE_NAME, 'version.py'))
-    return mod.version
+MAJOR = 0
+MINOR = 1
+MICRO = 0
+ISRELEASED = False
+VERSION = '%d.%d.%d' % (MAJOR, MINOR, MICRO)
+
+FULLVERSION = VERSION
+
+if not ISRELEASED:
+    FULLVERSION += '.dev'
+
+
+def write_version_py():
+    """
+    Write the version to biointense/version.py
+    """
+    cnt = """\
+version = '%s'
+short_version = '%s'
+"""
+
+    filename = os.path.join(os.path.dirname(__file__), 'biointense',
+                            'version.py')
+
+    a = open(filename, 'w')
+    try:
+        a.write(cnt % (FULLVERSION, VERSION))
+    finally:
+        a.close()
+
+write_version_py()
 
 
 setup(name=NAME,
-      version=get_version(),
+      version=FULLVERSION,
       description=DESCRIPTION,
       #long_description=long_description,
       url=URL,

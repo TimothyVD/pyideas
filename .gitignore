@@ -9,3 +9,6 @@
 *~
 
 docs/build
+
+# automatically generated version file
+biointense/version.py
