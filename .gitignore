@@ -9,6 +9,7 @@
 *~
 
 docs/build
+Biointense.egg-info
 
 # automatically generated version file
 biointense/version.py
