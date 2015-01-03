@@ -824,7 +824,7 @@ class DAErunner(object):
                 algebraic_sens += ' _temp_fix = np.zeros([len('+self._x_var+')])\n\n'
                 for i in range(len(self.Parameters)):
                     #file.write(' '+str(Parameters.keys()[i]) + ' = Parameters['+str(i)+']\n')
-                    algebraic_sens += ' '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n"
+                    algebraic_sens += '    '+str(self.Parameters.keys()[i]) + " = Parameters['"+self.Parameters.keys()[i]+"']\n"
                 algebraic_sens += '\n'
                 if self._has_externalfunction:
                     #for i, step in enumerate(self.externalfunction):
@@ -834,7 +834,7 @@ class DAErunner(object):
                     algebraic_sens += '\n'
                 for i in range(len(self.Algebraic)):
                     #file.write(' '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
-                    algebraic_sens += ' '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic_swapped[i])+'\n'
+                    algebraic_sens += '    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic_swapped[i])+'\n'
                 algebraic_sens += '\n'
                 if self._print_on:
                     print('Algebraic sensitivities are printed to the file....')
