@@ -76,26 +76,26 @@ class BaseModel(object):
         """
         string representation
         """
-        return  "Model name: " + self.name
-        "\n Variables: \n" + self.variables
-        "\n Variables of interes: \n" + self.variables_of_interest
-        "\n Functions: \n" + self.systemfunctions
-        "\n Parameters: \n" + self.parameters
-        "\n Independent values: \n" + self.independent_values
-        "\n Initial conditions: \n" + self.initial_conditions
-        "\n Model initialised: " + self._initial_up_to_date
+        return  "Model name: " + str(self.name) + \
+            "\n Variables: \n" + str(self.variables) + \
+            "\n Variables of interes: \n" + str(self.variables_of_interest) + \
+            "\n Functions: \n" + str(self.systemfunctions) + \
+            "\n Parameters: \n" + str(self.parameters) + \
+            "\n Independent values: \n" + str(self.independent_values) + \
+            "\n Initial conditions: \n" + str(self.initial_conditions) + \
+            "\n Model initialised: " + str(self._initial_up_to_date)
 
     def __repr__(self):
         """
         """
-        print "Model name: " + self.name
-        "\n Variables: \n" + self.variables
-        "\n Variables of interes: \n" + self.variables_of_interest
-        "\n Functions: \n" + self.systemfunctions
-        "\n Parameters: \n" + self.parameters
-        "\n Independent values: \n" + self.independent_values
-        "\n Initial conditions: \n" + self.initial_conditions
-        "\n Model initialised: " + self._initial_up_to_date
+        print "Model name: " + str(self.name) + \
+            "\n Variables: \n" + str(self.variables) + \
+            "\n Variables of interes: \n" + str(self.variables_of_interest) + \
+            "\n Functions: \n" + str(self.systemfunctions) + \
+            "\n Parameters: \n" + str(self.parameters) + \
+            "\n Independent values: \n" + str(self.independent_values) + \
+            "\n Initial conditions: \n" + str(self.initial_conditions) + \
+            "\n Model initialised: " + str(self._initial_up_to_date)        
 
     def _check_system(self):
         """
