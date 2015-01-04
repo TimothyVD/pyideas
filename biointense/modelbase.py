@@ -26,8 +26,8 @@ class odeint(Solver):
         """
         """
         
-        
-    
+# imports
+import warnings
         
         
 class BaseModel(object):
@@ -132,11 +132,22 @@ class BaseModel(object):
         """
         return cls(None)
 
-    def set_independent(self):
+    def set_independent(self, independentVar):
         """
         set independent variable, mostly time
         1D
         """
+        # check the data type of the input
+        if not isinstance(independentVar, str):
+            raise TypeError("Independent variable is not given as a string")
+        # check if independent variable is not already implemented
+        if self.variables['independent']:
+            warnings.warn("Warning: independent variable is already given. "
+                           + "Overwriting original " 
+                           + self.variables['independent'] + " with " 
+                           + independentVar)
+        # setting the new independent variable
+        self.variables['independent'].append(independentVar)
 
     def set_initial(self):
         """
