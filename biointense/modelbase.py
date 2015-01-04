@@ -107,6 +107,8 @@ class BaseModel(object):
         define ODE, algebraic, pde vars seperately
         if in sys && not in parameter:
             WARNING: another var found
+        check if parameter of choice and independent vars are found in the
+        system/ variable list.
         """
 
     def _check_name(self):
@@ -154,10 +156,27 @@ class BaseModel(object):
         set initial conditions
         """
 
-    def set_variables_of_interest(self):
+    def set_variables_of_interest(self, variables_of_interest):
         """
         set the variables to be exported to the output
         """
+        if self.variables_of_interest:
+            warnings.warn("Warning: variables of interest are already given. "
+                           + "Overwriting original variables.")
+        # test if the input is a list
+        if isinstance(variables_of_interest, list):
+            for element in variables_of_interest:
+                # if the input is a list, check if all inputs are strings                
+                if not isinstance(element, str):
+                    raise TypeError("Elements in list are not strings")
+            self.variables_of_interest = variables_of_interest
+            return
+        # test if the input is a string
+        if isinstance(variables_of_interest, str):
+            self.variables_of_interest = [variables_of_interest]
+            return
+        # if the input is no string nor list of strings, raise error
+        raise TypeError("Input is not a string nor a list of strings")
 
     def get_summary(self):
         """
