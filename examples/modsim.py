@@ -12,11 +12,12 @@ import pandas as pd
 
 # bio-intense custom developments
 from biointense import DAErunner, ode_measurements, ode_optimizer, ode_FIM
+from biointense import __path__ as biointense_path
 
 
 def run_modsim_models():
     # Data
-    file_path = os.path.join(os.getcwd(), 'data', 'grasdata.xls')
+    file_path = os.path.join(biointense_path[0], '..', 'examples', 'data', 'grasdata.xls')
     data = pd.read_excel(file_path, 'Blad1', names=['time', 'W'])
     measurements = ode_measurements(data)
 
