@@ -33,7 +33,7 @@ def fermentor_FIM():
     M_fermentor.set_measured_states(['S','X'])
     
     # Solve model
-    M_fermentor.solve_ode(plotit=False)
+    M_fermentor.solve_ode(plotit=True)
     
     optim = ode_optimizer(M_fermentor, measurements, print_on=False)
     optim.set_fitting_parameters(OrderedDict({'mu_max':0.4,'K_S':0.015}))
@@ -49,5 +49,7 @@ def fermentor_FIM():
     print('ECM = ')
     print(FIM_stuff.ECM)
 
+    return M_fermentor, FIM_stuff
+
 if __name__ == "__main__":
-    fermentor_FIM()
+    M_fermentor, FIM = fermentor_FIM()

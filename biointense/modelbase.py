@@ -1,38 +1,14 @@
 
 ## License: LELIJKE DASHONDEN
 ## All rights to us and none to the others!
+from __future__ import division
 
-
-
-class Solver(object):
-    
-    def __init__(functie):
-        """
-       
-        odeint(functie, init, tijd, args*)
-        """
-    
-    def _check_solver_sanity():
-        """
-        check whether solver setting is compatible with system
-        check the external event: can the solver cope with the time step of 
-        the measurement?
-        """
-
-class odeint(Solver):
-    """
-    """
-    def __init__():
-        """
-        """
-        
-# imports
 import warnings
-        
-        
+
+
 class BaseModel(object):
 
-    def __init__(system, name, parameters):
+    def __init__(self, system, name, parameters):
         """
 
         ODE equations are defined by the pre-defined d, whereas algebraic
@@ -49,21 +25,21 @@ class BaseModel(object):
         to be adjusted: >>> S_event = f(t)
         >>>
         """
-        
-        self.variables = {'algebraic': [], 
-                          'ode': [], 
+
+        self.variables = {'algebraic': [],
+                          'ode': [],
                           'event': [],
                           'independent':[]
                           }
-        
+
         # solver coomunication
         self.independent_values = None
         self.systemfunctions = {'algebraic' : {}, 'ode' : {}}
         self.parameters = None
         self.initial_conditions = None
 
-                       
-        self.variables_of_interest = []        
+
+        self.variables_of_interest = []
         self._initial_up_to_date = False
 
     def _parse_system_string(self, system, parameters):
@@ -76,9 +52,9 @@ class BaseModel(object):
         """
         # assert that 'parameters' and 'system' are a dict
         if not isinstance(parameters, dict):
-            raise typeError("parameters is not a dict")
+            raise TypeError("parameters is not a dict")
         if not isinstance(system, dict):
-            raise typeError("system is not a dict")
+            raise TypeError("system is not a dict")
         # store the parameter
         self.parameters = parameters
         # extract system information
@@ -92,7 +68,7 @@ class BaseModel(object):
             else:
                 self.systemfunctions['algebraic'][key] = value
                 self.variables['algebraic'].append(key)
-    
+
     def __str__():
         """
         """
@@ -128,7 +104,7 @@ class BaseModel(object):
     def from_external(cls, ext_sys):
         """
         initialise system from external function
-        integratei met andere paketten om het in een 
+        integratei met andere paketten om het in een
         """
         return cls(None)
 
@@ -143,8 +119,8 @@ class BaseModel(object):
         # check if independent variable is not already implemented
         if self.variables['independent']:
             warnings.warn("Warning: independent variable is already given. "
-                           + "Overwriting original " 
-                           + self.variables['independent'] + " with " 
+                           + "Overwriting original "
+                           + self.variables['independent'] + " with "
                            + independentVar)
         # setting the new independent variable
         self.variables['independent'].append(independentVar)
@@ -169,7 +145,7 @@ class BaseModel(object):
             initial conditions
             ready to run!
         """
-        
+
     def _check_for_init(self):
         """
         """
@@ -177,8 +153,8 @@ class BaseModel(object):
     def _check_for_independent(self):
         """
         """
-        
-    def add_event(variable, ext_fun, tijdsbehandeling, idname):
+
+    def add_event(self, variable, ext_fun, tijdsbehandeling, idname):
         """
         Variable is defined by external influence. This can be either a
         measured value of input (e.g. rainfall) or a function that defines
@@ -187,15 +163,15 @@ class BaseModel(object):
         See also:
         ---------
         functionMaker
-        
+
         plug to different files: step input ...
         + add control to check whether external function addition is possible
-        
+
         + check if var exists in ODE/algebraic => make aggregation function to
         contacate them.
         """
         self._initial_up_to_date = False
-        
+
         return True
 
     def list_current_events(self):
@@ -205,14 +181,14 @@ class BaseModel(object):
 
     def exclude_event(self, idname):
         """
-        """        
+        """
         return NotImplementedError
 
     def _collect_time_steps(self):
         """
         """
         return NotImplementedError
-        
+
     def initialize_model(self):
         """
         make string object of model (templating based would be preferred)
@@ -221,16 +197,16 @@ class BaseModel(object):
         make Solver object
         set verbose option
         """
-        _collect_time_steps(_fromuser, _fromevents, _frommeasurements)
-        Solver(integrate option)
+        #_collect_time_steps(_fromuser, _fromevents, _frommeasurements)
+        #Solver(integrate option)
 
-    def run():
+    def run(self):
         """
         generate dataframe
         """
         if not self._initial_up_to_date:
             self.initialize_model
-            
+
     def plot(self):
         """
         plot dataframe
@@ -311,10 +287,8 @@ class EnzymaticModel(ReactionModel):
     def make_quasi_steady_state(cls):
         """
         Converts the ODE system to the Quasi Steady State version
-        
+
         Combines the old versions make_QSSA and QSSAtoModel to create QSSA
         model based on a defined ODE system.
         """
         return True
-
-    
