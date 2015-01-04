@@ -19,24 +19,24 @@ def run_modsim_models():
     file_path = os.path.join(os.getcwd(), 'data', 'grasdata.xls')
     data = pd.read_excel(file_path, 'Blad1', names=['time', 'W'])
     measurements = ode_measurements(data)
-    
+
     # Logistic
-    
+
     Parameters = {'W0': 2.0805,
                   'Wf': 9.7523,
                   'mu': 0.0659}
-    
+
     Alg = {'W': 'W0*Wf/(W0+(Wf-W0)*exp(-mu*t))'}
-    
+
     M1 = DAErunner(Parameters=Parameters, Algebraic=Alg,
                    Modelname='Modsim1', print_on=False)
-    
+
     M1.set_xdata({'start': 0, 'end': 72, 'nsteps': 1000})
     M1.set_measured_states(['W'])
-    
+
     optim1 = ode_optimizer(M1, measurements, print_on=False)
     optim1.local_parameter_optimize(add_plot=False)
-    
+
     FIM_stuff1 = ode_FIM(optim1, print_on=False)
     FIM_stuff1.get_newFIM()
     FIM_stuff1.get_parameter_confidence()
@@ -80,11 +80,14 @@ def run_modsim_models():
 
     optim3 = ode_optimizer(M3, measurements, print_on=False)
     optim3.local_parameter_optimize(add_plot=False)
-    
+
     FIM_stuff3 = ode_FIM(optim3, print_on=False)
     FIM_stuff3.get_newFIM()
     FIM_stuff3.get_parameter_confidence()
     FIM_stuff3.get_parameter_correlation()
+
+    return M1, M2, M3, FIM_stuff1, FIM_stuff2, FIM_stuff3
+
 
 if __name__ == "__main__":
     run_modsim_models()
