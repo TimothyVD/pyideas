@@ -16,15 +16,16 @@ from biointense import *
 
 def fermentor_FIM():
     # Read data bioreactor
-    file_path = os.path.join(os.getcwd(), 'data', 'fermentor_data.xls')
-    data = pd.read_excel(file_path, 'Blad1', names=['time','S','X'])
+    file_path = os.path.join(BASE_DIR, '..', 'examples', 'data',
+                             'fermentor_data.csv')
+    data = pd.read_csv(file_path, header=0, names=['time','S','X'])
     measurements = ode_measurements(data, print_on=False)
-    
+
     ODE = {'dS':'Q_in/V*(S_in-S)-1/Ys*mu_max*S/(S+K_S)*X',
            'dX':'-Q_in/V*X+mu_max*S/(S+K_S)*X'}
     
     Parameters = {'mu_max':0.4,'K_S':0.015,'Q_in':2,'Ys':0.67,'S_in':0.02,'V':20}
-     
+    
     M_fermentor = DAErunner(ODE=ODE, Parameters=Parameters, 
                             Modelname='Fermentor', print_on=False)
     
