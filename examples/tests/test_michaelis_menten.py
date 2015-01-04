@@ -6,12 +6,23 @@ Created on Sun Jan  4 19:02:39 2015
 """
 import os
 import numpy as np
-from biointense import __path__ as biointense_path
+import pytest
 
-# set working directory on super folder
-execfile(str(os.path.join(biointense_path[0], "..", "examples",
-                             "michaelis_menten.py")))
+import biointense
 
+try:
+    import odespy
+    SKIP_ODESPY = False
+except ImportError:
+    SKIP_ODESPY = True
+
+
+# run the example file
+execfile(str(os.path.join(biointense.BASE_DIR, "..", "examples",
+                          "michaelis_menten.py")))
+
+
+@pytest.mark.skipif(SKIP_ODESPY, reason="odespy not installed")
 def test():
     result1, result2, result3 = michaelis_menten()
 

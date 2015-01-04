@@ -40,9 +40,9 @@ class BaseModel(object):
         self.initial_conditions = None
         self.variables_of_interest = []
         self._initial_up_to_date = False
-        
+
         # call to hidden methods to build the model
-        self._parse_system_string(self, system, parameters)
+        #self._parse_system_string(system, parameters)
         self._check_name()
 
     def _parse_system_string(self, system, parameters):
@@ -76,26 +76,26 @@ class BaseModel(object):
         """
         string representation
         """
-        return  "Model name: " + self.name 
+        return  "Model name: " + self.name
         "\n Variables: \n" + self.variables
         "\n Variables of interes: \n" + self.variables_of_interest
         "\n Functions: \n" + self.systemfunctions
-        "\n Parameters: \n" + self.parameters 
+        "\n Parameters: \n" + self.parameters
         "\n Independent values: \n" + self.independent_values
         "\n Initial conditions: \n" + self.initial_conditions
-        "\n Model initialised: " + self._initial_up_to_date        
+        "\n Model initialised: " + self._initial_up_to_date
 
     def __repr__(self):
         """
         """
-        print "Model name: " + self.name 
+        print "Model name: " + self.name
         "\n Variables: \n" + self.variables
         "\n Variables of interes: \n" + self.variables_of_interest
         "\n Functions: \n" + self.systemfunctions
-        "\n Parameters: \n" + self.parameters 
+        "\n Parameters: \n" + self.parameters
         "\n Independent values: \n" + self.independent_values
         "\n Initial conditions: \n" + self.initial_conditions
-        "\n Model initialised: " + self._initial_up_to_date        
+        "\n Model initialised: " + self._initial_up_to_date
 
     def _check_system(self):
         """
@@ -165,7 +165,7 @@ class BaseModel(object):
         # test if the input is a list
         if isinstance(variables_of_interest, list):
             for element in variables_of_interest:
-                # if the input is a list, check if all inputs are strings                
+                # if the input is a list, check if all inputs are strings
                 if not isinstance(element, str):
                     raise TypeError("Elements in list are not strings")
             self.variables_of_interest = variables_of_interest
