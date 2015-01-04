@@ -37,3 +37,11 @@ from biointense.solver import AlgebraicSolver
 solver = AlgebraicSolver(model)
 result = solver.solve()
 result.plot()
+
+
+def test_model():
+    assert result['W'].values[-1] == 9.4492688322077534
+
+
+if __name__ == "__main__":
+    test_model()
