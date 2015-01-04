@@ -31,8 +31,8 @@ def michaelis_menten():
         Ks = Parameters['Ks']
         Vmax = Parameters['Vmax']
 
-        P = ODES['P'].values
-        S = ODES['S'].values
+        P = ODES[:,0]
+        S = ODES[:,1]
 
         v = S*Vmax/(Ks + S) + np.zeros(len(t))
 
@@ -40,7 +40,12 @@ def michaelis_menten():
 
         return algebraic
 
-    model = BaseModel('test', 'test', 'test')
+    system = {'v' : 'Vmax*S/(Ks + S)',
+              'dS': '-v',
+              'dP' : 'v'}
+    parameters = {'Vmax': 1e-1, 'Ks': 0.5}
+
+    model = BaseModel(system, 'test', parameters)
     model.systemfunctions['algebraic'] = fun_alg
     model.systemfunctions['ode'] = fun_ODE
 
