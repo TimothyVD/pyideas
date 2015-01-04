@@ -6,6 +6,7 @@ pySTAN: python STructure Analyst
 E-mail: stvhoey.vanhoey@ugent.be
 """
 
+
 from biointense.version import version as __version__
 
 from ode_generator import DAErunner
@@ -17,6 +18,8 @@ from plotfunctions import *
 from measurements import *
 from parameterdistribution import *
 
+from biointense import __path__ as biointense_path
+BASE_DIR = biointense_path[0]
 
 if __name__ == '__main__':
     print 'Bio-Intense ODE/OED package: python package for model development with Ordinary Differential Equations and Optimal Experimental Design'

@@ -15,11 +15,12 @@ import pandas as pd
 from pandas.util.testing import assert_frame_equal, assert_almost_equal
 
 from collections import OrderedDict
-from biointense import __path__ as biointense_path
+
+import biointense
 
 # set working directory on super folder
 
-execfile(str(os.path.join(biointense_path[0], "..", "examples", "modsim.py")))
+execfile(str(os.path.join(biointense.BASE_DIR, "..", "examples", "modsim.py")))
 
 
 class TestExample_modsim(unittest.TestCase):
