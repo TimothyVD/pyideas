@@ -8,7 +8,7 @@ import warnings
 
 class BaseModel(object):
 
-    def __init__(self, system, name, parameters):
+    def __init__(self, name, comment = ""):
         """
 
         ODE equations are defined by the pre-defined d, whereas algebraic
@@ -32,51 +32,25 @@ class BaseModel(object):
                           'independent':[]
                           }
         self.name = name
+        self._check_name()
+        self.comment = comment
 
         # solver communication
         self.independent_values = None
-        self.systemfunctions = {'algebraic' : {}, 'ode' : {}}
+        self.systemfunctions = {'algebraic': {}, 'ode': {}}
         self.parameters = {}
         self.initial_conditions = {}
         self.variables_of_interest = []
         self._initial_up_to_date = False
 
         # call to hidden methods to build the model
-        #self._parse_system_string(self, system, parameters)
         self._check_name()
-
-    def _parse_system_string(self, system, parameters):
-        """
-        split the system in ODE & algebraic
-        extract variable names
-        first letter == d ==> to ODE
-        else ==> to algebraic
-        extract info from system and parameters and store them into the attributes
-        """
-        # assert that 'parameters' and 'system' are a dict
-        if not isinstance(parameters, dict):
-            raise TypeError("parameters is not a dict")
-        if not isinstance(system, dict):
-            raise TypeError("system is not a dict")
-        # store the parameter
-        self.parameters = parameters
-        # extract system information
-        # loop over the dictionairy: system
-        for key, value in system.iteritems():
-            # if first letter == d, equation is ODE
-            if key[0] == "d":
-                #get rid of the first letter, d
-                self.systemfunctions['ode'][key[1:]] = value
-                self.variables['ode'].append(key[1:])
-            else:
-                self.systemfunctions['algebraic'][key] = value
-                self.variables['algebraic'].append(key)
 
     def __str__(self):
         """
         string representation
         """
-        return  "Model name: " + str(self.name) + \
+        return "Model name: " + str(self.name) + \
             "\n Variables: \n" + str(self.variables) + \
             "\n Variables of interes: \n" + str(self.variables_of_interest) + \
             "\n Functions: \n" + str(self.systemfunctions) + \
@@ -95,7 +69,7 @@ class BaseModel(object):
             "\n Parameters: \n" + str(self.parameters) + \
             "\n Independent values: \n" + str(self.independent_values) + \
             "\n Initial conditions: \n" + str(self.initial_conditions) + \
-            "\n Model initialised: " + str(self._initial_up_to_date)        
+            "\n Model initialised: " + str(self._initial_up_to_date)
 
     def _check_system(self):
         """
@@ -143,16 +117,16 @@ class BaseModel(object):
         # check if independent variable is not already implemented
         if self.variables['independent']:
             warnings.warn("Warning: independent variable is already given. "
-                           + "Overwriting original "
-                           + self.variables['independent'] + " with "
-                           + independentVar)
+                          + "Overwriting original "
+                          + self.variables['independent'] + " with "
+                          + independentVar)
         # setting the new independent variable
         self.variables['independent'].append(independentVar)
 
     def set_initial(self, initialValues):
         """
         set initial conditions
-        check for type 
+        check for type
         check for existance of the variable
         """
         if self.initial_conditions:
@@ -161,12 +135,13 @@ class BaseModel(object):
         if not isinstance(initialValues, dict):
             raise TypeError("Initial values are not given as a dict")
         for key, value in initialValues.iteritems():
-            if (key in self.variables['algebraic']) or (key in 
-            self.variables['event']) or (key in self.variables['ode']):
+            if ((key in self.variables['algebraic'])
+                    or (key in self.variables['event'])
+                    or (key in self.variables['ode'])):
                 self.initial_conditions[key] = value
             else:
                 raise NameError('Variable ' + key + " does not exist within "
-                "the system")
+                                "the system")
 
     def set_variables_of_interest(self, variables_of_interest):
         """
@@ -310,6 +285,38 @@ def check_mass_balance():
     """
     return True
 
+class Model(BaseModel):
+    def __init__(self, name, system, parameters, comment = ""):
+        """
+        uses the "biointense"-style model definition
+        """
+
+    def _parse_system_string(self, system, parameters):
+        """
+        split the system in ODE & algebraic
+        extract variable names
+        first letter == d ==> to ODE
+        else ==> to algebraic
+        extract info from system and parameters and store them into the attributes
+        """
+        # assert that 'parameters' and 'system' are a dict
+        if not isinstance(parameters, dict):
+            raise TypeError("parameters is not a dict")
+        if not isinstance(system, dict):
+            raise TypeError("system is not a dict")
+        # store the parameter
+        self.parameters = parameters
+        # extract system information
+        # loop over the dictionairy: system
+        for key, value in system.iteritems():
+            # if first letter == d, equation is ODE
+            if key[0] == "d":
+                #get rid of the first letter, d
+                self.systemfunctions['ode'][key[1:]] = value
+                self.variables['ode'].append(key[1:])
+            else:
+                self.systemfunctions['algebraic'][key] = value
+                self.variables['algebraic'].append(key)
 
 class AlgebraicModel(BaseModel):
 
