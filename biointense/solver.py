@@ -58,7 +58,7 @@ class OdeintSolver(BaseOdeSolver):
     """
     """
 
-    def solve(self):
+    def _solve_odeint(self):
         """
         """
         res = odeint(self.model.systemfunctions['ode'],
@@ -72,11 +72,16 @@ class OdeintSolver(BaseOdeSolver):
 
         return result
 
+    def solve(self):
+        """
+        """
+        return self._solve_odeint()
+
 
 class OdeSolver(BaseOdeSolver):
     """
     """
-    def solve(self):
+    def _solve_ode(self):
         """
         """
         # Default value for odespy
@@ -113,11 +118,16 @@ class OdeSolver(BaseOdeSolver):
 
         return result
 
+    def solve(self):
+        """
+        """
+        return self._solve_ode()
+
 
 class OdespySolver(BaseOdeSolver):
     """
     """
-    def solve(self):
+    def _solve_odespy(self):
         """
         """
         # Default value for odespy
@@ -137,11 +147,16 @@ class OdespySolver(BaseOdeSolver):
 
         return result
 
+    def solve(self):
+        """
+        """
+        return self._solve_odespy()
+
 
 class AlgebraicSolver(Solver):
     """
     """
-    def solve(self):
+    def _solve_algebraic(self):
         """
         """
         alg_function = self.model.systemfunctions['algebraic']
@@ -153,10 +168,62 @@ class AlgebraicSolver(Solver):
 
         return result
 
+    def solve(self):
+        """
+        """
+        return self._solve_algebraic()
 
-class HybridSolver(Solver):
+
+class HybridOdeintSolver(OdeintSolver, AlgebraicSolver):
     """
     """
     def __init__(self, model):
         """
         """
+
+    def solve(self):
+        """
+        """
+        ode_result = self._solve_odeint()
+        alg_result = self._solve_algebraic()
+
+        result = pd.concat(ode_result, alg_result, axis=1)
+
+        return result
+
+
+class HybridOdeSolver(OdeSolver, AlgebraicSolver):
+    """
+    """
+    def __init__(self, model):
+        """
+        """
+
+    def solve(self):
+        """
+        """
+        ode_result = self._solve_ode()
+        alg_result = self._solve_algebraic()
+
+        result = pd.concat(ode_result, alg_result, axis=1)
+
+        return result
+
+
+class HybridOdespySolver(OdespySolver, AlgebraicSolver):
+    """
+    """
+    def __init__(self, model):
+        """
+        """
+
+    def solve(self):
+        """
+        """
+        ode_result = self._solve_odespy()
+        alg_result = self._solve_algebraic()
+
+        result = pd.concat(ode_result, alg_result, axis=1)
+
+        return result
+
