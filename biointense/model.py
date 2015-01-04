@@ -9,10 +9,33 @@ from modelbase import BaseModel
 
 class Model(BaseModel):
 
-    def __init__(self, name, system, parameters, comment = None):
+    def __init__(self, name, system, parameters, comment=None):
         """
         uses the "biointense"-style model definition
         """
+        self.name = name
+        self._check_name()
+
+        self.variables = {'algebraic': [],
+                          'ode': [],
+                          'event': [],
+                          'independent': []
+                          }
+
+        self.comment = comment
+
+        # solver communication
+        self.independent_values = None
+        self.parameters = parameters
+        self.systemfunctions = {'algebraic': {}, 'ode': {}}
+        self.initial_conditions = {}
+
+        # detect system equations
+        self._system = system
+        self._parse_system_string(self._system, self.parameters)
+
+        self.variables_of_interest = []
+        self._initial_up_to_date = False
 
     def _parse_system_string(self, system, parameters):
         """

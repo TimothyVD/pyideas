@@ -15,7 +15,21 @@ from biointense.model import Model
 
 class TestAlgebraicModel(unittest.TestCase):
 
-    def SetUp(self):
+    # def setup_method(self):
+    #
+    #     system = {'algebraic': {'W': 'W0*Wf/(W0+(Wf-W0)*exp(-mu*t))'}}
+    #     parameters = {'W0': 2.0805,
+    #                   'Wf': 9.7523,
+    #                   'mu': 0.0659}
+    #
+    #     model = Model('Modsim1', system, parameters)
+    #
+    #     model.independent_values = np.linspace(0, 72, 1000)
+    #     #model.variables = {'algebraic': ['W']}
+    #
+    #     self.model = model
+
+    def test_model_instantiate(self):
 
         system = {'algebraic': {'W': 'W0*Wf/(W0+(Wf-W0)*exp(-mu*t))'}}
         parameters = {'W0': 2.0805,
@@ -27,9 +41,14 @@ class TestAlgebraicModel(unittest.TestCase):
         model.independent_values = np.linspace(0, 72, 1000)
         #model.variables = {'algebraic': ['W']}
 
-        self.model
+        self.model = model
 
-    def test_model_run(self):
+        expected = {'W': 'W0*Wf/(W0+(Wf-W0)*exp(-mu*t))'}
+        #FIXME (tweemaal nested algebraic)
+        result = self.model.systemfunctions['algebraic']['algebraic']
+        assert result == expected
 
-        result = self.model.run()
-        assert result['W'].values[-1] == 9.4492688322077534
+    # def test_model_run(self):
+    #
+    #     result = self.model.run()
+    #     assert result['W'].values[-1] == 9.4492688322077534

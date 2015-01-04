@@ -8,7 +8,7 @@ import warnings
 
 class BaseModel(object):
 
-    def __init__(self, name, comment = ""):
+    def __init__(self, name, comment=None):
         """
 
         ODE equations are defined by the pre-defined d, whereas algebraic

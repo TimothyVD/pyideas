@@ -28,7 +28,7 @@ def ode_model_function(ODES, t, parameters):
     return [dS, dX]
 
 
-model = BaseModel('test', 'test', 'test')
+model = BaseModel('test')
 
 model.systemfunctions['ode'] = ode_model_function
 
