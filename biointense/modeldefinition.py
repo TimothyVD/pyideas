@@ -5,18 +5,23 @@ Created on Sun Jan  4 12:02:32 2015
 @author: stvhoey
 """
 
-def write_defheader(defstr):
+def write_header(defstr):
     """
     defstr : str
         str containing the definition to solve in model    
+    
+    Notes
+    ------
+    if the model has ode variables in itself, the first argument of *ärgs, 
+    **kwargs is odes
     """  
-    defstr += "def _fun_ODE(t, parameters, odes, *args, **kwargs):\n"
+    defstr += "def _fun_ODE(t, parameters, *args, **kwargs):\n"
 
 def write_whiteline(defstr):
     """
-    """
     defstr : str
-        str containing the definition to solve in model    
+        str containing the definition to solve in model       
+    """
     defstr += '\n'
     
 def write_parameters(defstr, parameters):
@@ -30,7 +35,7 @@ def write_parameters(defstr, parameters):
         key gives parameter names and values the corresponding value
     """
     for parname, parvalue in parameters.iteritems():
-        defstr += '    '+ parname + " = parameters['" + parname + "']\n"
+        defstr += "    {0} = parameters['{0}']\n".format(parname)
 
 def write_ode_indices(defstr, ode_variables):
     """
@@ -45,7 +50,7 @@ def write_ode_indices(defstr, ode_variables):
         variable names (!sequence is important)
     """
     for i, varname in enumerate(ode_variables):
-        defstr += '    ' + varname + ' = ODES['+str(i)+']\n'    
+        defstr += '    {0} = odes[{1}]\n'.format(varname, str(i))
 
 def write_external_call(defstr, varname, fname, argnames):
     """
@@ -79,7 +84,8 @@ def write_algebraic_lines(defstr, algebraic_right_side):
         the equation
     """    
     for varname, expression in algebraic_right_side.iteritems():     
-        system += '    ' + varname + ' = ' + str(expression) + '\n'
+        #defstr += '    ' + varname + ' = ' + str(expression) + '\n'
+        defstr += '    {0} = {1}\n'.format(varname, str(expression))
 
 def write_ode_lines(defstr, ode_right_side):
     """
@@ -93,7 +99,8 @@ def write_ode_lines(defstr, ode_right_side):
         the equation
     """    
     for varname, expression in algebraic_right_side.iteritems():     
-        defstr += '    ' + varname + ' = ' + str(expression) + '\n'    
+        #defstr += '    ' + varname + ' = ' + str(expression) + '\n'    
+        defstr += '    {0} = {1}\n'.format(varname, str(expression))
 
 def write_return(defstr, ode_variables):
     """
@@ -107,10 +114,7 @@ def write_return(defstr, ode_variables):
     ode_variables : list
         variable names (!sequence is important)
     """
-    defstr += '    return ' + ", ".join(aa) + '\n\n\n'   
-
-
-
+    defstr += '    return ' + ', '.join(aa) + '\n'*3
 
 
 
