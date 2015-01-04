@@ -31,16 +31,19 @@ class BaseModel(object):
                           'event': [],
                           'independent':[]
                           }
+        self.name = name
 
-        # solver coomunication
+        # solver communication
         self.independent_values = None
         self.systemfunctions = {'algebraic' : {}, 'ode' : {}}
-        self.parameters = None
+        self.parameters = {}
         self.initial_conditions = None
-
-
         self.variables_of_interest = []
         self._initial_up_to_date = False
+        
+        # call to hidden methods to build the model
+        self._parse_system_string(self, system, parameters)
+        self._check_name()
 
     def _parse_system_string(self, system, parameters):
         """
@@ -69,13 +72,30 @@ class BaseModel(object):
                 self.systemfunctions['algebraic'][key] = value
                 self.variables['algebraic'].append(key)
 
-    def __str__():
+    def __str__(self):
         """
+        string representation
         """
+        return  "Model name: " + self.name 
+        + "\n Variables: \n" + self.variables
+        + "\n Variables of interes: \n" + self.variables_of_interest
+        + "\n Functions: \n" + self.systemfunctions
+        + "\n Parameters: \n" + self.parameters 
+        + "\n Independent values: \n" + self.independent_values
+        + "\n Initial conditions: \n" + self.initial_conditions
+        + "\n Model initialised: " + self._initial_up_to_date        
 
-    def __repr__():
+    def __repr__(self):
         """
         """
+        print "Model name: " + self.name 
+        + "\n Variables: \n" + self.variables
+        + "\n Variables of interes: \n" + self.variables_of_interest
+        + "\n Functions: \n" + self.systemfunctions
+        + "\n Parameters: \n" + self.parameters 
+        + "\n Independent values: \n" + self.independent_values
+        + "\n Initial conditions: \n" + self.initial_conditions
+        + "\n Model initialised: " + self._initial_up_to_date        
 
     def _check_system(self):
         """
@@ -86,13 +106,14 @@ class BaseModel(object):
         check if parameter of choice and independent vars are found in the
         system/ variable list.
         """
+        return NotImplementedError
 
     def _check_name(self):
         """
+        check if model name is a string
         """
-        if not isinstance(str):
+        if not isinstance(self.name, str):
             raise TypeError("model name is not a string")
-
 
     def _check_parameters(self):
         """
@@ -101,6 +122,7 @@ class BaseModel(object):
 
         see: _checkParinODEandAlg(self): in ode_generator.py
         """
+        return NotImplementedError
 
     @classmethod
     def from_external(cls, ext_sys):
@@ -131,6 +153,7 @@ class BaseModel(object):
         """
         set initial conditions
         """
+        return NotImplementedError
 
     def set_variables_of_interest(self, variables_of_interest):
         """
@@ -164,14 +187,17 @@ class BaseModel(object):
             initial conditions
             ready to run!
         """
+        return NotImplementedError
 
     def _check_for_init(self):
         """
         """
+        return NotImplementedError
 
     def _check_for_independent(self):
         """
         """
+        return NotImplementedError
 
     def add_event(self, variable, ext_fun, tijdsbehandeling, idname):
         """
@@ -191,7 +217,7 @@ class BaseModel(object):
         """
         self._initial_up_to_date = False
 
-        return True
+        return NotImplementedError
 
     def list_current_events(self):
         """
@@ -218,6 +244,8 @@ class BaseModel(object):
         """
         #_collect_time_steps(_fromuser, _fromevents, _frommeasurements)
         #Solver(integrate option)
+        return NotImplementedError
+
 
     def run(self):
         """
@@ -225,6 +253,8 @@ class BaseModel(object):
         """
         if not self._initial_up_to_date:
             self.initialize_model
+        return NotImplementedError
+
 
     def plot(self):
         """
