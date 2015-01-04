@@ -90,4 +90,4 @@ def run_modsim_models():
 
 
 if __name__ == "__main__":
-    run_modsim_models()
+    M1, M2, M3, FIM_stuff1, FIM_stuff2, FIM_stuff3 = run_modsim_models()

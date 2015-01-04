@@ -4,8 +4,15 @@ Created on Sun Jan  4 11:52:12 2015
 
 @author: timothy
 """
+from __future__ import division
+
 from scipy.integrate import odeint, ode
-import odespy
+
+try:
+    import odespy
+except:
+    pass
+
 import pandas as pd
 
 
@@ -74,6 +81,7 @@ class OdeSolver(BaseOdeSolver):
         """
         # Default value for odespy
         self.ode_integrator = self.ode_integrator or 'lsoda'
+        initial_conditions = [self.model.initial_conditions[var] for var in self.model.variables['ode']]
 
         def wrapper(independent_values, initial_conditions, parameters):
             return self.model.systemfunctions['ode'](
@@ -82,7 +90,8 @@ class OdeSolver(BaseOdeSolver):
         r = ode(wrapper).set_integrator(self.ode_integrator,
                                         **self.ode_solver_options)
 
-        r.set_initial_value(self.model.initial_conditions,
+
+        r.set_initial_value(initial_conditions,
                             self.model.independent_values[0])
         r.set_f_params(self.model.parameters)
 
