@@ -42,7 +42,7 @@ class BaseModel(object):
         self._initial_up_to_date = False
 
         # call to hidden methods to build the model
-        #self._parse_system_string(system, parameters)
+        self._parse_system_string(system, parameters)
         self._check_name()
 
     def _parse_system_string(self, system, parameters):
