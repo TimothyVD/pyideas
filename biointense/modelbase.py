@@ -2,6 +2,8 @@
 ## License: LELIJKE DASHONDEN
 ## All rights to us and none to the others!
 
+
+
 class Solver(object):
     
     def __init__(functie):
@@ -23,6 +25,10 @@ class odeint(Solver):
     def __init__():
         """
         """
+        
+        
+    
+        
         
 class BaseModel(object):
 
@@ -52,7 +58,7 @@ class BaseModel(object):
         
         # solver coomunication
         self.independent_values = None
-        self.systemfunctions = {'algebraic' : None, 'ode' : None}
+        self.systemfunctions = {'algebraic' : {}, 'ode' : {}}
         self.parameters = None
         self.initial_conditions = None
 
@@ -60,13 +66,32 @@ class BaseModel(object):
         self.variables_of_interest = []        
         self._initial_up_to_date = False
 
-    def _parse_system_string(self, system):
+    def _parse_system_string(self, system, parameters):
         """
         split the system in ODE & algebraic
         extract variable names
         first letter == d ==> to ODE
         else ==> to algebraic
+        extract info from system and parameters and store them into the attributes
         """
+        # assert that 'parameters' and 'system' are a dict
+        if not isinstance(parameters, dict):
+            raise typeError("parameters is not a dict")
+        if not isinstance(system, dict):
+            raise typeError("system is not a dict")
+        # store the parameter
+        self.parameters = parameters
+        # extract system information
+        # loop over the dictionairy: system
+        for key, value in system.iteritems():
+            # if first letter == d, equation is ODE
+            if key[0] == "d":
+                #get rid of the first letter, d
+                self.systemfunctions['ode'][key[1:]] = value
+                self.variables['ode'].append(key[1:])
+            else:
+                self.systemfunctions['algebraic'][key] = value
+                self.variables['algebraic'].append(key)
     
     def __str__():
         """
@@ -223,6 +248,8 @@ class BaseModel(object):
         environment : matlab, openModelica, libSBML
         """
         return NotImplementedError
+
+
 
 def check_mass_balance():
     """
