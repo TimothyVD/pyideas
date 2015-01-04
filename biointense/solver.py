@@ -20,7 +20,6 @@ class Solver(object):
 
     def __init__(self, model):
         """
-        odeint(functie, init, tijd, args*)
         """
         self.model = model
 
@@ -37,6 +36,7 @@ class Solver(object):
 
         return: For each independent value, returns state for all variables
         """
+        return NotImplementedError
 
 
 class BaseOdeSolver(Solver):
@@ -48,15 +48,20 @@ class BaseOdeSolver(Solver):
         self.model = model
         self.ode_solver_options = ode_solver_options or {}
         self.ode_integrator = ode_integrator
-        self._initial_conditions = [self.model.initial_conditions[var] for var in self.model.variables['ode']]
-
-    def solve(self):
-        """
-        """
+        self._initial_conditions = [self.model.initial_conditions[var]
+                                    for var in self.model.variables['ode']]
 
 
 class OdeintSolver(BaseOdeSolver):
     """
+    Notes
+    ------
+    The scipy integrate odeint module can be found on [1]_.
+
+    References
+    -----------
+    .. [1] http://docs.scipy.org/doc/scipy-0.14.0/reference/generated/
+        scipy.integrate.odeint.html
     """
 
     def _solve_odeint(self):
@@ -75,12 +80,27 @@ class OdeintSolver(BaseOdeSolver):
 
     def solve(self):
         """
+        Calculate the ode equations using scipy integrate odeint solvers
+
+        Returns
+        -------
+        result : pd.DataFrame
+            Contains all outputs from the ode equations in function of the
+            independent values
         """
         return self._solve_odeint()
 
 
 class OdeSolver(BaseOdeSolver):
     """
+    Notes
+    ------
+    The scipy integrate ode module can be found on [1]_.
+
+    References
+    -----------
+    .. [1] http://docs.scipy.org/doc/scipy-0.14.0/reference/generated/
+        scipy.integrate.ode.html
     """
     def _solve_ode(self):
         """
@@ -88,6 +108,7 @@ class OdeSolver(BaseOdeSolver):
         # Default value for odespy
         self.ode_integrator = self.ode_integrator or 'lsoda'
 
+        # Make wrapper function to
         def wrapper(independent_values, initial_conditions, parameters):
             return self.model.systemfunctions['ode'](
                 initial_conditions, independent_values, parameters)
@@ -96,7 +117,7 @@ class OdeSolver(BaseOdeSolver):
                                              **self.ode_solver_options)
 
         solver.set_initial_value(self._initial_conditions,
-                            self.model.independent_values[0])
+                                 self.model.independent_values[0])
         solver.set_f_params(self.model.parameters)
 
         xdata = self.model.independent_values
@@ -118,12 +139,27 @@ class OdeSolver(BaseOdeSolver):
 
     def solve(self):
         """
+        Calculate the ode equations using scipy integrate ode solvers
+
+        Returns
+        -------
+        result : pd.DataFrame
+            Contains all outputs from the ode equations in function of the
+            independent values
         """
         return self._solve_ode()
 
 
 class OdespySolver(BaseOdeSolver):
     """
+    Notes
+    ------
+    The odespy package can be found on [1]_.
+
+    References
+    -----------
+    .. [1] H. P. Langtangen and L. Wang. Odespy software package.
+        URL: https://github.com/hplgit/odespy. 2014
     """
     def _solve_odespy(self):
         """
@@ -147,12 +183,20 @@ class OdespySolver(BaseOdeSolver):
 
     def solve(self):
         """
+        Calculate the ode equations using odespy solvers
+
+        Returns
+        -------
+        result : pd.DataFrame
+            Contains all outputs from the ode equations in function of the
+            independent values
         """
         return self._solve_odespy()
 
 
 class AlgebraicSolver(Solver):
     """
+    Class to calculate the algebraic equations/models
     """
     def _solve_algebraic(self, *args, **kwargs):
         """
@@ -169,31 +213,69 @@ class AlgebraicSolver(Solver):
 
     def solve(self, *args, **kwargs):
         """
+        Calculate the algebraic equations in function of the independent values
+
+        Returns
+        -------
+        result : pd.DataFrame
+            Contains all outputs from the algebraic equation in function of the
+            independent values
         """
         return self._solve_algebraic(*args, **kwargs)
-        
+
+
 class HybridOdeintSolver(OdeintSolver, AlgebraicSolver):
     """
+    Class for solving hybrid system of odes and algebraic equations by using
+    the scipy odeint module.
+
+    See also
+    --------
+    OdeintSolver
     """
     def solve(self):
         """
+        Solve hybrid system of odes and algebraic equations by using the scipy
+        odeint module. After calculating the odes, the algebraic equations are
+        calculated again.
+
+        Returns
+        -------
+        result : pd.DataFrame
+        Contains all outputs from both odes and algebraics
         """
         ode_result = self._solve_odeint()
-        alg_result = self._solve_algebraic(ode_result)
+        alg_result = self._solve_algebraic(ode_result.values)
 
         result = pd.concat([ode_result, alg_result], axis=1)
 
         return result
 
+
 class HybridOdeSolver(OdeSolver, AlgebraicSolver):
     """
+    Class for solving hybrid system of odes and algebraic equations by using
+    the scipy integrate ode module.
+
+    See also
+    --------
+    OdeSolver
     """
+
     def solve(self):
         """
+        Solve hybrid system of odes and algebraic equations by using the scipy
+        integrate ode module. After calculating the odes, the algebraic
+        equations are calculated again.
+
+        Returns
+        -------
+        result : pd.DataFrame
+        Contains all outputs from both odes and algebraics
         """
         ode_result = self._solve_ode()
-        alg_result = self._solve_algebraic(ode_result)
-        
+        alg_result = self._solve_algebraic(ode_result.values)
+
         result = pd.concat([ode_result, alg_result], axis=1)
 
         return result
@@ -201,14 +283,27 @@ class HybridOdeSolver(OdeSolver, AlgebraicSolver):
 
 class HybridOdespySolver(OdespySolver, AlgebraicSolver):
     """
+    Class for solving hybrid system of odes and algebraic equations by using
+    the odespy package.
+
+    See also
+    --------
+    OdespySolver
     """
     def solve(self):
         """
+        Solve hybrid system of odes and algebraic equations by using the odespy
+        package. After calculating the odes, the algebraic equations are
+        calculated. The odespy package was written by [1]_.
+
+        Returns
+        -------
+        result : pd.DataFrame
+        Contains all outputs from both odes and algebraics
         """
         ode_result = self._solve_odespy()
-        alg_result = self._solve_algebraic(ode_result)
+        alg_result = self._solve_algebraic(ode_result.values)
 
         result = pd.concat([ode_result, alg_result], axis=1)
 
         return result
-
