@@ -7,12 +7,16 @@ Created on Sun Jan  4 12:02:32 2015
 
 def write_defheader(defstr):
     """
-    """
+    defstr : str
+        str containing the definition to solve in model    
+    """  
     defstr += "def _fun_ODE(t, parameters, odes, *args, **kwargs):\n"
 
 def write_whiteline(defstr):
     """
     """
+    defstr : str
+        str containing the definition to solve in model    
     defstr += '\n'
     
 def write_parameters(defstr, parameters):
@@ -20,6 +24,8 @@ def write_parameters(defstr, parameters):
     
     Parameters
     ----------
+    defstr : str
+        str containing the definition to solve in model    
     parameters : dict
         key gives parameter names and values the corresponding value
     """
@@ -33,38 +39,79 @@ def write_ode_indices(defstr, ode_variables):
     
     Parameters
     ----------
-    system : list
+    defstr : str
+        str containing the definition to solve in model    
+    ode_variables : list
+        variable names (!sequence is important)
     """
     for i, varname in enumerate(ode_variables):
         defstr += '    ' + varname + ' = ODES['+str(i)+']\n'    
 
-def write_external_call(defstr, varname, fname, args):
+def write_external_call(defstr, varname, fname, argnames):
     """
     
     Parameters
     -----------
-    
+    defstr : str
+        str containing the definition to solve in model
+    varname : str
+        variable name to calculate
+    fname : str
+        function name to call
+    argnames : list
+        other arguments that the function request (e.g. t or other varnames)
     """    
-    system += '    ' + varname + ' = fname(' + self._x_var + ')'+'\n'
+    #defstr += '    ' + varname + ' = ' + str(fname) + '('
+    defstr += '    {0} = {1}('.format(varname, fname)
+    for argument in argnames:
+        defstr += str(argument) + ','
+    defstr += ')\n'
 
-def write_algebraic_lines():
+def write_algebraic_lines(defstr, algebraic_right_side):
     """
+    
+    Parameters
+    -----------
+    defstr : str
+        str containing the definition to solve in model
+    algebraic_right_side : dict
+        dict of variables with their corresponding right hand side part of 
+        the equation
     """    
+    for varname, expression in algebraic_right_side.iteritems():     
+        system += '    ' + varname + ' = ' + str(expression) + '\n'
+
+def write_ode_lines(defstr, ode_right_side):
+    """
     
+    Parameters
+    -----------
+    defstr : str
+        str containing the definition to solve in model
+    algebraic_right_side : dict
+        dict of variables with their corresponding right hand side part of 
+        the equation
+    """    
+    for varname, expression in algebraic_right_side.iteritems():     
+        defstr += '    ' + varname + ' = ' + str(expression) + '\n'    
 
-
-
+def write_return(defstr, ode_variables):
+    """
+    Based on the sequence of the variables in the variables dict,
+    the return sequence is returned
     
-if self._has_algebraic:
-    for i in range(len(self.Algebraic)):
-        #file.write('    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic.values()[i])+'\n')
-        system +='    '+str(self.Algebraic.keys()[i]) + ' = ' + str(self.Algebraic_swapped[i])+'\n'
-    system +='\n'
+    Parameters
+    ----------
+    defstr : str
+        str containing the definition to solve in model    
+    ode_variables : list
+        variable names (!sequence is important)
+    """
+    defstr += '    return ' + ", ".join(aa) + '\n\n\n'   
 
-for i in range(len(self.System)):
-    system +='    '+str(self.System.keys()[i]) + ' = ' + str(self.System.values()[i])+'\n'
 
-system +='    return '+str(self.System.keys()).replace("'","")+'\n\n\n'   
+
+
 
 
 def generate_model_definition(self):
