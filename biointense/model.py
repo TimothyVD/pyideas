@@ -64,6 +64,16 @@ class Model(BaseModel):
                 self.systemfunctions['algebraic'][key] = value
                 self.variables['algebraic'].append(key)
 
+    def initialize_model(self):
+        """
+        Parse system string equation to functions.
+        """
+        #from modeldefinition import
+        #self.fun_ode = ...
+        #self.fun_alg = ...
+        self._initial_up_to_date = True
+
+
 class AlgebraicModel(BaseModel):
 
     def __init__():

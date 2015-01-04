@@ -236,7 +236,6 @@ class BaseModel(object):
         #Solver(integrate option)
         return NotImplementedError
 
-
     def run(self):
         """
         generate dataframe
