@@ -177,10 +177,6 @@ class AlgebraicSolver(Solver):
 class HybridOdeintSolver(OdeintSolver, AlgebraicSolver):
     """
     """
-    def __init__(self, model):
-        """
-        """
-
     def solve(self):
         """
         """
@@ -195,10 +191,6 @@ class HybridOdeintSolver(OdeintSolver, AlgebraicSolver):
 class HybridOdeSolver(OdeSolver, AlgebraicSolver):
     """
     """
-    def __init__(self, model):
-        """
-        """
-
     def solve(self):
         """
         """
@@ -213,10 +205,6 @@ class HybridOdeSolver(OdeSolver, AlgebraicSolver):
 class HybridOdespySolver(OdespySolver, AlgebraicSolver):
     """
     """
-    def __init__(self, model):
-        """
-        """
-
     def solve(self):
         """
         """
