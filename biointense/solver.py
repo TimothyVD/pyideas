@@ -48,6 +48,7 @@ class BaseOdeSolver(Solver):
         self.model = model
         self.ode_solver_options = ode_solver_options or {}
         self.ode_integrator = ode_integrator
+        self._initial_conditions = [self.model.initial_conditions[var] for var in self.model.variables['ode']]
 
     def solve(self):
         """
@@ -62,7 +63,7 @@ class OdeintSolver(BaseOdeSolver):
         """
         """
         res = odeint(self.model.systemfunctions['ode'],
-                     self.model.initial_conditions,
+                     self._initial_conditions,
                      self.model.independent_values,
                      args=(self.model.parameters,),
                      **self.ode_solver_options)
@@ -86,16 +87,15 @@ class OdeSolver(BaseOdeSolver):
         """
         # Default value for odespy
         self.ode_integrator = self.ode_integrator or 'lsoda'
-        initial_conditions = [self.model.initial_conditions[var] for var in self.model.variables['ode']]
 
         def wrapper(independent_values, initial_conditions, parameters):
             return self.model.systemfunctions['ode'](
                 initial_conditions, independent_values, parameters)
 
         solver = ode(wrapper).set_integrator(self.ode_integrator,
-                                        **self.ode_solver_options)
+                                             **self.ode_solver_options)
 
-        solver.set_initial_value(initial_conditions,
+        solver.set_initial_value(self._initial_conditions,
                             self.model.independent_values[0])
         solver.set_f_params(self.model.parameters)
 
@@ -135,7 +135,7 @@ class OdespySolver(BaseOdeSolver):
         solver = solver(self.model.systemfunctions['ode'])
         if self.ode_solver_options is not None:
             solver.set(**self.ode_solver_options)
-        solver.set_initial_condition(self.model.initial_conditions)
+        solver.set_initial_condition(self._initial_conditions)
         solver.set(f_args=(self.model.parameters,))
 
         model_output, xdata = solver.solve(self.model.independent_values)
@@ -154,24 +154,24 @@ class OdespySolver(BaseOdeSolver):
 class AlgebraicSolver(Solver):
     """
     """
-    def _solve_algebraic(self):
+    def _solve_algebraic(self, *args, **kwargs):
         """
         """
         alg_function = self.model.systemfunctions['algebraic']
         model_output = alg_function(self.model.independent_values,
-                                    self.model.parameters)
+                                    self.model.parameters,
+                                    *args, **kwargs)
 
         result = pd.DataFrame(model_output, index=self.model.independent_values,
                               columns=self.model.variables['algebraic'])
 
         return result
 
-    def solve(self):
+    def solve(self, *args, **kwargs):
         """
         """
-        return self._solve_algebraic()
-
-
+        return self._solve_algebraic(*args, **kwargs)
+        
 class HybridOdeintSolver(OdeintSolver, AlgebraicSolver):
     """
     """
@@ -179,12 +179,11 @@ class HybridOdeintSolver(OdeintSolver, AlgebraicSolver):
         """
         """
         ode_result = self._solve_odeint()
-        alg_result = self._solve_algebraic()
+        alg_result = self._solve_algebraic(ode_result)
 
-        result = pd.concat(ode_result, alg_result, axis=1)
+        result = pd.concat([ode_result, alg_result], axis=1)
 
         return result
-
 
 class HybridOdeSolver(OdeSolver, AlgebraicSolver):
     """
@@ -193,9 +192,9 @@ class HybridOdeSolver(OdeSolver, AlgebraicSolver):
         """
         """
         ode_result = self._solve_ode()
-        alg_result = self._solve_algebraic()
-
-        result = pd.concat(ode_result, alg_result, axis=1)
+        alg_result = self._solve_algebraic(ode_result)
+        
+        result = pd.concat([ode_result, alg_result], axis=1)
 
         return result
 
@@ -207,9 +206,9 @@ class HybridOdespySolver(OdespySolver, AlgebraicSolver):
         """
         """
         ode_result = self._solve_odespy()
-        alg_result = self._solve_algebraic()
+        alg_result = self._solve_algebraic(ode_result)
 
-        result = pd.concat(ode_result, alg_result, axis=1)
+        result = pd.concat([ode_result, alg_result], axis=1)
 
         return result
 
