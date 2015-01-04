@@ -152,7 +152,7 @@ class BaseModel(object):
     def set_initial(self, initialValues):
         """
         set initial conditions
-        check for type
+        check for type 
         check for existance of the variable
         """
         if self.initial_conditions:
