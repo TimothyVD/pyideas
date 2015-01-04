@@ -161,7 +161,7 @@ class BaseModel(object):
         """
         if self.variables_of_interest:
             warnings.warn("Warning: variables of interest are already given. "
-                           + "Overwriting original variables.")
+                          "Overwriting original variables.")
         # test if the input is a list
         if isinstance(variables_of_interest, list):
             for element in variables_of_interest:
@@ -169,13 +169,15 @@ class BaseModel(object):
                 if not isinstance(element, str):
                     raise TypeError("Elements in list are not strings")
             self.variables_of_interest = variables_of_interest
-            return
         # test if the input is a string
-        if isinstance(variables_of_interest, str):
+        elif isinstance(variables_of_interest, str):
             self.variables_of_interest = [variables_of_interest]
-            return
+
         # if the input is no string nor list of strings, raise error
-        raise TypeError("Input is not a string nor a list of strings")
+        else:
+            raise TypeError("Input is not a string nor a list of strings")
+
+        return self
 
     def get_summary(self):
         """
