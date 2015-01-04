@@ -11,10 +11,10 @@ def write_whiteline(defstr):
         str containing the definition to solve in model       
     """
     defstr += '\n'
+    return defstr
     
 def write_parameters(defstr, parameters):
     """
-    
     Parameters
     ----------
     defstr : str
@@ -24,6 +24,7 @@ def write_parameters(defstr, parameters):
     """
     for parname, parvalue in parameters.iteritems():
         defstr += "    {0} = parameters['{0}']\n".format(parname)
+    return defstr        
 
 def write_ode_indices(defstr, ode_variables):
     """
@@ -38,7 +39,9 @@ def write_ode_indices(defstr, ode_variables):
         variable names (!sequence is important)
     """
     for i, varname in enumerate(ode_variables):
+        print i, varname, type(i), str(i)
         defstr += '    {0} = odes[{1}]\n'.format(varname, str(i))
+    return defstr
 
 def write_external_call(defstr, varname, fname, argnames):
     """
@@ -59,6 +62,7 @@ def write_external_call(defstr, varname, fname, argnames):
     for argument in argnames:
         defstr += str(argument) + ','
     defstr += ')\n'
+    return defstr
 
 def write_algebraic_lines(defstr, algebraic_right_side):
     """
@@ -76,6 +80,7 @@ def write_algebraic_lines(defstr, algebraic_right_side):
     for varname, expression in algebraic_right_side.iteritems():     
         #defstr += '    ' + varname + ' = ' + str(expression) + '\n'
         defstr += '    {0} = {1}\n'.format(varname, str(expression))
+    return defstr
 
 def write_ode_lines(defstr, ode_right_side):
     """
@@ -90,9 +95,10 @@ def write_ode_lines(defstr, ode_right_side):
         dict of variables with their corresponding right hand side part of 
         the equation
     """    
-    for varname, expression in algebraic_right_side.iteritems():     
+    for varname, expression in ode_right_side.iteritems():     
         #defstr += '    ' + varname + ' = ' + str(expression) + '\n'    
-        defstr += '    {0} = {1}\n'.format(varname, str(expression))
+        defstr += '    d{0} = {1}\n'.format(varname, str(expression))
+    return defstr
 
 def write_return(defstr, ode_variables):
     """
@@ -106,9 +112,11 @@ def write_return(defstr, ode_variables):
     ode_variables : list
         variable names (!sequence is important)
     """
-    defstr += '    return ' + ', '.join(aa) + '\n'*3
+    ode_variables = ["d" + variable for variable in ode_variables]
+    defstr += '    return ' + ', '.join(ode_variables) + '\n'*3
+    return defstr
 
-def generate_ode_derivative_definition(self, model):
+def generate_ode_derivative_definition(model):
     '''Write derivative of model as definition in file
     
     Writes a file with a derivative definition to run the model and
@@ -121,26 +129,25 @@ def generate_ode_derivative_definition(self, model):
     '''
     modelstr = 'def _fun_ode(odes, t, parameters, *args, **kwargs):\n'
     # Get the parameter values 
-    write_parameters(modelstr, model.parameters)
-    write_whiteline(modelstr)
+    modelstr = write_parameters(modelstr, model.parameters)
+    modelstr = write_whiteline(modelstr)
     # Get the current variable values from the solver
-    write_ode_indices(modelstr, model.variables['ode'])
-    write_whiteline(modelstr)
+    modelstr = write_ode_indices(modelstr, model.variables['ode'])
+    modelstr = write_whiteline(modelstr)
     # Write down necessary algebraic equations (if none, nothing written)
-    write_algebraic_lines(modelstr, model.systemfunctions['algebraic'])
-    write_whiteline(modelstr)
+    modelstr = write_algebraic_lines(modelstr, model.systemfunctions['algebraic'])
+    modelstr = write_whiteline(modelstr)
 
     # Write down external called functions - not yet provided!
     #write_external_call(defstr, varname, fname, argnames)
     #write_whiteline(modelstr)
     
     # Write down the current derivative values
-    write_ode_lines(modelstr, model.systemfunctions['ode'])
-    write_return(modelstr, model.variables['ode'])
+    modelstr = write_ode_lines(modelstr, model.systemfunctions['ode'])
+    modelstr = write_return(modelstr, model.variables['ode'])
     return modelstr
-
  
-def generate_algebraic_definition(self, model):  
+def generate_algebraic_definition(model):  
     '''Write derivative of model as definition in file
     
     Writes a file with a derivative definition to run the model and
@@ -153,14 +160,14 @@ def generate_algebraic_definition(self, model):
     '''    
     modelstr = 'def _fun_alg(t, parameters, *args, **kwargs):\n'
     # Get the parameter values 
-    write_parameters(modelstr, model.parameters)
-    write_whiteline(modelstr)
+    modelstr = write_parameters(modelstr, model.parameters)
+    modelstr = write_whiteline(modelstr)
     # Get the current variable values from the solver
-    write_ode_indices(modelstr, model.variables['ode'])
-    write_whiteline(modelstr)
+    modelstr = write_ode_indices(modelstr, model.variables['ode'])
+    modelstr = write_whiteline(modelstr)
     # Write down necessary algebraic equations (if none, nothing written)
-    write_algebraic_lines(modelstr, model.systemfunctions['algebraic'])
-    write_whiteline(modelstr)
+    modelstr = write_algebraic_lines(modelstr, model.systemfunctions['algebraic'])
+    modelstr = write_whiteline(modelstr)
 
     # Write down external called functions - not yet provided!
     #write_external_call(defstr, varname, fname, argnames)
