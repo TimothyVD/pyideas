@@ -37,7 +37,7 @@ class BaseModel(object):
         self.independent_values = None
         self.systemfunctions = {'algebraic' : {}, 'ode' : {}}
         self.parameters = {}
-        self.initial_conditions = None
+        self.initial_conditions = {}
         self.variables_of_interest = []
         self._initial_up_to_date = False
 
@@ -149,11 +149,24 @@ class BaseModel(object):
         # setting the new independent variable
         self.variables['independent'].append(independentVar)
 
-    def set_initial(self):
+    def set_initial(self, initialValues):
         """
         set initial conditions
+        check for type 
+        check for existance of the variable
         """
-        return NotImplementedError
+        if self.initial_conditions:
+            warnings.warn("Warning: initial conditions are already given. "
+                          "Overwriting original variables.")
+        if not isinstance(initialValues, dict):
+            raise TypeError("Initial values are not given as a dict")
+        for key, value in initialValues.iteritems():
+            if (key in self.variables['algebraic']) or (key in 
+            self.variables['event']) or (key in self.variables['ode']):
+                self.initial_conditions[key] = value
+            else:
+                raise NameError('Variable ' + key + " does not exist within "
+                "the system")
 
     def set_variables_of_interest(self, variables_of_interest):
         """
@@ -161,7 +174,7 @@ class BaseModel(object):
         """
         if self.variables_of_interest:
             warnings.warn("Warning: variables of interest are already given. "
-                           + "Overwriting original variables.")
+                          "Overwriting original variables.")
         # test if the input is a list
         if isinstance(variables_of_interest, list):
             for element in variables_of_interest:
@@ -169,13 +182,15 @@ class BaseModel(object):
                 if not isinstance(element, str):
                     raise TypeError("Elements in list are not strings")
             self.variables_of_interest = variables_of_interest
-            return
         # test if the input is a string
-        if isinstance(variables_of_interest, str):
+        elif isinstance(variables_of_interest, str):
             self.variables_of_interest = [variables_of_interest]
-            return
+
         # if the input is no string nor list of strings, raise error
-        raise TypeError("Input is not a string nor a list of strings")
+        else:
+            raise TypeError("Input is not a string nor a list of strings")
+
+        return self
 
     def get_summary(self):
         """
