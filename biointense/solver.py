@@ -92,26 +92,24 @@ class OdeSolver(BaseOdeSolver):
             return self.model.systemfunctions['ode'](
                 initial_conditions, independent_values, parameters)
 
-        r = ode(wrapper).set_integrator(self.ode_integrator,
+        solver = ode(wrapper).set_integrator(self.ode_integrator,
                                         **self.ode_solver_options)
 
-
-        r.set_initial_value(initial_conditions,
+        solver.set_initial_value(initial_conditions,
                             self.model.independent_values[0])
-        r.set_f_params(self.model.parameters)
+        solver.set_f_params(self.model.parameters)
 
         xdata = self.model.independent_values
         timesteps = xdata[1:] - xdata[:-1]
         model_output = []
         xdata = []
-        self.r = r
-        model_output.append(r.y)
-        xdata.append(r.t)
+        model_output.append(solver.y)
+        xdata.append(solver.t)
         for dt in timesteps:
-            if r.successful():
-                r.integrate(r.t + dt)
-                model_output.append(r.y)
-                xdata.append(r.t)
+            if solver.successful():
+                solver.integrate(solver.t + dt)
+                model_output.append(solver.y)
+                xdata.append(solver.t)
 
         result = pd.DataFrame(model_output, index=xdata,
                               columns=self.model.variables['ode'])
