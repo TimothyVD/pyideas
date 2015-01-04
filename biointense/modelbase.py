@@ -155,6 +155,9 @@ class BaseModel(object):
         check for type
         check for existance of the variable
         """
+        if self.initial_conditions:
+            warnings.warn("Warning: initial conditions are already given. "
+                          "Overwriting original variables.")
         if not isinstance(initialValues, dict):
             raise TypeError("Initial values are not given as a dict")
         for key, value in initialValues.iteritems():
