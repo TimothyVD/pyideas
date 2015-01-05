@@ -99,14 +99,14 @@ class Model(BaseModel):
 
         """
         if not self._initial_up_to_date:
-            self.initialize_model
+            self.initialize_model()
 
         if self.fun_ode and self.fun_alg:
-            solver = HybridOdeintSolver(self.model)
+            solver = HybridOdeintSolver(self)
         elif self.fun_ode:
-            solver = OdeintSolver(self.model)
+            solver = OdeintSolver(self)
         elif self.fun_alg:
-            solver = AlgebraicSolver(self.model)
+            solver = AlgebraicSolver(self)
         else:
             raise Exception("In an initialized Model, there should always "
                             "be at least a fun_ode or fun_alg.")
