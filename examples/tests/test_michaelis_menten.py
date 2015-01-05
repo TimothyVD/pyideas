@@ -5,8 +5,9 @@ Created on Sun Jan  4 19:02:39 2015
 @author: timothy
 """
 import os
-import numpy as np
+
 import pytest
+from numpy.testing import assert_array_almost_equal
 
 import biointense
 
@@ -26,8 +27,17 @@ execfile(str(os.path.join(biointense.BASE_DIR, "..", "examples",
 def test():
     result1, result2, result3 = michaelis_menten()
 
-    np.testing.assert_array_almost_equal(result1, result2)
-    np.testing.assert_array_almost_equal(result1, result3)
+    assert_array_almost_equal(result1, result2)
+    assert_array_almost_equal(result1, result3)
+
+
+@pytest.mark.skipif(SKIP_ODESPY, reason="odespy not installed")
+def test_result_old_new():
+    _, result2, _ = michaelis_menten()
+    result_old = michaelis_menten_old()
+
+    assert_array_almost_equal(result2.values, result_old.values, decimal=14)
+
 
 if __name__ == "__main__":
     test()
