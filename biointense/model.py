@@ -7,8 +7,11 @@ from __future__ import division
 import numpy as np
 
 from modelbase import BaseModel
-from modeldefinition import (generate_ode_derivative_definition, 
+from modeldefinition import (generate_ode_derivative_definition,
                              generate_non_derivative_part_definition)
+from solver import (OdeSolver, OdeintSolver, OdespySolver,
+                    HybridOdeintSolver, HybridOdeSolver,
+                    HybridOdespySolver, AlgebraicSolver)
 
 
 class Model(BaseModel):
@@ -42,7 +45,7 @@ class Model(BaseModel):
         self._initial_up_to_date = False
 
         self.fun_ode = None
-        self.fun_alg = None    
+        self.fun_alg = None
 
     def _parse_system_string(self, system, parameters):
         """
@@ -76,18 +79,41 @@ class Model(BaseModel):
         Parse system string equation to functions.
         """
         self._check_for_independent()
-    
+
         #from modeldefinition import
         if self.systemfunctions['algebraic']:
             self.fun_alg_str = generate_non_derivative_part_definition(self)
             exec(self.fun_alg_str)
             self.fun_alg = fun_alg
-        if self.systemfunctions['ode']:        
+        if self.systemfunctions['ode']:
             self.fun_ode_str = generate_ode_derivative_definition(self)
             exec(self.fun_ode_str)
             self.fun_ode = fun_ode
-        
+
         self._initial_up_to_date = True
+
+    def run(self):
+        """
+        Run the model for the given set of parameters, indepentent variable
+        values and output a datagrame with the variables of interest.
+
+        """
+        if not self._initial_up_to_date:
+            self.initialize_model
+
+        if self.fun_ode and self.fun_alg:
+            solver = HybridOdeintSolver(self.model)
+        elif self.fun_ode:
+            solver = OdeintSolver(self.model)
+        elif self.fun_alg:
+            solver = AlgebraicSolver(self.model)
+        else:
+            raise Exception("In an initialized Model, there should always "
+                            "be at least a fun_ode or fun_alg.")
+
+        result = solver.solve()
+
+        return result
 
 
 class AlgebraicModel(BaseModel):

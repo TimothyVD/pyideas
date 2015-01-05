@@ -67,7 +67,7 @@ class OdeintSolver(BaseOdeSolver):
     def _solve_odeint(self):
         """
         """
-        res = odeint(self.model.systemfunctions['ode'],
+        res = odeint(self.model.fun_ode,
                      self._initial_conditions,
                      self.model.independent_values,
                      args=(self.model.parameters,),
@@ -110,7 +110,7 @@ class OdeSolver(BaseOdeSolver):
 
         # Make wrapper function to
         def wrapper(independent_values, initial_conditions, parameters):
-            return self.model.systemfunctions['ode'](
+            return self.model.fun_ode(
                 initial_conditions, independent_values, parameters)
 
         solver = ode(wrapper).set_integrator(self.ode_integrator,
@@ -168,7 +168,7 @@ class OdespySolver(BaseOdeSolver):
         self.ode_integrator = self.ode_integrator or 'lsoda_scipy'
 
         solver = odespy.__getattribute__(self.ode_integrator)
-        solver = solver(self.model.systemfunctions['ode'])
+        solver = solver(self.model.fun_ode)
         if self.ode_solver_options is not None:
             solver.set(**self.ode_solver_options)
         solver.set_initial_condition(self._initial_conditions)
@@ -201,7 +201,7 @@ class AlgebraicSolver(Solver):
     def _solve_algebraic(self, *args, **kwargs):
         """
         """
-        alg_function = self.model.systemfunctions['algebraic']
+        alg_function = self.model.fun_alg
         model_output = alg_function(self.model.independent_values,
                                     self.model.parameters,
                                     *args, **kwargs)

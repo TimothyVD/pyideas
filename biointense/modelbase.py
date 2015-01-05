@@ -239,7 +239,9 @@ class BaseModel(object):
 
     def run(self):
         """
-        generate dataframe
+        Run the model for the given set of parameters, indepentent variable
+        values and output a datagrame with the variables of interest.
+
         """
         if not self._initial_up_to_date:
             self.initialize_model
