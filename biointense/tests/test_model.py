@@ -89,3 +89,30 @@ class TestOdeModel(unittest.TestCase):
         assert result == {'S': ODE['dS'], 'X': ODE['dX']}
 
         assert model.variables['ode'] == ['S', 'X']
+
+    def test_def_creation(self):
+        
+        ODE = {'dS': 'Q_in/V*(S_in-S)-1/Ys*mu_max*S/(S+K_S)*X',
+               'dX': '-Q_in/V*X+mu_max*S/(S+K_S)*X'
+               'P' : 'Q_in*t/S'}
+
+        parameters = {'mu_max': 0.4, 'K_S': 0.015, 'Q_in': 2, 'Ys': 0.67,
+                      'S_in': 0.02, 'V': 20}
+
+        model = Model('Fermentor', ODE, parameters)
+        model.set_independent('t')
+        model.initialize_model()
+        
+        #str version check        
+        algref = "def fun_alg(t, parameters, *args, **kwargs):\n    mu = parameters['mu']\n    Wf = parameters['Wf']\n    W0 = parameters['W0']\n\n\n    W = W0*Wf/(W0+(Wf-W0)*np.exp(-mu*t)) + np.zeros(len(t))\n\n    nonder = np.array([W]).T\n    return nonder"
+        assert algref == model.fun_alg_str
+
+        oderef = "def fun_alg(t, parameters, *args, **kwargs):\n    mu = parameters['mu']\n    Wf = parameters['Wf']\n    W0 = parameters['W0']\n\n\n    W = W0*Wf/(W0+(Wf-W0)*np.exp(-mu*t)) + np.zeros(len(t))\n\n    nonder = np.array([W]).T\n    return nonder"
+        assert modref == model.fun_ode_str
+
+        result = model.fun_alg(np.linspace(0, 100, 1000), parameters)
+        
+        np.testing.assert_almost_equal
+       
+        #def version check
+        assert result[-1] == 9.4492688322077534
