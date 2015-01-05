@@ -5,7 +5,6 @@ from __future__ import division
 
 import warnings
 
-
 class BaseModel(object):
 
     def __init__(self, name, comment=None):
@@ -187,7 +186,9 @@ class BaseModel(object):
     def _check_for_independent(self):
         """
         """
-        return NotImplementedError
+        if not self.variables['independent']:
+            raise Exception('Independent variable not yet defined, use' 
+                            'set_independent(varname) to define')
 
     def add_event(self, variable, ext_fun, tijdsbehandeling, idname):
         """
@@ -238,7 +239,9 @@ class BaseModel(object):
 
     def run(self):
         """
-        generate dataframe
+        Run the model for the given set of parameters, indepentent variable
+        values and output a datagrame with the variables of interest.
+
         """
         if not self._initial_up_to_date:
             self.initialize_model
