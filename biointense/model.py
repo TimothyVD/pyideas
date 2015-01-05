@@ -4,7 +4,11 @@
 
 from __future__ import division
 
+import numpy as np
+
 from modelbase import BaseModel
+from modeldefinition import (generate_ode_derivative_definition, 
+                             generate_non_derivative_part_definition)
 
 
 class Model(BaseModel):
@@ -37,6 +41,9 @@ class Model(BaseModel):
         self.variables_of_interest = []
         self._initial_up_to_date = False
 
+        self.fun_ode = None
+        self.fun_alg = None    
+
     def _parse_system_string(self, system, parameters):
         """
         split the system in ODE & algebraic
@@ -68,9 +75,18 @@ class Model(BaseModel):
         """
         Parse system string equation to functions.
         """
+        self._check_for_independent()
+    
         #from modeldefinition import
-        #self.fun_ode = ...
-        #self.fun_alg = ...
+        if self.systemfunctions['algebraic']:
+            self.fun_alg_str = generate_non_derivative_part_definition(self)
+            exec(self.fun_alg_str)
+            self.fun_alg = fun_alg
+        if self.systemfunctions['ode']:        
+            self.fun_ode_str = generate_ode_derivative_definition(self)
+            exec(self.fun_ode_str)
+            self.fun_ode = fun_ode
+        
         self._initial_up_to_date = True
 
 

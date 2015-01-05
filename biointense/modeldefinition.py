@@ -5,6 +5,14 @@ Created on Sun Jan  4 12:02:32 2015
 @author: stvhoey
 """
 
+import re
+
+KNOWN_NUMPY_FUN = ['exp', 'ln', 'log', 'log10', 'sqrt', 'sin', 'cos',
+                   'cos', 'tan', 'abs','arcsin','arccos', 'arctan',
+                   'degrees', 'radians', 'sinh', 'cosh', 'tanh',
+                   'arcsinh', 'arccosh', 'arctanh', 'diff',
+                   'gradient', 'exp2']
+
 def write_whiteline(defstr):
     """
     defstr : str
@@ -80,6 +88,20 @@ def write_external_call(defstr, varname, fname, argnames):
     defstr += ')\n'
     return defstr
 
+def replace_numpy_fun(m):
+    """    
+    Replace the numpy standard functions ro np. if np. is not 
+    added by the user
+    
+    Parameters
+    ----------
+    m : str
+        string to replace the numpy items from
+    """
+    for funt in KNOWN_NUMPY_FUN:
+        m = re.sub('(?<!np\.)'+ funt, 'np.' + funt, m)
+    return m
+
 def write_algebraic_lines(defstr, algebraic_right_side):
     """
     Based on the model equations of the algebraic-part model, the equations are 
@@ -93,12 +115,13 @@ def write_algebraic_lines(defstr, algebraic_right_side):
         dict of variables with their corresponding right hand side part of 
         the equation
     """    
-    for varname, expression in algebraic_right_side.iteritems():     
+    for varname, expression in algebraic_right_side.iteritems(): 
+        expression = replace_numpy_fun(expression)
         #defstr += '    ' + varname + ' = ' + str(expression) + '\n'
         defstr += '    {0} = {1}\n'.format(varname, str(expression))
     return defstr
 
-def write_algebraic_solve(defstr, algebraic_right_side):
+def write_algebraic_solve(defstr, algebraic_right_side, independent_var):
     """
     Based on the model equations of the algebraic-part model, the equations are 
     printed in the function
@@ -110,11 +133,14 @@ def write_algebraic_solve(defstr, algebraic_right_side):
     algebraic_right_side : dict
         dict of variables with their corresponding right hand side part of 
         the equation
+    independent_var : str
+        name of the independent variable
     """    
     for varname, expression in algebraic_right_side.iteritems():     
+        expression = replace_numpy_fun(expression)
         #defstr += '    ' + varname + ' = ' + str(expression) + '\n'
-        defstr += '    {0} = {1} + np.zeros(len(x))\n'.format(varname, 
-                                                              str(expression))
+        defstr += '    {0} = {1} + np.zeros(len('.format(varname, str(expression)) + \
+                    ', '.join(independent_var) + '))\n'
     return defstr
 
 def write_ode_lines(defstr, ode_right_side):
@@ -131,6 +157,7 @@ def write_ode_lines(defstr, ode_right_side):
         the equation
     """    
     for varname, expression in ode_right_side.iteritems():     
+        expression = replace_numpy_fun(expression)
         #defstr += '    ' + varname + ' = ' + str(expression) + '\n'    
         defstr += '    d{0} = {1}\n'.format(varname, str(expression))
     return defstr
@@ -179,7 +206,7 @@ def generate_ode_derivative_definition(model):
     model : biointense.model
     
     '''
-    modelstr = 'def _fun_ode(odes, t, parameters, *args, **kwargs):\n'
+    modelstr = 'def fun_ode(odes, t, parameters, *args, **kwargs):\n'
     # Get the parameter values 
     modelstr = write_parameters(modelstr, model.parameters)
     modelstr = write_whiteline(modelstr)
@@ -210,7 +237,8 @@ def generate_non_derivative_part_definition(model):
     model : biointense.model
     
     '''    
-    modelstr = 'def _fun_alg(x, parameters, *args, **kwargs):\n'
+    modelstr = 'def fun_alg('+ model.variables['independent'][0] + \
+                    ', parameters, *args, **kwargs):\n'
     # Get the parameter values 
     modelstr = write_parameters(modelstr, model.parameters)
     modelstr = write_whiteline(modelstr)
@@ -225,7 +253,9 @@ def generate_non_derivative_part_definition(model):
     #write_whiteline(modelstr)
     
     # Write down the equation of algebraic
-    modelstr = write_algebraic_solve(modelstr, model.systemfunctions['algebraic'])
+    modelstr = write_algebraic_solve(modelstr, 
+                                     model.systemfunctions['algebraic'],
+                                     model.variables['independent'])
     modelstr = write_whiteline(modelstr)
 
     modelstr = write_non_derivative_return(modelstr, model.variables['algebraic'])

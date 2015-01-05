@@ -46,6 +46,26 @@ class TestAlgebraicModel(unittest.TestCase):
 
         assert model.variables['algebraic'] == ['W']
 
+    def test_def_creation(self)        :
+        
+        system = {'W': 'W0*Wf/(W0+(Wf-W0)*exp(-mu*t))'}
+        parameters = {'W0': 2.0805,
+                      'Wf': 9.7523,
+                      'mu': 0.0659}
+
+        model = Model('Modsim1', system, parameters)
+        model.set_independent('t')
+        model.initialize_model()
+        
+        #str version check        
+        algref = "def fun_alg(t, parameters, *args, **kwargs):\n    mu = parameters['mu']\n    Wf = parameters['Wf']\n    W0 = parameters['W0']\n\n\n    W = W0*Wf/(W0+(Wf-W0)*np.exp(-mu*t)) + np.zeros(len(t))\n\n    nonder = np.array([W]).T\n    return nonder"
+        assert algref == model.fun_alg_str
+
+        result = model.fun_alg(np.linspace(0, 72, 1000), parameters)
+        
+        #def version check
+        assert result[-1] == 9.4492688322077534
+
     # def test_model_run(self):
     #
     #     result = self.model.run()
