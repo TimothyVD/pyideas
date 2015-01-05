@@ -7,6 +7,7 @@ Created on Sun Jan  4 16:03:19 2015
 from __future__ import division
 
 import numpy as np
+from numpy.testing import assert_almost_equal
 
 from biointense.modelbase import BaseModel
 
@@ -51,8 +52,8 @@ result['X'].plot()
 
 def test_model():
 
-    assert result['S'].values[-1] == 0.0050000242650070203
-    assert result['X'].values[-1] == 0.010049986013158058
+    assert_almost_equal(result['S'].values[-1], 0.005000024265007, decimal=14)
+    assert_almost_equal(result['X'].values[-1], 0.010049986013158, decimal=14)
 
 if __name__ == "__main__":
     test_model()
