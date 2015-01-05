@@ -7,10 +7,34 @@ Created on Sun Jan  4 17:32:29 2015
 from __future__ import division
 
 import numpy as np
+import pandas as pd
 
 from biointense.modelbase import BaseModel
 from biointense.solver import HybridOdeSolver, \
     HybridOdeintSolver, HybridOdespySolver
+
+
+def michaelis_menten_old():
+
+    from biointense import DAErunner
+
+    ODE = {'dS': '-v',
+           'dP': 'v'}
+    Algebraic = {'v': 'Vmax*S/(Ks + S)'}
+    parameters = {'Vmax': 1e-1, 'Ks': 0.5}
+
+    model = DAErunner(ODE=ODE, Algebraic=Algebraic, Parameters=parameters,
+                      Modelname='Fermentor', print_on=False)
+
+    model.set_initial_conditions({'dS': 0.5, 'dP': 0.0})
+    model.set_xdata({'start': 0, 'end': 72, 'nsteps': 1000})
+    #model.set_measured_states(['S','X'])
+    #model.variables = {'algebraic': ['v'], 'ode': ['P', 'S']}
+
+    result1 = model.solve_ode(plotit=False)
+    model.solve_algebraic(plotit=False)
+
+    return pd.concat([result1, model.algeb_solved], axis=1)
 
 
 def michaelis_menten():
@@ -40,12 +64,12 @@ def michaelis_menten():
 
         return algebraic
 
-    system = {'v' : 'Vmax*S/(Ks + S)',
+    system = {'v': 'Vmax*S/(Ks + S)',
               'dS': '-v',
-              'dP' : 'v'}
+              'dP': 'v'}
     parameters = {'Vmax': 1e-1, 'Ks': 0.5}
 
-    model = BaseModel(system, 'test', parameters)
+    model = BaseModel('test')
     model.systemfunctions['algebraic'] = fun_alg
     model.systemfunctions['ode'] = fun_ODE
 
@@ -67,4 +91,8 @@ def michaelis_menten():
     return result1, result2, result3
 
 if __name__ == "__main__":
-    michaelis_menten()
+    result1, result2, result3 = michaelis_menten()
+    result1.plot()
+
+    result = michaelis_menten_old()
+    result.plot()

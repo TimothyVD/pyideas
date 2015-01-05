@@ -28,12 +28,8 @@ class TestExample_modsim(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
 
-        output = run_modsim_models()
+        output = run_modsim_models_old()
         cls.M1, cls.M2, cls.M3, cls.FIM1, cls.FIM2, cls.FIM3 = output
-
-        #execfile(os.path.join(biointense_dir, 'examples', 'modsim.py'))   
-        #output = modsim.run_modsim_models()
-        #cls.M1, cls.M2, cls.M3, cls.FIM1, cls.FIM2, cls.FIM3 = M1, M2, M3, FIM_stuff1, FIM_stuff2, FIM_stuff3
 
     def test_model1(self):
 
@@ -121,6 +117,24 @@ class TestExample_modsim(unittest.TestCase):
         expected = np.array([-0.73682127,  0.92973434, -0.93054158])
         result = self.FIM3.get_parameter_correlation().values[[1,2,2], [0,0,1]]
         assert_almost_equal(result, expected)
+
+
+class TestExample_modsim_new(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+
+        output = run_modsim_models_new()
+        cls.M1, cls.M2, cls.M3 = output
+
+    def test_model1(self):
+        pass
+
+    def test_model2(self):
+        pass
+
+    def test_model3(self):
+        pass
 
 
 if __name__ == '__main__':

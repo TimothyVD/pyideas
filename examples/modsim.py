@@ -14,8 +14,11 @@ import pandas as pd
 import biointense
 from biointense import DAErunner, ode_measurements, ode_optimizer, ode_FIM
 
+# new
+from biointense.model import Model
 
-def run_modsim_models():
+
+def run_modsim_models_old():
 
     # Data
     file_path = os.path.join(biointense.BASE_DIR, '..', 'examples', 'data',
@@ -92,5 +95,59 @@ def run_modsim_models():
     return M1, M2, M3, FIM_stuff1, FIM_stuff2, FIM_stuff3
 
 
+def run_modsim_models_new():
+
+    # Data
+    file_path = os.path.join(biointense.BASE_DIR, '..', 'examples', 'data',
+                             'grasdata.csv')
+    data = pd.read_csv(file_path, header=0, names=['time', 'W'])
+    #measurements = ode_measurements(data)
+
+    # Logistic
+
+    parameters = {'W0': 2.0805,
+                  'Wf': 9.7523,
+                  'mu': 0.0659}
+
+    system = {'W': 'W0*Wf/(W0+(Wf-W0)*exp(-mu*t))'}
+
+    M1 = Model('Modsim1', system, parameters)
+
+    M1.independent_values = np.linspace(0, 72, 1000)
+
+    #M1.set_measured_states(['W'])
+
+    #TODO optim not yet implemented
+    #optim1 = ode_optimizer(M1, measurements, print_on=False)
+    #optim1.local_parameter_optimize(add_plot=False)
+
+    #TODO FIM note yet implemented
+    #FIM_stuff1 = ode_FIM(optim1, print_on=False)
+    #FIM_stuff1.get_newFIM()
+    #FIM_stuff1.get_parameter_confidence()
+    #FIM_stuff1.get_parameter_correlation()
+
+    # Exponential
+    parameters = {'Wf': 10.7189,
+                  'mu': 0.0310}
+
+    system = {'W': 'Wf*(1-exp(-mu*t))'}
+
+    M2 = Model('Modsim2', system, parameters)
+
+
+    # Gompertz
+    parameters = {'W0': 2.0424,
+                  'D': 0.0411,
+                  'mu': 0.0669}
+
+    system = {'W': 'W0*exp((mu*(1-exp(-D*t)))/(D))'}
+
+    M3 = Model('Modsim3', system, parameters)
+
+    return M1, M2, M3
+
+
 if __name__ == "__main__":
-    M1, M2, M3, FIM_stuff1, FIM_stuff2, FIM_stuff3 = run_modsim_models()
+    M1, M2, M3, FIM_stuff1, FIM_stuff2, FIM_stuff3 = run_modsim_models_old()
+    M1_new, M2_new, M3_new = run_modsim_models_new()
