@@ -62,6 +62,9 @@ def write_array_extraction(defstr, ode_variables):
     ode_variables : list
         variable names (!sequence is important)
     """
+    if ode_variables:
+        defstr += '    solved_variables = args[0]\n'
+        
     for i, varname in enumerate(ode_variables):
         defstr += '    {0} = solved_variables[:, {1}]\n'.format(varname, 
                                                                 str(i))
