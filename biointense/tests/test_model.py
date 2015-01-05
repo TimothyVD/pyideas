@@ -110,6 +110,9 @@ class TestOdeModel(unittest.TestCase):
         oderef  = "def fun_ode(odes, t, parameters, *args, **kwargs):\n    K_S = parameters['K_S']\n    mu_max = parameters['mu_max']\n    Q_in = parameters['Q_in']\n    V = parameters['V']\n    Ys = parameters['Ys']\n    S_in = parameters['S_in']\n\n    S = odes[0]\n    X = odes[1]\n\n    P = Q_in*t/X\n\n    dX = -Q_in/V*X+mu_max*S/(S+K_S)*X\n    dS = Q_in/V*(S_in-S)-1/Ys*mu_max*S/(S+K_S)*X\n    return [dS, dX]\n\n"
         assert oderef == model.fun_ode_str
 
-        #result = model.fun_ode(np.linspace(0, 100, 1000), parameters)
-        
-        #np.testing.assert_almost_equal
+        result = model.fun_ode([0.02, 5e-5], np.nan, parameters)
+
+        np.testing.assert_almost_equal(-1.7057569296375266e-05, result[0], 
+                                       decimal=14)
+        np.testing.assert_almost_equal(6.428571428571429e-06, result[1], 
+                                       decimal=14)
