@@ -1191,7 +1191,7 @@ class DAErunner(object):
 
         References
         -----------
-        ..[2] Brun, R., P. Reichert, and H. R. Künsch (2001), Practical
+        ..[1] Brun, R., P. Reichert, and H. R. Künsch (2001), Practical
         identifiability analysis of large environmental simulation models,
         Water Resour. Res., 37(4), 1015–1030, doi:10.1029/2000WR900350.
         '''
