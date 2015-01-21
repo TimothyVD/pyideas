@@ -1171,7 +1171,7 @@ class DAErunner(object):
         important. One should bear in mind that collinearity measures vary
         between 0 and infinity. At the internet I found that for values between
         15-30 you need to watch out. Above 30 you are in trouble and above 100
-        is a real disaster :-)
+        is a real disaster :-) [1]_.
 
         Parameters
         -----------
@@ -1188,6 +1188,12 @@ class DAErunner(object):
         See Also
         ---------
         analytical_sensitivity
+
+        References
+        -----------
+        ..[2] Brun, R., P. Reichert, and H. R. Künsch (2001), Practical
+        identifiability analysis of large environmental simulation models,
+        Water Resour. Res., 37(4), 1015–1030, doi:10.1029/2000WR900350.
         '''
         if isinstance(variables, str):
             variables = [variables]
