@@ -1163,62 +1163,86 @@ class DAErunner(object):
         else:
             return df, analytical_sens
 
-    def collinearity_check(self,variable):
+    def collinearity_check(self, variables):
         '''
-
-        Collinearity check calculates whether variables show collinear behaviour or not.
-        Collinearity is only useful when using Total Relative Sensitivity, because it is
-        the relative change which is important. One should bear in mind that collinearity
-        measures vary between 0 and infinity. At the internet I found that for values
-        between 15-30 you need to watch out. Above 30 you are in trouble and above 100 is
-        a real disaster :-)
+        Collinearity check calculates whether variables show collinear
+        behaviour or not. Collinearity is only useful when using Total Relative
+        Sensitivity (CTRS), because it is the relative change which is
+        important. One should bear in mind that collinearity measures vary
+        between 0 and infinity. At the internet I found that for values between
+        15-30 you need to watch out. Above 30 you are in trouble and above 100
+        is a real disaster :-)
 
         Parameters
         -----------
-        variable : string
-            Give the variable for which the collinearity check has to be performed.
+        variables : string or list of strings
+            Give the variable for which the collinearity check has to be
+            performed.
 
         Returns
         ---------
         df : pandas DataFrame
-            DataFrame with in the columns and rows the different parameters and there
-            corresponding collinearity values.
+            DataFrame with in the columns and rows the different parameters and
+            there corresponding collinearity values.
 
         See Also
         ---------
         analytical_sensitivity
         '''
-        try:
-            self.analytical_sensitivity
-        except:
-            if self._print_on:
-                print('Running Analytical sensitivity analysis')
-            self.analytic_local_sensitivity(Sensitivity = 'CTRS')
-            if self._print_on:
-                print('... Done!')
+        if isinstance(variables, str):
+            variables = [variables]
+        elif not isinstance(variables, list):
+            raise Exception('Variables should string or list!')
 
-        if self.LSA_type != 'CTRS':
-            raise Exception('The collinearity_check function is only useful for Total Relative Sensitivity!')
+        sensitivities = {}
+        if self._has_ODE:
+            self.analytic_local_sensitivity(Sensitivity='CTRS')
+            sensitivities = dict(list(sensitivities.items()) +
+                                 list(self.analytical_sensitivity.items()))
+        if self._has_algebraic:
+            self.calcAlgLSA(Sensitivity='CTRS')
+            sensitivities = dict(list(sensitivities.items()) +
+                                 list(self.getAlgLSA.items()))
 
-        # Make matrix for storing collinearities per two parameters
-        Collinearity_pairwise = np.zeros([len(self.Parameters),len(self.Parameters)])
-        for i,parname1 in enumerate(self.Parameters):
-            for j,parname2 in enumerate(self.Parameters.keys()[i:]):
-                # Transpose is performed on second array because by selecting only one column, python automatically converts the column to a row!
-                # Klopt enkel voor genormaliseerde sensitiviteiten
-                # collinearity = |X.X'|
-                X = np.matrix(np.vstack([self.analytical_sensitivity[variable][parname1],self.analytical_sensitivity[variable][parname2]]))
-                Collinearity_pairwise[i,i+j] = np.sqrt(1/min(np.linalg.eigvals(np.array(X*X.transpose()))))
+        # if self.LSA_type != 'CTRS':
+        #    raise Exception('The collinearity_check function is only useful\
+        #                    for Total Relative Sensitivity!')
 
-        x = pd.DataFrame(Collinearity_pairwise, index=self.Parameters.keys(), columns = self.Parameters.keys())
+        for variable in variables:
+            # Make matrix for storing collinearities per two parameters
+            Collinearity_pairwise = np.zeros([len(self.Parameters),
+                                              len(self.Parameters)])
+            for i, parname1 in enumerate(self.Parameters):
+                for j, parname2 in enumerate(self.Parameters.keys()[i+1:]):
+                    # Transpose is performed on second array because by
+                    # selecting only one column, python automatically
+                    # converts the column to a row!
+                    # Klopt enkel voor genormaliseerde sensitiviteiten
+                    # collinearity = |X.X'|
+                    X = np.vstack([sensitivities[variable][parname1].values,
+                                   sensitivities[variable][parname2].values])
+                    # Problems with object type (float)
+                    XX = np.dot(X, X.T).astype(np.float64)
+                    Collinearity_pairwise[i, i+1+j] =\
+                        np.sqrt(1/min(np.linalg.eigvals(XX)))
+                    Collinearity_pairwise[i+1+j, i] =\
+                        Collinearity_pairwise[i, i+1+j]
 
-        try:
-            self.Collinearity_Pairwise[variable] = x
-        except:
-            self.Collinearity_Pairwise = {}
-            self.Collinearity_Pairwise[variable] = x
+            # Fill self-collinearity with Inf
+            np.fill_diagonal(Collinearity_pairwise, np.Inf)
+            x = pd.DataFrame(Collinearity_pairwise,
+                             index=self.Parameters.keys(),
+                             columns=self.Parameters.keys())
 
-    def calcOdeLSA(self, approach = 'analytical', **kwargs):
+            try:
+                self.Collinearity_Pairwise[variable] = x
+            except:
+                self.Collinearity_Pairwise = {}
+                self.Collinearity_Pairwise[variable] = x
+
+        return self.Collinearity_Pairwise
+
+    def calcOdeLSA(self, approach='analytical', **kwargs):
         '''Calculate Local Sensitivity
 
         For every parameter calculate the sensitivity of the output variables.
@@ -1247,7 +1271,7 @@ class DAErunner(object):
         return sens
 
 
-    def calcAlgLSA(self, Sensitivity = 'CAS'):
+    def calcAlgLSA(self, Sensitivity='CAS'):
         """
         """
         try:
