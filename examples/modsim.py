@@ -134,6 +134,11 @@ def run_modsim_models_new():
     system = {'W': 'Wf*(1-exp(-mu*t))'}
 
     M2 = Model('Modsim2', system, parameters)
+    M2.set_independent('t')
+    M2.independent_values = np.linspace(0, 72, 1000)
+    M2.initialize_model()
+    output = M2.run()
+    output.plot()
 
 
     # Gompertz

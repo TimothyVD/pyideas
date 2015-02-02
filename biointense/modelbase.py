@@ -51,7 +51,7 @@ class BaseModel(object):
         """
         return "Model name: " + str(self.name) + \
             "\n Variables: \n" + str(self.variables) + \
-            "\n Variables of interes: \n" + str(self.variables_of_interest) + \
+            "\n Variables of interest: \n" + str(self.variables_of_interest) +\
             "\n Functions: \n" + str(self.systemfunctions) + \
             "\n Parameters: \n" + str(self.parameters) + \
             "\n Independent values: \n" + str(self.independent_values) + \
@@ -63,7 +63,7 @@ class BaseModel(object):
         """
         print "Model name: " + str(self.name) + \
             "\n Variables: \n" + str(self.variables) + \
-            "\n Variables of interes: \n" + str(self.variables_of_interest) + \
+            "\n Variables of interest: \n" + str(self.variables_of_interest) +\
             "\n Functions: \n" + str(self.systemfunctions) + \
             "\n Parameters: \n" + str(self.parameters) + \
             "\n Independent values: \n" + str(self.independent_values) + \
@@ -187,7 +187,7 @@ class BaseModel(object):
         """
         """
         if not self.variables['independent']:
-            raise Exception('Independent variable not yet defined, use' 
+            raise Exception('Independent variable not yet defined, use'
                             'set_independent(varname) to define')
 
     def add_event(self, variable, ext_fun, tijdsbehandeling, idname):
@@ -276,7 +276,6 @@ class BaseModel(object):
         environment : matlab, openModelica, libSBML
         """
         return NotImplementedError
-
 
 
 def check_mass_balance():
