@@ -1504,6 +1504,48 @@ class DAErunner(object):
         return acc_num_LSA
 
 
+    def calc_quality_num_lsa(self, perturbation_factors,
+                             criteria=['SSE', 'SAE', 'MRE', 'SRE']):
+        '''Quantify the sensitivity calculations quality
+
+        Parameters
+        -----------
+        criterion : SSE|SAE|MRE|SRE
+            criterion name for evaluation of the sensitivity quality. One can
+            choose between the Sum of Squared Errors (SSE),
+            Sum of Absolute Errors (SAE), Maximum Relative Error (MRE) or
+            Sum or Relative Errors (SRE).
+
+        Returns
+        --------
+        res : pandas.DataFrame
+            The colums of the pandas DataFrame contain all the ODE variables,
+            with the different parameters as subcolumns. The index of the
+            DataFrame contains the different perturbation factors.
+        '''
+        if isinstance(perturbation_factors, float):
+            perturbation_factors = [perturbation_factors]
+        elif not isinstance(perturbation_factors, tuple([np.ndarray, list])):
+            raise Exception('perturbation_factors need to be a float (for one\
+            value) or list of floats (multiple values)!')
+
+        if isinstance(criteria, str):
+            criteria = [criteria]
+        elif not isinstance(criteria, list):
+            raise Exception('criteria need to be a string (for one quality\
+            measure) or list of strings (multiple quality measures)!')
+
+        res = {crit: {} for (crit) in criteria}
+        for pert in perturbation_factors:
+            self.numeric_local_sensitivity(perturbation_factor=pert)
+            for crit in criteria:
+                res[crit][pert] = self.calcAccuracyNumericLSA(criterion=crit).transpose().stack()
+
+        for crit in criteria:
+            res[crit] = pd.DataFrame(res[crit]).transpose()
+
+        return res
+
     def visual_check_collinearity(self, output, analytic = False, layout = 'full', upperpane = 'pearson'):
         '''show scatterplot of sensitivities
 
