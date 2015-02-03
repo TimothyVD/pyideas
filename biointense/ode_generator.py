@@ -1503,7 +1503,6 @@ class DAErunner(object):
                 one of following criteria: SSE, SAE, MRE, SRE")
         return acc_num_LSA
 
-
     def calc_quality_num_lsa(self, perturbation_factors,
                              criteria=['SSE', 'SAE', 'MRE', 'SRE']):
         '''Quantify the sensitivity calculations quality
@@ -1526,23 +1525,32 @@ class DAErunner(object):
         if isinstance(perturbation_factors, float):
             perturbation_factors = [perturbation_factors]
         elif not isinstance(perturbation_factors, tuple([np.ndarray, list])):
-            raise Exception('perturbation_factors need to be a float (for one\
-            value) or list of floats (multiple values)!')
+            raise Exception('perturbation_factors need to be a float (for one '
+                            'value) or list of floats (multiple values)!')
 
         if isinstance(criteria, str):
             criteria = [criteria]
         elif not isinstance(criteria, list):
-            raise Exception('criteria need to be a string (for one quality\
-            measure) or list of strings (multiple quality measures)!')
+            raise Exception('criteria need to be a string (for one quality '
+                            'measure) or list of strings (multiple quality '
+                            'measures)!')
 
         res = {crit: {} for (crit) in criteria}
         for pert in perturbation_factors:
             self.numeric_local_sensitivity(perturbation_factor=pert)
             for crit in criteria:
-                res[crit][pert] = self.calcAccuracyNumericLSA(criterion=crit).transpose().stack()
+                acc = self.calcAccuracyNumericLSA(criterion=crit)
+                res[crit][pert] = acc.transpose().stack()
 
         for crit in criteria:
             res[crit] = pd.DataFrame(res[crit]).transpose()
+
+        # Combine all different DataFrames
+        res = pd.concat(res, axis=1)
+        # Reorder dataframe to have following order:
+        # output / parameter / criterion
+        # plotting can be achieved much more easy!
+        res = res.reorder_levels([1, 2, 0], axis=1).sort_index(axis=1)
 
         return res
 
