@@ -1518,7 +1518,7 @@ class DAErunner(object):
             choose between the Sum of Squared Errors (SSE),
             Sum of Absolute Errors (SAE), Maximum Relative Error (MRE),
             Sum or Relative Errors (SRE) or the ratio between the forward and
-            backward sensitivity (RATIO).
+            backward sensitivity (RATIO). [1]_
 
         Returns
         --------
@@ -1526,6 +1526,11 @@ class DAErunner(object):
             The colums of the pandas DataFrame contain all the ODE variables,
             with the different parameters as subcolumns. The index of the
             DataFrame contains the different perturbation factors.
+
+        References
+        -----------
+        .. [1] Dirk J.W. De Pauw and Peter A. Vanrolleghem, Practical Aspects
+               of Sensitivity Analysis for Dynamic Models
         '''
         if isinstance(perturbation_factors, float):
             perturbation_factors = [perturbation_factors]
