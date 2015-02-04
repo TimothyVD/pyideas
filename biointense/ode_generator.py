@@ -1469,42 +1469,7 @@ class DAErunner(object):
 
         return self.numerical_sensitivity
 
-    def calcAccuracyNumericLSA(self, criterion = 'SRE'):
-        '''Quantify the sensitivity calculations quality
-
-        Parameters
-        -----------
-        criterion : SSE|SAE|MRE|SRE
-            criterion name for evaluation of the sensitivity quality. One can choose
-            between the Sum of Squared Errors (SSE), Sum of Absolute Errors (SAE),
-            Maximum Relative Error (MRE) or Sum or Relative Errors (SRE).
-
-        Returns
-        --------
-        acc_num_LSA : pandas.DataFrame
-            The colums of the pandas DataFrame contain all the ODE variables,
-            the index of the DataFrame contains the different model parameters.
-        '''
-        sens_len = len(self._sens_min)
-        dummy = np.empty((len(self.Parameters),len(self._Variables)))
-        acc_num_LSA = pd.DataFrame(dummy, index=self.Parameters.keys(), columns = self._Variables)
-        for var in self._Variables:
-            sens_len = len(self._sens_min[var])
-            if criterion == 'SSE':
-                acc_num_LSA[var] = np.sum((self._sens_plus[var] - self._sens_min[var])**2)/sens_len
-            elif criterion == 'SAE':
-                acc_num_LSA[var] = np.sum(np.abs(self._sens_plus[var] - self._sens_min[var]))/sens_len
-            elif criterion == 'MRE':
-                acc_num_LSA[var] = np.max(np.abs((self._sens_plus[var] - self._sens_min[var])/self._sens_plus[var]))
-            elif criterion == 'SRE':
-                acc_num_LSA[var] = np.sum(np.abs(1 - self._sens_min[var]/self._sens_plus[var]))/sens_len
-            else:
-                raise Exception("Criterion '"+ criterion +"' is not a valid criterion, please select\
-                one of following criteria: SSE, SAE, MRE, SRE")
-        return acc_num_LSA
-
-    def calc_quality_num_lsa(self, perturbation_factors,
-                             criteria=['SSE', 'SAE', 'MRE', 'SRE']):
+    def calcAccuracyNumericLSA(self, criterion='SRE'):
         '''Quantify the sensitivity calculations quality
 
         Parameters
@@ -1512,8 +1477,54 @@ class DAErunner(object):
         criterion : SSE|SAE|MRE|SRE
             criterion name for evaluation of the sensitivity quality. One can
             choose between the Sum of Squared Errors (SSE),
-            Sum of Absolute Errors (SAE), Maximum Relative Error (MRE) or
-            Sum or Relative Errors (SRE).
+            Sum of Absolute Errors (SAE), Maximum Relative Error (MRE),
+            Sum or Relative Errors (SRE) or the ratio between the forward and
+            backward sensitivity (RATIO).
+
+        Returns
+        --------
+        acc_num_LSA : pandas.DataFrame
+            The colums of the pandas DataFrame contain all the ODE variables,
+            the index of the DataFrame contains the different model parameters.
+        '''
+        dummy = np.empty((len(self.Parameters), len(self._Variables)))
+        acc_num_LSA = pd.DataFrame(dummy, index=self.Parameters.keys(),
+                                   columns=self._Variables)
+        for var in self._Variables:
+            if criterion == 'SSE':
+                acc_num_LSA[var] = np.mean((self._sens_plus[var]
+                                            - self._sens_min[var])**2)
+            elif criterion == 'SAE':
+                acc_num_LSA[var] = np.mean(np.abs(self._sens_plus[var]
+                                           - self._sens_min[var]))
+            elif criterion == 'MRE':
+                acc_num_LSA[var] = np.max(np.abs((self._sens_plus[var]
+                                                  - self._sens_min[var]) /
+                                                  self._sens_plus[var]))
+            elif criterion == 'SRE':
+                acc_num_LSA[var] = np.mean(np.abs(1 - self._sens_min[var] /
+                                           self._sens_plus[var]))
+            elif criterion == 'RATIO':
+                acc_num_LSA[var] = np.max(np.abs(1 - self._sens_min[var] /
+                                          self._sens_plus[var]))
+            else:
+                raise Exception("Criterion '" + criterion + "' is not a valid "
+                                "criterion, please select one of following "
+                                "criteria: SSE, SAE, MRE, SRE, RATIO")
+        return acc_num_LSA
+
+    def calc_quality_num_lsa(self, perturbation_factors,
+                             criteria=['SSE', 'SAE', 'MRE', 'SRE', 'RATIO']):
+        '''Quantify the sensitivity calculations quality
+
+        Parameters
+        -----------
+        criteria : SSE|SAE|MRE|SRE|RATIO
+            criterion name for evaluation of the sensitivity quality. One can
+            choose between the Sum of Squared Errors (SSE),
+            Sum of Absolute Errors (SAE), Maximum Relative Error (MRE),
+            Sum or Relative Errors (SRE) or the ratio between the forward and
+            backward sensitivity (RATIO). [1]_
 
         Returns
         --------
@@ -1521,6 +1532,11 @@ class DAErunner(object):
             The colums of the pandas DataFrame contain all the ODE variables,
             with the different parameters as subcolumns. The index of the
             DataFrame contains the different perturbation factors.
+
+        References
+        -----------
+        .. [1] Dirk J.W. De Pauw and Peter A. Vanrolleghem, Practical Aspects
+               of Sensitivity Analysis for Dynamic Models
         '''
         if isinstance(perturbation_factors, float):
             perturbation_factors = [perturbation_factors]
