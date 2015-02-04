@@ -61,14 +61,14 @@ class BaseModel(object):
     def __repr__(self):
         """
         """
-        print "Model name: " + str(self.name) + \
-            "\n Variables: \n" + str(self.variables) + \
-            "\n Variables of interest: \n" + str(self.variables_of_interest) +\
-            "\n Functions: \n" + str(self.systemfunctions) + \
-            "\n Parameters: \n" + str(self.parameters) + \
-            "\n Independent values: \n" + str(self.independent_values) + \
-            "\n Initial conditions: \n" + str(self.initial_conditions) + \
-            "\n Model initialised: " + str(self._initial_up_to_date)
+        print("Model name: " + str(self.name) +
+              "\n Variables: \n" + str(self.variables) +
+              "\n Variables of interest: \n" + str(self.variables_of_interest) +
+              "\n Functions: \n" + str(self.systemfunctions) +
+              "\n Parameters: \n" + str(self.parameters) +
+              "\n Independent values: \n" + str(self.independent_values) +
+              "\n Initial conditions: \n" + str(self.initial_conditions) +
+              "\n Model initialised: " + str(self._initial_up_to_date))
 
     def _check_system(self):
         """
@@ -116,11 +116,12 @@ class BaseModel(object):
         # check if independent variable is not already implemented
         if self.variables['independent']:
             warnings.warn("Warning: independent variable is already given. "
-                          + "Overwriting original "
+                          "Overwriting original "
                           + self.variables['independent'] + " with "
                           + independentVar)
         # setting the new independent variable
-        self.variables['independent'].append(independentVar)
+        # Not using append to avoid infinite list
+        self.variables['independent'] = [independentVar]
 
     def set_initial(self, initialValues):
         """

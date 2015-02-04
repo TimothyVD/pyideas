@@ -1500,7 +1500,7 @@ class DAErunner(object):
             elif criterion == 'MRE':
                 acc_num_LSA[var] = np.max(np.abs((self._sens_plus[var]
                                                   - self._sens_min[var]) /
-                                                  self._sens_plus[var]))
+                                                 self._sens_plus[var]))
             elif criterion == 'SRE':
                 acc_num_LSA[var] = np.mean(np.abs(1 - self._sens_min[var] /
                                            self._sens_plus[var]))

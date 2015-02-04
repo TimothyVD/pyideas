@@ -151,8 +151,9 @@ class NumericalLocalSensitivity(LocalSensitivity):
             the index of the DataFrame contains the different model parameters.
         '''
         if self.procedure != "central":
-            raise Exception('The accuracy of the sensitivity function can only\
-                be estimated when using the central local senstivitity!')
+            raise Exception('The accuracy of the sensitivity function can only'
+                            ' be estimated when using the central local'
+                            ' sensitivity!')
 
         dummy_np = np.empty((len(self.parameters), len(self.model.variables)))
         acc_num_LSA = pd.DataFrame(dummy_np, index=self.parameters,
