@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from biointense.modelbase import BaseModel
+from biointense.model import Model
 from biointense.solver import HybridOdeSolver, \
     HybridOdeintSolver, HybridOdespySolver
 
@@ -24,7 +25,7 @@ def michaelis_menten_old():
     parameters = {'Vmax': 1e-1, 'Ks': 0.5}
 
     model = DAErunner(ODE=ODE, Algebraic=Algebraic, Parameters=parameters,
-                      Modelname='Fermentor', print_on=False)
+                      Modelname='MichaelisMenten', print_on=False)
 
     model.set_initial_conditions({'dS': 0.5, 'dP': 0.0})
     model.set_xdata({'start': 0, 'end': 72, 'nsteps': 1000})
@@ -38,6 +39,7 @@ def michaelis_menten_old():
 
 
 def michaelis_menten():
+
     def fun_ODE(ODES, t, Parameters):
         Ks = Parameters['Ks']
         Vmax = Parameters['Vmax']
@@ -69,15 +71,21 @@ def michaelis_menten():
               'dP': 'v'}
     parameters = {'Vmax': 1e-1, 'Ks': 0.5}
 
-    model = BaseModel('test')
-    model.systemfunctions['algebraic'] = fun_alg
-    model.systemfunctions['ode'] = fun_ODE
+    #model = BaseModel('test')
+    #model.systemfunctions['algebraic'] = fun_alg
+    #model.systemfunctions['ode'] = fun_ODE
+    model = Model('MichaelisMenten', system, parameters)
+    #model.fun_alg = fun_alg
+    #model.fun_ODE = fun_ODE
 
-    model.parameters = {'Vmax': 1e-1, 'Ks': 0.5}
+    #model.parameters = {'Vmax': 1e-1, 'Ks': 0.5}
     model.initial_conditions = {'S': 0.5, 'P': 0.0}
 
     model.independent_values = np.linspace(0, 72, 1000)
-    model.variables = {'algebraic': ['v'], 'ode': ['P', 'S']}
+    #model.variables = {'algebraic': ['v'], 'ode': ['P', 'S']}
+
+    model.set_independent('t')
+    model.initialize_model()
 
     solver1 = HybridOdeSolver(model)
     result1 = solver1.solve()

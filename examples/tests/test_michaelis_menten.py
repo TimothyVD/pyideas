@@ -36,6 +36,8 @@ def test_result_old_new():
     _, result2, _ = michaelis_menten()
     result_old = michaelis_menten_old()
 
+    #FIXME the column order is different. How do we define this?
+    result2 = result2.reindex(columns=result_old.columns)
     assert_array_almost_equal(result2.values, result_old.values, decimal=14)
 
 

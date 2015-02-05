@@ -23,7 +23,8 @@ def alg_model_function(t, parameters):
     return algebraic
 
 model = BaseModel('test')
-model.systemfunctions['algebraic'] = alg_model_function
+#model.systemfunctions['algebraic'] = alg_model_function
+model.fun_alg = alg_model_function
 model.parameters = {'W0': 2.0805,
                     'Wf': 9.7523,
                     'mu': 0.0659}
