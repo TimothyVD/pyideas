@@ -7,7 +7,7 @@ import warnings
 
 class BaseModel(object):
 
-    def __init__(self, name, comment=None):
+    def __init__(self, name, param, comment=None):
         """
 
         ODE equations are defined by the pre-defined d, whereas algebraic
@@ -15,59 +15,40 @@ class BaseModel(object):
 
         Example
         --------
-        >>> sir = {'dS' : '-k*I*B/N',
-                      'dI' : 'k*I*B/N - gam*I*t',
-                      'dR' : 'gam*I',
-                      'N' : 'S + I + R + NA'}
-        >>> param = {'k': 2., 'gam' : 0.3}
+        >>> param = {'k': 2., 'gam': 0.3}
         >>> name = 'SIR1'
-        to be adjusted: >>> S_event = f(t)
-        >>>
+        >>> BaseModel(name, param)
         """
 
-        self.variables = {'algebraic': [],
-                          'ode': [],
-                          'event': [],
-                          'independent':[]
-                          }
         self.name = name
         self._check_name()
         self.comment = comment
 
         # solver communication
-        self.independent_values = None
-        self.systemfunctions = {'algebraic': {}, 'ode': {}}
+        self.modeltype = "basemodel"
+        self.independent = {}
         self.parameters = {}
-        self.initial_conditions = {}
+        self.variables = []
         self.variables_of_interest = []
         self._initial_up_to_date = False
-
-        # call to hidden methods to build the model
-        self._check_name()
 
     def __str__(self):
         """
         string representation
         """
         return "Model name: " + str(self.name) + \
-            "\n Variables: \n" + str(self.variables) + \
             "\n Variables of interest: \n" + str(self.variables_of_interest) +\
-            "\n Functions: \n" + str(self.systemfunctions) + \
             "\n Parameters: \n" + str(self.parameters) + \
-            "\n Independent values: \n" + str(self.independent_values) + \
-            "\n Initial conditions: \n" + str(self.initial_conditions) + \
+            "\n Independent: \n" + str(self.independent) + \
             "\n Model initialised: " + str(self._initial_up_to_date)
 
     def __repr__(self):
         """
         """
         print("Model name: " + str(self.name) +
-              "\n Variables: \n" + str(self.variables) +
               "\n Variables of interest: \n" + str(self.variables_of_interest) +
-              "\n Functions: \n" + str(self.systemfunctions) +
               "\n Parameters: \n" + str(self.parameters) +
-              "\n Independent values: \n" + str(self.independent_values) +
-              "\n Initial conditions: \n" + str(self.initial_conditions) +
+              "\n Independent: \n" + str(self.independent) +
               "\n Model initialised: " + str(self._initial_up_to_date))
 
     def _check_system(self):
@@ -97,51 +78,29 @@ class BaseModel(object):
         """
         return NotImplementedError
 
-    @classmethod
-    def from_external(cls, ext_sys):
+    def set_parameter(self, parameter, value):
         """
-        initialise system from external function
-        integratei met andere paketten om het in een
         """
-        return cls(None)
+        # check the data type of the input
+        if not isinstance(parameter, str):
+            raise TypeError("Parameter is not given as a string")
+        if not isinstance(parameter, [float, int]):
+            raise TypeError("Value is not given as a float/int")
+        self.parameters[parameter] = float(value)
 
-    def set_independent(self, independentVar):
-        """
-        set independent variable, mostly time
-        1D
+    def set_independent(self, independentVar, values):
+        """              "\n Variables: \n" + str(self.variables) +
+        set independent variables
         """
         # check the data type of the input
         if not isinstance(independentVar, str):
             raise TypeError("Independent variable is not given as a string")
-        # check if independent variable is not already implemented
-        if self.variables['independent']:
-            warnings.warn("Warning: independent variable is already given. "
-                          "Overwriting original "
-                          + self.variables['independent'] + " with "
-                          + independentVar)
-        # setting the new independent variable
-        # Not using append to avoid infinite list
-        self.variables['independent'] = [independentVar]
+        self.independent[independentVar] = values
 
-    def set_initial(self, initialValues):
+    def _check_for_independent(self):
         """
-        set initial conditions
-        check for type
-        check for existance of the variable
         """
-        if self.initial_conditions:
-            warnings.warn("Warning: initial conditions are already given. "
-                          "Overwriting original variables.")
-        if not isinstance(initialValues, dict):
-            raise TypeError("Initial values are not given as a dict")
-        for key, value in initialValues.iteritems():
-            if ((key in self.variables['algebraic'])
-                    or (key in self.variables['event'])
-                    or (key in self.variables['ode'])):
-                self.initial_conditions[key] = value
-            else:
-                raise NameError('Variable ' + key + " does not exist within "
-                                "the system")
+        return NotImplementedError
 
     def set_variables_of_interest(self, variables_of_interest):
         """
@@ -179,53 +138,6 @@ class BaseModel(object):
         """
         return NotImplementedError
 
-    def _check_for_init(self):
-        """
-        """
-        return NotImplementedError
-
-    def _check_for_independent(self):
-        """
-        """
-        if not self.variables['independent']:
-            raise Exception('Independent variable not yet defined, use'
-                            'set_independent(varname) to define')
-
-    def add_event(self, variable, ext_fun, tijdsbehandeling, idname):
-        """
-        Variable is defined by external influence. This can be either a
-        measured value of input (e.g. rainfall) or a function that defines
-        a variable in function of time
-
-        See also:
-        ---------
-        functionMaker
-
-        plug to different files: step input ...
-        + add control to check whether external function addition is possible
-
-        + check if var exists in ODE/algebraic => make aggregation function to
-        contacate them.
-        """
-        self._initial_up_to_date = False
-
-        return NotImplementedError
-
-    def list_current_events(self):
-        """
-        """
-        return NotImplementedError
-
-    def exclude_event(self, idname):
-        """
-        """
-        return NotImplementedError
-
-    def _collect_time_steps(self):
-        """
-        """
-        return NotImplementedError
-
     def initialize_model(self):
         """
         make string object of model (templating based would be preferred)
@@ -234,8 +146,6 @@ class BaseModel(object):
         make Solver object
         set verbose option
         """
-        #_collect_time_steps(_fromuser, _fromevents, _frommeasurements)
-        #Solver(integrate option)
         return NotImplementedError
 
     def run(self):
@@ -247,7 +157,6 @@ class BaseModel(object):
         if not self._initial_up_to_date:
             self.initialize_model
         return NotImplementedError
-
 
     def plot(self):
         """
@@ -279,10 +188,4 @@ class BaseModel(object):
         return NotImplementedError
 
 
-def check_mass_balance():
-    """
-    Check the mass balance of the model.
 
-    This method calls the external utility _getCoefficients
-    """
-    return True
