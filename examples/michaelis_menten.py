@@ -81,10 +81,10 @@ def michaelis_menten():
     #model.parameters = {'Vmax': 1e-1, 'Ks': 0.5}
     model.initial_conditions = {'S': 0.5, 'P': 0.0}
 
-    model.independent_values = np.linspace(0, 72, 1000)
+    #model.independent_values = np.linspace(0, 72, 1000)
     #model.variables = {'algebraic': ['v'], 'ode': ['P', 'S']}
 
-    model.set_independent('t')
+    model.set_independent('t', np.linspace(0, 72, 1000))
     model.initialize_model()
 
     solver1 = HybridOdeSolver(model)

@@ -113,7 +113,9 @@ def run_modsim_models_new():
 
     M1 = Model('Modsim1', system, parameters)
 
-    M1.independent_values = np.linspace(0, 72, 1000)
+    M1.set_independent('t', np.linspace(0, 72, 1000))
+    output = M1.run()
+    output.plot()
 
     #M1.set_measured_states(['W'])
 
@@ -134,8 +136,7 @@ def run_modsim_models_new():
     system = {'W': 'Wf*(1-exp(-mu*t))'}
 
     M2 = Model('Modsim2', system, parameters)
-    M2.set_independent('t')
-    M2.independent_values = np.linspace(0, 72, 1000)
+    M2.set_independent('t', np.linspace(0, 72, 1000))
     M2.initialize_model()
     output = M2.run()
     output.plot()
@@ -149,6 +150,9 @@ def run_modsim_models_new():
     system = {'W': 'W0*exp((mu*(1-exp(-D*t)))/(D))'}
 
     M3 = Model('Modsim3', system, parameters)
+    M3.set_independent('t', np.linspace(0, 72, 1000))
+    output = M3.run()
+    output.plot()
 
     return M1, M2, M3
 
