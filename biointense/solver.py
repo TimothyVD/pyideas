@@ -69,11 +69,11 @@ class OdeintSolver(BaseOdeSolver):
         """
         res = odeint(self.model.fun_ode,
                      self._initial_conditions,
-                     self.model.independent_values,
+                     self.model.independent.values()[0],
                      args=(self.model.parameters,),
                      **self.ode_solver_options)
         # Put output in pandas dataframe
-        result = pd.DataFrame(res, index=self.model.independent_values,
+        result = pd.DataFrame(res, index=self.model.independent.values()[0],
                               columns=self.model.variables['ode'])
 
         return result
@@ -117,10 +117,10 @@ class OdeSolver(BaseOdeSolver):
                                              **self.ode_solver_options)
 
         solver.set_initial_value(self._initial_conditions,
-                                 self.model.independent_values[0])
+                                 self.model.independent.values()[0][0])
         solver.set_f_params(self.model.parameters)
 
-        xdata = self.model.independent_values
+        xdata = self.model.independent.values()[0]
         timesteps = xdata[1:] - xdata[:-1]
         model_output = []
         xdata = []
@@ -174,7 +174,7 @@ class OdespySolver(BaseOdeSolver):
         solver.set_initial_condition(self._initial_conditions)
         solver.set(f_args=(self.model.parameters,))
 
-        model_output, xdata = solver.solve(self.model.independent_values)
+        model_output, xdata = solver.solve(self.model.independent.values()[0])
 
         result = pd.DataFrame(model_output, index=xdata,
                               columns=self.model.variables['ode'])
@@ -202,11 +202,12 @@ class AlgebraicSolver(Solver):
         """
         """
         alg_function = self.model.fun_alg
-        model_output = alg_function(self.model.independent_values,
+        model_output = alg_function(self.model.independent.values()[0],
                                     self.model.parameters,
                                     *args, **kwargs)
 
-        result = pd.DataFrame(model_output, index=self.model.independent_values,
+        result = pd.DataFrame(model_output,
+                              index=self.model.independent.values()[0],
                               columns=self.model.variables['algebraic'])
 
         return result

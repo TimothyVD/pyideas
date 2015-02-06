@@ -19,9 +19,15 @@ class Model(BaseModel):
     def __init__(self, name, system, parameters, comment=None):
         """
         uses the "biointense"-style model definition
+        >>> sir = {'dS' : '-k*I*B/N',
+                   'dI' : 'k*I*B/N - gam*I*t',
+                   'dR' : 'gam*I',
+                   'N' : 'S + I + R + NA'}
+        >>> param = {'k': 2., 'gam' : 0.3}
+        >>> name = 'SIR1'
+        >>> Model(name, system, param)
         """
-        self.name = name
-        self._check_name()
+        super(Model, self).__init__(name, parameters, comment=comment)
 
         self.variables = {'algebraic': [],
                           'ode': [],
@@ -29,20 +35,13 @@ class Model(BaseModel):
                           'independent': []
                           }
 
-        self.comment = comment
-
         # solver communication
-        self.independent_values = None
-        self.parameters = parameters
         self.systemfunctions = {'algebraic': {}, 'ode': {}}
         self.initial_conditions = {}
 
         # detect system equations
         self._system = system
         self._parse_system_string(self._system, self.parameters)
-
-        self.variables_of_interest = []
-        self._initial_up_to_date = False
 
         self.fun_ode = None
         self.fun_alg = None
@@ -54,7 +53,7 @@ class Model(BaseModel):
         return "Model name: " + str(self.name) + \
             "\n Variables of interest: \n" + str(self.variables_of_interest) +\
             "\n Parameters: \n" + str(self.parameters) + \
-            "\n Independent: \n" + str(self.independent) + \
+            "\n Independent: \n" + str(self.independent.keys()) + \
             "\n Model initialised: " + str(self._initial_up_to_date)
 
     def __repr__(self):
@@ -65,7 +64,7 @@ class Model(BaseModel):
               "\n Variables of interest: \n" + str(self.variables_of_interest) +
               "\n Functions: \n" + str(self.systemfunctions) +
               "\n Parameters: \n" + str(self.parameters) +
-              "\n Independent values: \n" + str(self.independent_values) +
+              "\n Independent: \n" + str(self.independent.keys()) +
               "\n Initial conditions: \n" + str(self.initial_conditions) +
               "\n Model initialised: " + str(self._initial_up_to_date))
 

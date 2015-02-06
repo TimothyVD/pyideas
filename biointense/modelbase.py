@@ -7,7 +7,7 @@ import warnings
 
 class BaseModel(object):
 
-    def __init__(self, name, param, comment=None):
+    def __init__(self, name, parameters, comment=None):
         """
 
         ODE equations are defined by the pre-defined d, whereas algebraic
@@ -27,7 +27,7 @@ class BaseModel(object):
         # solver communication
         self.modeltype = "basemodel"
         self.independent = {}
-        self.parameters = {}
+        self.parameters = parameters
         self.variables = []
         self.variables_of_interest = []
         self._initial_up_to_date = False
@@ -39,7 +39,7 @@ class BaseModel(object):
         return "Model name: " + str(self.name) + \
             "\n Variables of interest: \n" + str(self.variables_of_interest) +\
             "\n Parameters: \n" + str(self.parameters) + \
-            "\n Independent: \n" + str(self.independent) + \
+            "\n Independent: \n" + str(self.independent.keys()) + \
             "\n Model initialised: " + str(self._initial_up_to_date)
 
     def __repr__(self):
@@ -48,7 +48,7 @@ class BaseModel(object):
         print("Model name: " + str(self.name) +
               "\n Variables of interest: \n" + str(self.variables_of_interest) +
               "\n Parameters: \n" + str(self.parameters) +
-              "\n Independent: \n" + str(self.independent) +
+              "\n Independent: \n" + str(self.independent.keys()) +
               "\n Model initialised: " + str(self._initial_up_to_date))
 
     def _check_system(self):
