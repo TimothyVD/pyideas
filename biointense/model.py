@@ -5,6 +5,7 @@
 from __future__ import division
 
 import numpy as np
+import itertools
 
 from modelbase import BaseModel
 from modeldefinition import (generate_ode_derivative_definition,
@@ -42,6 +43,7 @@ class Model(BaseModel):
         # detect system equations
         self._system = system
         self._parse_system_string(self._system, self.parameters)
+        self.variables_of_interest = list(itertools.chain(*self.variables.values()))
 
         self.fun_ode = None
         self.fun_alg = None

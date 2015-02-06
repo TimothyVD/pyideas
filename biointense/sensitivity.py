@@ -44,19 +44,19 @@ class NumericalLocalSensitivity(LocalSensitivity):
                  procedure="central"):
         """
         """
-        super(NumericalLocalSensitivity, self).__init__()
+        self.model = model
         self.perturb_parameters = {}
         self.set_perturbation(perturb_parameters, perturbation=perturbation)
-        self.procedure = self.set_procedure(procedure)
+        self.set_procedure(procedure)
         self._initiate_par()
         self._initiate_var()
 
     def _initiate_forw_back_sens(self):
         """
         """
-        dummy_np = np.empty([len(self.model.xdata),
-                             len(self.perturb_parameters,
-                             len(self.model.variables))])
+        dummy_np = np.empty([len(self.model.independent.values()[0]),
+                             len(self.perturb_parameters),
+                             len(self.model.variables_of_interest)])
         self._sens_forw = dummy_np.copy()
         self._sens_back = dummy_np.copy()
 
@@ -71,7 +71,7 @@ class NumericalLocalSensitivity(LocalSensitivity):
         """
         """
         self._var_order = {}
-        for i, var in enumerate(self.model.variables):
+        for i, var in enumerate(self.model.variables_of_interest):
             self._var_order[var] = i
 
     def set_procedure(self, procedure):
@@ -146,10 +146,10 @@ class NumericalLocalSensitivity(LocalSensitivity):
         # Backup original parameter value
         orig_par_val = self.model.parameters[parameter]
         # Run model with parameter value plus perturbation
-        self.model.set_parameter[parameter] = orig_par_val*(1 + perturbation)
+        self.model.set_parameter(parameter, orig_par_val*(1 + perturbation))
         model_output = self.model.run()
         # Reset parameter to original value
-        self.model.set_parameter[parameter] = orig_par_val
+        self.model.set_parameter(parameter, orig_par_val)
 
         return model_output
 
@@ -166,35 +166,35 @@ class NumericalLocalSensitivity(LocalSensitivity):
         """
         """
         output_std = self.model.run()
+        par_value = self.model.parameters[parameter]
 
         if self.procedure == "central":
             output_forw = self._model_output_pert(parameter, perturbation)
             output_back = self._model_output_pert(parameter, -perturbation)
-
             par_number = self._par_order[parameter]
             self._sens_forw[:, par_number, :] = \
-                self._calc_sens(output_forw, output_std, parameter,
+                self._calc_sens(output_forw, output_std, par_value,
                                 perturbation)
             self._sens_back[:, par_number, :] = \
-                self._calc_sens(output_std, output_back, parameter,
+                self._calc_sens(output_std, output_back, par_value,
                                 perturbation)
             cent_sens = self._calc_sens(output_std, output_back,
-                                        parameter, 2*perturbation)
+                                        par_value, 2*perturbation)
             output = cent_sens
         elif self.procedure == "forward":
             output_forw = self._model_output_pert(parameter, perturbation)
 
             forw_sens = self._calc_sens(output_forw, output_std,
-                                        parameter, perturbation)
+                                        par_value, perturbation)
             output = forw_sens
         elif self.procedure == "backward":
             output_back = self._model_output_pert(parameter, -perturbation)
 
             back_sens = self._calc_sens(output_std, output_back,
-                                        parameter, perturbation)
+                                        par_value, perturbation)
             output = back_sens
         else:
-            raise Exception('Type of perturbation is not known, perturbation
+            raise Exception('Type of perturbation is not known, perturbation'
                             'should be central, forward, or backward')
 
         return output
@@ -241,30 +241,30 @@ class NumericalLocalSensitivity(LocalSensitivity):
                             ' sensitivity!')
 
         dummy_np = np.empty((len(self.perturb_parameters),
-                             len(self.model.variables)))
+                             len(self.model.variables_of_interest)))
         acc_num_LSA = pd.DataFrame(dummy_np, index=self.perturb_parameters,
-                                   columns=self.model.variables)
+                                   columns=self.model.variables_of_interest)
 
-        for var in self.model.variables:
+        for var in self.model.variables_of_interest:
             var_num = self._var_order[var]
             if criterion == 'SSE':
-                acc_num_LSA[var_num] = self._get_sse(
+                acc_num_LSA[var] = self._get_sse(
                     self._sens_forw[:, :, var_num],
                     self._sens_back[:, :, var_num])
             elif criterion == 'SAE':
-                acc_num_LSA[var_num] = self._get_sae(
+                acc_num_LSA[var] = self._get_sae(
                     self._sens_forw[:, :, var_num],
                     self._sens_back[:, :, var_num])
             elif criterion == 'MRE':
-                acc_num_LSA[var_num] = self._get_mre(
+                acc_num_LSA[var] = self._get_mre(
                     self._sens_forw[:, :, var_num],
                     self._sens_back[:, :, var_num])
             elif criterion == 'SRE':
-                acc_num_LSA[var_num] = self._get_sre(
+                acc_num_LSA[var] = self._get_sre(
                     self._sens_forw[:, :, var_num],
                     self._sens_back[:, :, var_num])
             elif criterion == 'RATIO':
-                acc_num_LSA[var_num] = self._get_ratio(
+                acc_num_LSA[var] = self._get_ratio(
                     self._sens_forw[:, :, var_num],
                     self._sens_back[:, :, var_num])
             else:
@@ -349,21 +349,21 @@ class NumericalLocalSensitivity(LocalSensitivity):
     def _get_mre(sens_plus, sens_min):
         """
         """
-        mre = np.max(np.abs((sens_plus - sens_min)/sens_plus))
+        mre = np.max(np.abs((sens_plus[1:] - sens_min[1:])/sens_plus[1:]))
         return mre
 
     @staticmethod
     def _get_sre(sens_plus, sens_min):
         """
         """
-        sre = np.mean(np.abs(1 - sens_min/sens_plus))
+        sre = np.mean(np.abs(1 - sens_min[1:]/sens_plus[1:]))
         return sre
 
     @staticmethod
     def _get_ratio(sens_plus, sens_min):
         """
         """
-        ratio = np.max(np.abs(1 - sens_min/sens_plus))
+        ratio = np.max(np.abs(1 - sens_min[1:]/sens_plus[1:]))
         return ratio
 
 

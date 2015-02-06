@@ -84,7 +84,7 @@ class BaseModel(object):
         # check the data type of the input
         if not isinstance(parameter, str):
             raise TypeError("Parameter is not given as a string")
-        if not isinstance(parameter, [float, int]):
+        if not isinstance(value, tuple((float, int))):
             raise TypeError("Value is not given as a float/int")
         self.parameters[parameter] = float(value)
 
