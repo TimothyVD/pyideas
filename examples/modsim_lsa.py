@@ -48,13 +48,12 @@ def run_fermentor_new():
                   'S_in': 0.02, 'V': 20}
 
     M_fermentor = Model('fermentor', system, parameters)
-    M_fermentor.set_independent('t', np.linspace(0, 100, 1000))
+    M_fermentor.set_independent('t', np.linspace(0, 100, 5000))
     M_fermentor.set_initial({'S': 0.02, 'X': 5e-5})
 
     sens = NumericalLocalSensitivity(M_fermentor, ['mu_max', 'K_S'])
     sens_out = sens.get_sensitivity()
 
-    sens.get_sensitivity_accuracy(criterion='SSE')
     pert_factors = 10.**np.arange(-14, 0, 1)
     out_fig = sens.calc_quality_num_lsa(['mu_max', 'K_S'], pert_factors)
 
@@ -66,3 +65,14 @@ if __name__ == "__main__":
     out_old['S', 'mu_max'].plot(logx=True, logy=True)
     out_new, sens = run_fermentor_new()
     out_new['S', 'mu_max'].plot(logx=True, logy=True)
+
+    sens.set_perturbation(['mu_max', 'K_S'], perturbation=1e-8)
+    a = sens.get_sensitivity()['S'][['mu_max', 'K_S']]
+    b = M_old.numeric_local_sensitivity(perturbation_factor=1e-8)['S'][['mu_max', 'K_S']]
+
+    c = M_old.analytic_local_sensitivity()['S'][['mu_max', 'K_S']]
+
+    (a-b)['K_S'].plot()
+    (b-c).plot()
+
+

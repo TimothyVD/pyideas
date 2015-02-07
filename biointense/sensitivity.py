@@ -178,7 +178,7 @@ class NumericalLocalSensitivity(LocalSensitivity):
             self._sens_back[:, par_number, :] = \
                 self._calc_sens(output_std, output_back, par_value,
                                 perturbation)
-            cent_sens = self._calc_sens(output_std, output_back,
+            cent_sens = self._calc_sens(output_forw, output_back,
                                         par_value, 2*perturbation)
             output = cent_sens
         elif self.procedure == "forward":

@@ -1499,15 +1499,15 @@ class DAErunner(object):
                 acc_num_LSA[var] = np.mean(np.abs(self._sens_plus[var]
                                            - self._sens_min[var]))
             elif criterion == 'MRE':
-                acc_num_LSA[var] = np.max(np.abs((self._sens_plus[var]
-                                                  - self._sens_min[var]) /
-                                                 self._sens_plus[var]))
+                acc_num_LSA[var] = np.max(np.abs((self._sens_plus[var][1:]
+                                                  - self._sens_min[var][1:]) /
+                                                 self._sens_plus[var][1:]))
             elif criterion == 'SRE':
-                acc_num_LSA[var] = np.mean(np.abs(1 - self._sens_min[var] /
-                                           self._sens_plus[var]))
+                acc_num_LSA[var] = np.mean(np.abs(1 - self._sens_min[var][1:] /
+                                           self._sens_plus[var][1:]))
             elif criterion == 'RATIO':
-                acc_num_LSA[var] = np.max(np.abs(1 - self._sens_min[var] /
-                                          self._sens_plus[var]))
+                acc_num_LSA[var] = np.max(np.abs(1 - self._sens_min[var][1:] /
+                                          self._sens_plus[var][1:]))
             else:
                 raise Exception("Criterion '" + criterion + "' is not a valid "
                                 "criterion, please select one of following "
