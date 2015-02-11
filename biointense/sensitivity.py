@@ -32,20 +32,19 @@ class Sensitivity(object):
 class LocalSensitivity(Sensitivity):
     """
     """
-    def __init__(self, model, parameters):
+    def __init__(self, model, perturb_parameters):
         """
         """
         self.model = model
-        self.parameters = parameters
+        self.perturb_parameters = perturb_parameters
 
-    @staticmethod
-    def rescale_sensitivity(sensitivity_PD, parameter_dict, scaling):
+    def _rescale_sensitivity(self, sensitivity_PD, scaling):
         """
         """
         variables = list(sensitivity_PD.columns.levels[0])
-        perturb_par = list(sensitivity_PD.columns.levels[1])
+        perturb_par = pd.Series(self.perturb_parameters)
         sensitivity_len = len(sensitivity_PD.index)
-        parameter_len = len(perturb_par)
+        parameter_len = len(self.perturb_parameters)
 
         # Problem with keeping the same order!
         par_values = []
@@ -242,7 +241,7 @@ class NumericalLocalSensitivity(LocalSensitivity):
 
         return output
 
-    def get_sensitivity(self):
+    def get_sensitivity(self, method='CAS'):
         """
         Get numerical local sensitivity for the different parameters and
         variables of interest

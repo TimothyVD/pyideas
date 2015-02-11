@@ -167,7 +167,7 @@ def write_ode_lines(defstr, ode_right_side):
     Parameters
     -----------
     defstr : str
-        str containing the definition t                          'independent': []o solve in model
+        str containing the definition to solve in model
     algebraic_right_side : dict
         dict of variables with their corresponding right hand side part of
         the equation
@@ -227,7 +227,7 @@ def generate_ode_derivative_definition(model):
     modelstr = write_parameters(modelstr, model.parameters)
     modelstr = write_whiteline(modelstr)
     # Get the current variable values from the solver
-    modelstr = write_ode_indices(modelstr, model.variables['ode'])
+    modelstr = write_ode_indices(modelstr, model._ordered_var['ode'])
     modelstr = write_whiteline(modelstr)
     # Write down necessary algebraic equations (if none, nothing written)
     modelstr = write_algebraic_lines(modelstr, model.systemfunctions['algebraic'])
@@ -239,7 +239,7 @@ def generate_ode_derivative_definition(model):
 
     # Write down the current derivative values
     modelstr = write_ode_lines(modelstr, model.systemfunctions['ode'])
-    modelstr = write_derivative_return(modelstr, model.variables['ode'])
+    modelstr = write_derivative_return(modelstr, model._ordered_var['ode'])
     return modelstr
 
 def generate_non_derivative_part_definition(model):
@@ -253,7 +253,7 @@ def generate_non_derivative_part_definition(model):
     model : biointense.model
 
     '''
-    modelstr = 'def fun_alg('+ model.independent.keys()[0] + \
+    modelstr = 'def fun_alg('+ model.independent[0] + \
                     ', parameters, *args, **kwargs):\n'
     # Get the parameter values
     modelstr = write_parameters(modelstr, model.parameters)
@@ -261,7 +261,7 @@ def generate_non_derivative_part_definition(model):
 
     # Put the variables in a separate array
 
-    modelstr = write_array_extraction(modelstr, model.variables['ode'])
+    modelstr = write_array_extraction(modelstr, model._ordered_var['ode'])
     modelstr = write_whiteline(modelstr)
 
     # Write down external called functions - not yet provided!
@@ -271,10 +271,10 @@ def generate_non_derivative_part_definition(model):
     # Write down the equation of algebraic
     modelstr = write_algebraic_solve(modelstr,
                                      model.systemfunctions['algebraic'],
-                                     model.independent.keys()[0])
+                                     model.independent[0])
     modelstr = write_whiteline(modelstr)
 
-    modelstr = write_non_derivative_return(modelstr, model.variables['algebraic'])
+    modelstr = write_non_derivative_return(modelstr, model._ordered_var['algebraic'])
     return modelstr
 
 def generate_ND_non_derivative_part_definition(model):

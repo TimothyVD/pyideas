@@ -18,7 +18,6 @@ from solver import (OdeSolver, OdeintSolver, OdespySolver,
                     HybridOdeintSolver, HybridOdeSolver,
                     HybridOdespySolver, AlgebraicSolver,
                     AlgebraicNDSolver)
-import plotting
 
 
 class Model(BaseModel):
@@ -48,7 +47,7 @@ class Model(BaseModel):
         self._system = system
         self._parse_system_string(self._system, self.parameters)
         self.variables = list(itertools.chain(*self._ordered_var.values()))
-        self.variables_of_interest = self.variables.deepcopy()
+        self.variables_of_interest = deepcopy(self.variables)
 
         self.fun_ode = None
         self.fun_alg = None
@@ -220,13 +219,10 @@ class AlgebraicModel(BaseModel):
     def __init__(self, name, system, parameters, comment=None):
         """
         uses the "biointense"-style model definition
-        >>> sir = {'dS' : '-k*I*B/N',
-                   'dI' : 'k*I*B/N - gam*I*t',
-                   'dR' : 'gam*I',
-                   'N' : 'S + I + R + NA'}
-        >>> param = {'k': 2., 'gam' : 0.3}
-        >>> name = 'SIR1'
-        >>> Model(name, system, param)
+        >>> system = {'v' : 'Vf * SA * SB/(Kp * SA + Km * SB + SA * SB)'}
+        >>> param = {'Vf': 1., 'Km': 1., 'Kp': 1.}
+        >>> name = 'pingpongbibi'
+        >>> AlgebraicModel(name, system, param)
         """
         super(AlgebraicModel, self).__init__(name, parameters, comment=comment)
 
@@ -355,16 +351,15 @@ class AlgebraicModel(BaseModel):
         y = np.reshape(self._independent_values[independent_y], shape)
         z = np.reshape(output.values, shape)
 
-        if ax is not None:
-            cs = ax.contourf(x, y, z, **kwargs)
-            ax.set_xlabel(independent_x)
-            ax.set_ylabel(independent_y)
-            plt.colorbar(cs)
-        else:
-            plt.contourf(x, y, z, **kwargs)
-            plt.xlabel(independent_x)
-            plt.ylabel(independent_y)
-            plt.colorbar()
+        if ax is None:
+            ax = plt.gca()
+
+        cs = ax.contourf(x, y, z, **kwargs)
+        ax.set_xlabel(independent_x)
+        ax.set_ylabel(independent_y)
+        plt.colorbar(cs)
+
+        return ax
 
 
 class ReactionModel(BaseModel):

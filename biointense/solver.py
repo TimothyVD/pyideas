@@ -49,7 +49,7 @@ class BaseOdeSolver(Solver):
         self.ode_solver_options = ode_solver_options or {}
         self.ode_integrator = ode_integrator
         self._initial_conditions = [self.model.initial_conditions[var]
-                                    for var in self.model.variables['ode']]
+                                    for var in self.model._ordered_var['ode']]
 
 
 class OdeintSolver(BaseOdeSolver):
@@ -73,8 +73,8 @@ class OdeintSolver(BaseOdeSolver):
                      args=(self.model.parameters,),
                      **self.ode_solver_options)
         # Put output in pandas dataframe
-        result = pd.DataFrame(res, index=self.model.independent.values()[0],
-                              columns=self.model.variables['ode'])
+        result = pd.DataFrame(res, index=self.model._independent_values.values()[0],
+                              columns=self.model._ordered_var['ode'])
 
         return result
 
@@ -120,7 +120,7 @@ class OdeSolver(BaseOdeSolver):
                                  self.model._independent_values.values()[0][0])
         solver.set_f_params(self.model.parameters)
 
-        xdata = self.model.independent.values()[0]
+        xdata = self.model._independent_values.values()[0]
         timesteps = xdata[1:] - xdata[:-1]
         model_output = []
         xdata = []

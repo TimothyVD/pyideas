@@ -19,7 +19,7 @@ pars = {'mu_max' : 0.4, 'K_S' : 0.015, 'Q_in' : 2, 'Ys' : 0.67,
         'S_in' : 0.02,'V' : 20}
               
 M_fermentor = Model("fermentor", ODE,  pars)         
-M_fermentor.set_independent('t')     
+M_fermentor.set_independent('t', np.empty(10))
 modelstr = generate_ode_derivative_definition(M_fermentor)
 algstr = generate_non_derivative_part_definition(M_fermentor)
 
