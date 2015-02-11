@@ -8,6 +8,8 @@ from __future__ import division
 import numpy as np
 import pandas as pd
 
+import matplotlib.pyplot as plt
+
 
 class Sensitivity(object):
     """
@@ -36,6 +38,47 @@ class LocalSensitivity(Sensitivity):
         self.model = model
         self.parameters = parameters
 
+    @staticmethod
+    def rescale_sensitivity(sensitivity_PD, parameter_dict, scaling):
+        """
+        """
+        variables = list(sensitivity_PD.columns.levels[0])
+        perturb_par = list(sensitivity_PD.columns.levels[1])
+        sensitivity_len = len(sensitivity_PD.index)
+        parameter_len = len(perturb_par)
+
+        # Problem with keeping the same order!
+        par_values = []
+        for par in perturb_par:
+            par_values.append(parameter_dict[par])
+        # Convert par_values to np.array with lenght = sensitivity
+        par_values = np.array(par_values)*np.ones([sensitivity_len,
+                                                   parameter_len])
+
+        if scaling == 'CPRS':
+            # CPRS = CAS*parameter
+            for var in variables:
+                sensitivity_PD[var] = sensitivity_PD[var]*par_values
+        elif scaling == 'CTRS':
+            # CTRS
+            if min(sensitivity_PD.mean()) == 0 or max(sensitivity_PD.mean()) == 0:
+                raise Exception(scaling + ': It is not possible to use the '
+                                'CTRS method for calculating sensitivity, '
+                                'because one or more variables are fixed at '
+                                'zero. Try to use another method or to change '
+                                'the independent/initial conditions!')
+            elif min(sensitivity_PD.min()) == 0 or min(sensitivity_PD.max()) == 0:
+                for var in variables:
+                     sensitivity_PD[var] = sensitivity_PD[var]*par_values/sensitivity_PD[var].mean()
+            else:
+                for var in variables:
+                     sensitivity_PD[var] = sensitivity_PD[var]*par_values/np.tile(np.array(sensitivity_PD[var]),(len(par_values),1)).T
+        elif scaling != 'CAS':
+            raise Exception('You have to choose one of the sensitivity '
+                            'methods which are available: CAS, CPRS or CTRS')
+
+        return sensitivity_PD
+
 
 class NumericalLocalSensitivity(LocalSensitivity):
     """
@@ -54,7 +97,7 @@ class NumericalLocalSensitivity(LocalSensitivity):
     def _initiate_forw_back_sens(self):
         """
         """
-        dummy_np = np.empty([len(self.model.independent.values()[0]),
+        dummy_np = np.empty([len(self.model._independent_values.values()[0]),
                              len(self.perturb_parameters),
                              len(self.model.variables_of_interest)])
         self._sens_forw = dummy_np.copy()

@@ -5,14 +5,20 @@
 from __future__ import division
 
 import numpy as np
+import pandas as pd
 import itertools
+import matplotlib.pyplot as plt
+from copy import deepcopy
 
 from modelbase import BaseModel
 from modeldefinition import (generate_ode_derivative_definition,
-                             generate_non_derivative_part_definition)
+                             generate_non_derivative_part_definition,
+                             generate_ND_non_derivative_part_definition)
 from solver import (OdeSolver, OdeintSolver, OdespySolver,
                     HybridOdeintSolver, HybridOdeSolver,
-                    HybridOdespySolver, AlgebraicSolver)
+                    HybridOdespySolver, AlgebraicSolver,
+                    AlgebraicNDSolver)
+import plotting
 
 
 class Model(BaseModel):
@@ -30,11 +36,9 @@ class Model(BaseModel):
         """
         super(Model, self).__init__(name, parameters, comment=comment)
 
-        self.variables = {'algebraic': [],
-                          'ode': [],
-                          'event': [],
-                          'independent': []
-                          }
+        self._ordered_var = {'algebraic': [],
+                             'ode': [],
+                             'event': []}
 
         # solver communication
         self.systemfunctions = {'algebraic': {}, 'ode': {}}
@@ -43,7 +47,8 @@ class Model(BaseModel):
         # detect system equations
         self._system = system
         self._parse_system_string(self._system, self.parameters)
-        self.variables_of_interest = list(itertools.chain(*self.variables.values()))
+        self.variables = list(itertools.chain(*self._ordered_var.values()))
+        self.variables_of_interest = self.variables.deepcopy()
 
         self.fun_ode = None
         self.fun_alg = None
@@ -55,7 +60,7 @@ class Model(BaseModel):
         return "Model name: " + str(self.name) + \
             "\n Variables of interest: \n" + str(self.variables_of_interest) +\
             "\n Parameters: \n" + str(self.parameters) + \
-            "\n Independent: \n" + str(self.independent.keys()) + \
+            "\n Independent: \n" + str(self.independent) + \
             "\n Model initialised: " + str(self._initial_up_to_date)
 
     def __repr__(self):
@@ -66,7 +71,7 @@ class Model(BaseModel):
               "\n Variables of interest: \n" + str(self.variables_of_interest) +
               "\n Functions: \n" + str(self.systemfunctions) +
               "\n Parameters: \n" + str(self.parameters) +
-              "\n Independent: \n" + str(self.independent.keys()) +
+              "\n Independent: \n" + str(self.independent) +
               "\n Initial conditions: \n" + str(self.initial_conditions) +
               "\n Model initialised: " + str(self._initial_up_to_date))
 
@@ -92,10 +97,10 @@ class Model(BaseModel):
             if key[0] == "d":
                 #get rid of the first letter, d
                 self.systemfunctions['ode'][key[1:]] = value
-                self.variables['ode'].append(key[1:])
+                self._ordered_var['ode'].append(key[1:])
             else:
                 self.systemfunctions['algebraic'][key] = value
-                self.variables['algebraic'].append(key)
+                self._ordered_var['algebraic'].append(key)
 
     def initialize_model(self):
         """
@@ -160,9 +165,9 @@ class Model(BaseModel):
         if not isinstance(initialValues, dict):
             raise TypeError("Initial values are not given as a dict")
         for key, value in initialValues.iteritems():
-            if ((key in self.variables['algebraic'])
-                    or (key in self.variables['event'])
-                    or (key in self.variables['ode'])):
+            if ((key in self._ordered_var['algebraic'])
+                    or (key in self._ordered_var['event'])
+                    or (key in self._ordered_var['ode'])):
                 self.initial_conditions[key] = value
             else:
                 raise NameError('Variable ' + key + " does not exist within "
@@ -212,15 +217,154 @@ class Model(BaseModel):
 
 class AlgebraicModel(BaseModel):
 
-    def __init__():
+    def __init__(self, name, system, parameters, comment=None):
         """
-        with multidimensional independant variables
+        uses the "biointense"-style model definition
+        >>> sir = {'dS' : '-k*I*B/N',
+                   'dI' : 'k*I*B/N - gam*I*t',
+                   'dR' : 'gam*I',
+                   'N' : 'S + I + R + NA'}
+        >>> param = {'k': 2., 'gam' : 0.3}
+        >>> name = 'SIR1'
+        >>> Model(name, system, param)
         """
+        super(AlgebraicModel, self).__init__(name, parameters, comment=comment)
 
-    def set_independent(self):
+        self._ordered_var = {'algebraic': [],
+                             'event': []}
+
+        # solver communication
+        self.systemfunctions = {'algebraic': {}, 'ode': {}}
+        self.initial_conditions = {}
+        self._independent_len = {}
+
+        # detect system equations
+        self._system = system
+        self._parse_system_string(self._system, self.parameters)
+        self.variables = list(itertools.chain(*self._ordered_var.values()))
+        self.variables_of_interest = deepcopy(self.variables)
+
+        self.fun_alg = None
+
+    def __str__(self):
         """
-        set independent variable, mostly time
+        string representation
         """
+        return "Model name: " + str(self.name) + \
+            "\n Variables of interest: \n" + str(self.variables_of_interest) +\
+            "\n Parameters: \n" + str(self.parameters) + \
+            "\n Independent: \n" + str(self.independent) + \
+            "\n Model initialised: " + str(self._initial_up_to_date)
+
+    def __repr__(self):
+        """
+        """
+        print("Model name: " + str(self.name) +
+              "\n Variables: \n" + str(self.variables) +
+              "\n Variables of interest: \n" + str(self.variables_of_interest) +
+              "\n Functions: \n" + str(self.systemfunctions) +
+              "\n Parameters: \n" + str(self.parameters) +
+              "\n Independent: \n" + str(self.independent) +
+              "\n Initial conditions: \n" + str(self.initial_conditions) +
+              "\n Model initialised: " + str(self._initial_up_to_date))
+
+    def _parse_system_string(self, system, parameters):
+        """
+        split the system in ODE & algebraic
+        extract variable names
+        first letter == d ==> to ODE
+        else ==> to algebraic
+        extract info from system and parameters and store them into the attributes
+        """
+        # assert that 'parameters' and 'system' are a dict
+        if not isinstance(parameters, dict):
+            raise TypeError("parameters is not a dict")
+        if not isinstance(system, dict):
+            raise TypeError("system is not a dict")
+        # store the parameter
+        self.parameters = parameters
+        # extract system information
+        # loop over the dictionairy: system
+        for key, value in system.iteritems():
+            # if first letter == d, equation is ODE
+            if key[0] == "d":
+                raise Exception('Algebraic class cannot work with ODEs')
+            else:
+                self.systemfunctions['algebraic'][key] = value
+                self._ordered_var['algebraic'].append(key)
+
+    def set_independent(self, independent_dict, method='cartesian'):
+        """
+        """
+        # check the data type of the input
+        if not isinstance(independent_dict, dict):
+            raise TypeError("independent_dict should be dict!")
+
+        if method == "cartesian":
+            independent = list(itertools.product(*independent_dict.values()))
+        else:
+            raise Exception('Method is not available!')
+
+        independent = pd.DataFrame(independent,
+                                   columns=independent_dict.keys())
+
+        for key in independent_dict.keys():
+            self._independent_len[key] = len(independent_dict[key])
+            self._independent_values[key] = independent[key].values
+        self.independent = self._independent_values.keys()
+
+    def initialize_model(self):
+        """
+        Parse system string equation to functions.
+        """
+        self._check_for_independent()
+
+        #from modeldefinition import
+        if self.systemfunctions['algebraic']:
+            self.fun_alg_str = generate_ND_non_derivative_part_definition(self)
+            exec(self.fun_alg_str)
+            self.fun_alg = fun_alg
+
+        self._initial_up_to_date = True
+
+    def run(self):
+        """
+        Run the model for the given set of parameters, indepentent variable
+        values and output a datagrame with the variables of interest.
+
+        """
+        if not self._initial_up_to_date:
+            self.initialize_model()
+
+        if self.fun_alg:
+            solver = AlgebraicNDSolver(self)
+        else:
+            raise Exception("In an initialized Model, there should always "
+                            "be at least a fun_ode or fun_alg.")
+
+        result = solver.solve()
+
+        return result
+
+    def plot_contourf(self, independent_x, independent_y, output, ax=None,
+                      **kwargs):
+        """
+        """
+        shape = self._independent_len.values()
+        x = np.reshape(self._independent_values[independent_x], shape)
+        y = np.reshape(self._independent_values[independent_y], shape)
+        z = np.reshape(output.values, shape)
+
+        if ax is not None:
+            cs = ax.contourf(x, y, z, **kwargs)
+            ax.set_xlabel(independent_x)
+            ax.set_ylabel(independent_y)
+            plt.colorbar(cs)
+        else:
+            plt.contourf(x, y, z, **kwargs)
+            plt.xlabel(independent_x)
+            plt.ylabel(independent_y)
+            plt.colorbar()
 
 
 class ReactionModel(BaseModel):

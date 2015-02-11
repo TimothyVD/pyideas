@@ -26,7 +26,8 @@ class BaseModel(object):
 
         # solver communication
         self.modeltype = "basemodel"
-        self.independent = {}
+        self.independent = []
+        self._independent_values = {}
         self.parameters = parameters
         self.variables = []
         self.variables_of_interest = []
@@ -39,7 +40,7 @@ class BaseModel(object):
         return "Model name: " + str(self.name) + \
             "\n Variables of interest: \n" + str(self.variables_of_interest) +\
             "\n Parameters: \n" + str(self.parameters) + \
-            "\n Independent: \n" + str(self.independent.keys()) + \
+            "\n Independent: \n" + str(self.independent) + \
             "\n Model initialised: " + str(self._initial_up_to_date)
 
     def __repr__(self):
@@ -48,7 +49,7 @@ class BaseModel(object):
         print("Model name: " + str(self.name) +
               "\n Variables of interest: \n" + str(self.variables_of_interest) +
               "\n Parameters: \n" + str(self.parameters) +
-              "\n Independent: \n" + str(self.independent.keys()) +
+              "\n Independent: \n" + str(self.independent) +
               "\n Model initialised: " + str(self._initial_up_to_date))
 
     def _check_system(self):
@@ -95,7 +96,8 @@ class BaseModel(object):
         # check the data type of the input
         if not isinstance(independentVar, str):
             raise TypeError("Independent variable is not given as a string")
-        self.independent[independentVar] = values
+        self.independent = [independentVar]
+        self._independent_values = {independentVar: values}
 
     def _check_for_independent(self):
         """

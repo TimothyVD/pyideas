@@ -34,6 +34,19 @@ def write_parameters(defstr, parameters):
         defstr += "    {0} = parameters['{0}']\n".format(parname)
     return defstr
 
+def write_independent(defstr, independent):
+    """
+    Parameters
+    ----------
+    defstr : str
+        str containing the definition to solve in model
+    independent : dict
+        key gives independent names
+    """
+    for ind_name in independent:
+        defstr += "    {0} = independent['{0}']\n".format(ind_name)
+    return defstr
+
 def write_ode_indices(defstr, ode_variables):
     """
     Based on the sequence of the variables in the variables dict,
@@ -142,8 +155,8 @@ def write_algebraic_solve(defstr, algebraic_right_side, independent_var):
     for varname, expression in algebraic_right_side.iteritems():
         expression = replace_numpy_fun(expression)
         #defstr += '    ' + varname + ' = ' + str(expression) + '\n'
-        defstr += '    {0} = {1} + np.zeros(len('.format(varname, str(expression)) + \
-                    ', '.join(independent_var) + '))\n'
+        defstr += '    {0} = {1} + np.zeros(len('.format(varname, str(expression)) \
+                      + independent_var + '))\n'
     return defstr
 
 def write_ode_lines(defstr, ode_right_side):
@@ -154,7 +167,7 @@ def write_ode_lines(defstr, ode_right_side):
     Parameters
     -----------
     defstr : str
-        str containing the definition to solve in model
+        str containing the definition t                          'independent': []o solve in model
     algebraic_right_side : dict
         dict of variables with their corresponding right hand side part of
         the equation
@@ -262,4 +275,37 @@ def generate_non_derivative_part_definition(model):
     modelstr = write_whiteline(modelstr)
 
     modelstr = write_non_derivative_return(modelstr, model.variables['algebraic'])
+    return modelstr
+
+def generate_ND_non_derivative_part_definition(model):
+    '''Write derivative of model as definition in file
+
+    Writes a file with a derivative definition to run the model and
+    use it for other applications
+
+    Parameters
+    -----------
+    model : biointense.model
+
+    '''
+    modelstr = 'def fun_alg(independent, parameters, *args, **kwargs):\n'
+    # Get independent
+    modelstr = write_independent(modelstr, model.independent)
+    modelstr = write_whiteline(modelstr)
+    # Get the parameter values
+    modelstr = write_parameters(modelstr, model.parameters)
+    modelstr = write_whiteline(modelstr)
+
+    # Write down external called functions - not yet provided!
+    #write_external_call(defstr, varname, fname, argnames)
+    #write_whiteline(modelstr)
+
+    # Write down the equation of algebraic
+    modelstr = write_algebraic_solve(modelstr,
+                                     model.systemfunctions['algebraic'],
+                                     model.independent[0])
+    modelstr = write_whiteline(modelstr)
+
+    modelstr = write_non_derivative_return(modelstr,
+                                           model._ordered_var['algebraic'])
     return modelstr
