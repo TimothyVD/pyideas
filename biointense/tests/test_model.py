@@ -59,7 +59,7 @@ class TestAlgebraicModel(unittest.TestCase):
         model.initialize_model()
 
         #str version check
-        algref = "def fun_alg(independent, parameters, *args, **kwargs):\n    t = independent['t']\n\n    mu = parameters['mu']\n    Wf = parameters['Wf']\n    W0 = parameters['W0']\n\n\n    W = W0*Wf/(W0+(Wf-W0)*np.exp(-mu*t)) + np.zeros(len(t))\n\n    nonder = np.array([W]).T\n    return nonder"
+        algref = "def fun_alg(independent, parameters, *args, **kwargs):\n    t = independent['t']\n\n    mu = parameters['mu']\n    Wf = parameters['Wf']\n    W0 = parameters['W0']\n\n    W = W0*Wf/(W0+(Wf-W0)*np.exp(-mu*t)) + np.zeros(len(t))\n\n    nonder = np.array([W]).T\n    return nonder"
         assert algref == model.fun_alg_str
 
         result = model.fun_alg(model._independent_values, parameters)

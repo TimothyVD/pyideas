@@ -262,9 +262,9 @@ def generate_non_derivative_part_definition(model):
     modelstr = write_whiteline(modelstr)
 
     # Put the variables in a separate array
-
-    modelstr = write_array_extraction(modelstr, model._ordered_var['ode'])
-    modelstr = write_whiteline(modelstr)
+    if len(model._ordered_var.get('ode', [])):
+        modelstr = write_array_extraction(modelstr, model._ordered_var['ode'])
+        modelstr = write_whiteline(modelstr)
 
     # Write down external called functions - not yet provided!
     #write_external_call(defstr, varname, fname, argnames)
