@@ -18,21 +18,7 @@ from solver import (OdeSolver, OdeintSolver, OdespySolver,
                     HybridOdespySolver, AlgebraicSolver)
 
 
-class BiointenseModel(BaseModel):
-
-    def __init__(self, name, system, parameters, comment=None):
-        """
-        uses the "biointense"-style model definition
-        >>> sir = {'dS' : '-k*I*B/N',
-                   'dI' : 'k*I*B/N - gam*I*t',
-                   'dR' : 'gam*I',
-                   'N' : 'S + I + R + NA'}
-        >>> param = {'k': 2., 'gam' : 0.3}
-        >>> name = 'SIR1'
-        >>> Model(name, system, param)
-        """
-        super(BiointenseModel, self).__init__(name, parameters,
-                                              comment=comment)
+class _BiointenseModel(BaseModel):
 
     def __str__(self):
         """
@@ -43,18 +29,6 @@ class BiointenseModel(BaseModel):
             "\n Parameters: \n" + str(self.parameters) + \
             "\n Independent: \n" + str(self.independent) + \
             "\n Model initialised: " + str(self._initial_up_to_date)
-
-    def __repr__(self):
-        """
-        """
-        print("Model name: " + str(self.name) +
-              "\n Variables: \n" + str(self.variables) +
-              "\n Variables of interest: \n" + str(self.variables_of_interest) +
-              "\n Functions: \n" + str(self.systemfunctions) +
-              "\n Parameters: \n" + str(self.parameters) +
-              "\n Independent: \n" + str(self.independent) +
-              "\n Initial conditions: \n" + str(self.initial_conditions) +
-              "\n Model initialised: " + str(self._initial_up_to_date))
 
     def _parse_system_string(self, system, parameters):
         """
@@ -90,11 +64,11 @@ class BiointenseModel(BaseModel):
         self._check_for_independent()
 
         #from modeldefinition import
-        if len(self.systemfunctions.get('algebraic', [])):
+        if self.systemfunctions.get('algebraic', None):
             self.fun_alg_str = generate_non_derivative_part_definition(self)
             exec(self.fun_alg_str)
             self.fun_alg = fun_alg
-        if len(self.systemfunctions.get('ode', [])):
+        if self.systemfunctions.get('ode', None):
             self.fun_ode_str = generate_ode_derivative_definition(self)
             exec(self.fun_ode_str)
             self.fun_ode = fun_ode
@@ -169,7 +143,7 @@ class BiointenseModel(BaseModel):
         """
         return NotImplementedError
 
-class Model(BiointenseModel):
+class Model(_BiointenseModel):
 
     def __init__(self, name, system, parameters, comment=None):
         """
@@ -182,7 +156,7 @@ class Model(BiointenseModel):
         >>> name = 'SIR1'
         >>> Model(name, system, param)
         """
-        super(Model, self).__init__(name, system, parameters, comment=comment)
+        super(Model, self).__init__(name, parameters, comment=comment)
 
         self._ordered_var = {'algebraic': [],
                              'ode': [],
@@ -200,16 +174,6 @@ class Model(BiointenseModel):
 
         self.fun_alg = None
         self.fun_ode = None
-
-    def __str__(self):
-        """
-        string representation
-        """
-        return "Model name: " + str(self.name) + \
-            "\n Variables of interest: \n" + str(self.variables_of_interest) +\
-            "\n Parameters: \n" + str(self.parameters) + \
-            "\n Independent: \n" + str(self.independent) + \
-            "\n Model initialised: " + str(self._initial_up_to_date)
 
     def __repr__(self):
         """
@@ -248,33 +212,8 @@ class Model(BiointenseModel):
         """
         return NotImplementedError
 
-    def set_initial(self, initialValues):
-        """
-        set initial conditions
-        check for type
-        check for existance of the variable
-        """
-        if self.initial_conditions:
-            warnings.warn("Warning: initial conditions are already given. "
-                          "Overwriting original variables.")
-        if not isinstance(initialValues, dict):
-            raise TypeError("Initial values are not given as a dict")
-        for key, value in initialValues.iteritems():
-            if ((key in self._ordered_var['algebraic'])
-                    or (key in self._ordered_var['event'])
-                    or (key in self._ordered_var['ode'])):
-                self.initial_conditions[key] = value
-            else:
-                raise NameError('Variable ' + key + " does not exist within "
-                                "the system")
 
-    def _check_for_init(self):
-        """
-        """
-        return NotImplementedError
-
-
-class AlgebraicModel(BiointenseModel):
+class AlgebraicModel(_BiointenseModel):
 
     def __init__(self, name, system, parameters, comment=None):
         """
@@ -286,8 +225,7 @@ class AlgebraicModel(BiointenseModel):
         """
         self._check_if_odes(system.keys())
 
-        super(AlgebraicModel, self).__init__(name, system, parameters,
-                                             comment=comment)
+        super(AlgebraicModel, self).__init__(name, parameters, comment=comment)
 
         self._ordered_var = {'algebraic': [],
                              'event': []}
