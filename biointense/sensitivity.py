@@ -88,14 +88,19 @@ class LocalSensitivity(Sensitivity):
 class NumericalLocalSensitivity(LocalSensitivity):
     """
     """
-    def __init__(self, model, parameters, perturbation=1e-6,
+    def __init__(self, model, parameters=None, perturbation=1e-6,
                  procedure="central"):
         """
         """
         self.model = model
         self.parameters = []
         self._parameter_values = {}.fromkeys(model.parameters.keys())
-        self.set_perturbation(parameters, perturbation=perturbation)
+        if parameters is None:
+            self.set_perturbation(model.parameters.keys(),
+                                  perturbation=perturbation)
+        else:
+            self.set_perturbation(parameters,
+                                  perturbation=perturbation)
         self.set_procedure(procedure)
         self._initiate_par()
         self._initiate_var()
