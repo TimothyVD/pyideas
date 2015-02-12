@@ -4,10 +4,12 @@ Created on Wed Jan 21 10:27:24 2015
 
 @author: timothy
 """
+import numpy as np
 from biointense import DAErunner
 
 # new
 from biointense.model import Model
+from biointense.solver import OdeintSolver
 
 
 def run_second_order_old():
@@ -52,6 +54,10 @@ def run_second_order_new():
               'dx2': '-2*tau*omega*x2 - (omega**2)*x1 + K*omega**2'}
 
     M1 = Model('second_order', system, parameters)
+    M1.set_initial({'x1': 0, 'x2': 0})
+    M1.set_independent('t', np.linspace(0, 20, 10000))
+    output = M1.run()
+    output['x1'].plot(style='--', c='r', linewidth='2')
 
     return M1
 

@@ -49,7 +49,7 @@ class BaseOdeSolver(Solver):
         self.ode_solver_options = ode_solver_options or {}
         self.ode_integrator = ode_integrator
         self._initial_conditions = [self.model.initial_conditions[var]
-                                    for var in self.model.variables['ode']]
+                                    for var in self.model._ordered_var['ode']]
 
 
 class OdeintSolver(BaseOdeSolver):
@@ -69,12 +69,12 @@ class OdeintSolver(BaseOdeSolver):
         """
         res = odeint(self.model.fun_ode,
                      self._initial_conditions,
-                     self.model.independent_values,
+                     self.model._independent_values.values()[0],
                      args=(self.model.parameters,),
                      **self.ode_solver_options)
         # Put output in pandas dataframe
-        result = pd.DataFrame(res, index=self.model.independent_values,
-                              columns=self.model.variables['ode'])
+        result = pd.DataFrame(res, index=self.model._independent_values.values()[0],
+                              columns=self.model._ordered_var['ode'])
 
         return result
 
@@ -117,10 +117,10 @@ class OdeSolver(BaseOdeSolver):
                                              **self.ode_solver_options)
 
         solver.set_initial_value(self._initial_conditions,
-                                 self.model.independent_values[0])
+                                 self.model._independent_values.values()[0][0])
         solver.set_f_params(self.model.parameters)
 
-        xdata = self.model.independent_values
+        xdata = self.model._independent_values.values()[0]
         timesteps = xdata[1:] - xdata[:-1]
         model_output = []
         xdata = []
@@ -133,7 +133,7 @@ class OdeSolver(BaseOdeSolver):
                 xdata.append(solver.t)
 
         result = pd.DataFrame(model_output, index=xdata,
-                              columns=self.model.variables['ode'])
+                              columns=self.model._ordered_var['ode'])
 
         return result
 
@@ -174,10 +174,10 @@ class OdespySolver(BaseOdeSolver):
         solver.set_initial_condition(self._initial_conditions)
         solver.set(f_args=(self.model.parameters,))
 
-        model_output, xdata = solver.solve(self.model.independent_values)
+        model_output, xdata = solver.solve(self.model._independent_values.values()[0])
 
         result = pd.DataFrame(model_output, index=xdata,
-                              columns=self.model.variables['ode'])
+                              columns=self.model._ordered_var['ode'])
 
         return result
 
@@ -202,12 +202,13 @@ class AlgebraicSolver(Solver):
         """
         """
         alg_function = self.model.fun_alg
-        model_output = alg_function(self.model.independent_values,
+        model_output = alg_function(self.model._independent_values,
                                     self.model.parameters,
                                     *args, **kwargs)
 
-        result = pd.DataFrame(model_output, index=self.model.independent_values,
-                              columns=self.model.variables['algebraic'])
+        result = pd.DataFrame(model_output,
+                              index=self.model._independent_values.values()[0],
+                              columns=self.model._ordered_var['algebraic'])
 
         return result
 

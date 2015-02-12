@@ -11,7 +11,9 @@ import numpy as np
 from biointense.modelbase import BaseModel
 
 
-def alg_model_function(t, parameters):
+def alg_model_function(independent, parameters):
+    t = independent['t']
+
     W0 = parameters['W0']
     Wf = parameters['Wf']
     mu = parameters['mu']
@@ -22,15 +24,16 @@ def alg_model_function(t, parameters):
 
     return algebraic
 
-model = BaseModel('test')
+model = BaseModel('test', {})
 #model.systemfunctions['algebraic'] = alg_model_function
 model.fun_alg = alg_model_function
 model.parameters = {'W0': 2.0805,
                     'Wf': 9.7523,
                     'mu': 0.0659}
 
-model.independent_values = np.linspace(0, 72, 1000)
-model.variables = {'algebraic': ['W']}
+model.independent = ['t']
+model._independent_values = {'t': np.linspace(0, 72, 1000)}
+model._ordered_var = {'algebraic': ['W']}
 
 
 from biointense.solver import AlgebraicSolver

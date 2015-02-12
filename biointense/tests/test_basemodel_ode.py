@@ -29,7 +29,7 @@ def ode_model_function(ODES, t, parameters):
     return [dS, dX]
 
 
-model = BaseModel('test')
+model = BaseModel('test', {})
 
 #model.systemfunctions['ode'] = ode_model_function
 model.fun_ode = ode_model_function
@@ -37,8 +37,9 @@ model.fun_ode = ode_model_function
 model.parameters = {'mu_max': 0.4, 'K_S': 0.015, 'Q_in': 2, 'Ys': 0.67,
                     'S_in': 0.02, 'V': 20}
 
-model.independent_values = np.linspace(0, 100, 5000)
-model.variables = {'ode': ['S', 'X']}
+model.independent = ['t']
+model._independent_values = {'t': np.linspace(0, 100, 5000)}
+model._ordered_var = {'ode': ['S', 'X']}
 model.initial_conditions = {'S': 0.02, 'X': 5e-5}
 
 from biointense.solver import OdeSolver

@@ -28,7 +28,8 @@ def fermentor_old():
     ODE = {'dS':'Q_in/V*(S_in-S)-1/Ys*mu_max*S/(S+K_S)*X',
            'dX':'-Q_in/V*X+mu_max*S/(S+K_S)*X'}
 
-    Parameters = {'mu_max':0.4,'K_S':0.015,'Q_in':2,'Ys':0.67,'S_in':0.02,'V':20}
+    Parameters = {'mu_max': 0.4, 'K_S': 0.015, 'Q_in': 2, 'Ys': 0.67,
+                  'S_in': 0.02, 'V': 20}
 
     M_fermentor = DAErunner(ODE=ODE, Parameters=Parameters,
                             Modelname='Fermentor', print_on=False)
@@ -71,6 +72,13 @@ def fermentor_new():
                   'S_in': 0.02, 'V': 20}
 
     M_fermentor = Model('Fermentor', system, parameters)
+    M_fermentor.set_independent('t', np.linspace(0, 100, 1000))
+    M_fermentor.set_initial({'S': 0.02, 'X': 5e-5})
+
+    M_fermentor.initialize_model()
+
+    output = M_fermentor.run()
+    output.plot(subplots=True)
 
     #M_fermentor.set_initial_conditions({'dS':0.02,'dX':5e-5})
     #M_fermentor.set_xdata({'start':0,'end':100,'nsteps':5000})

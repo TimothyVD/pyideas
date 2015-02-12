@@ -1430,7 +1430,7 @@ class DAErunner(object):
 
         #create a dictionary with everye key the variable and the values a dataframe
         numerical_sens = {}
-        for key in self._Variables:
+        for key in self._Outputs:
             #belangrijk dat deze dummy in loop wordt geschreven!
             dummy = np.empty((self._xdata.size,len(self.Parameters)))
             numerical_sens[key] = pd.DataFrame(dummy, index=self._xdata, columns = self.Parameters.keys())
@@ -1443,6 +1443,7 @@ class DAErunner(object):
             #run model with parameter value plus perturbation
             self.Parameters[parameter] = value2save + perturbation_factor*value2save
             modout_plus = self.solve_ode(plotit = False)
+
 #            modout_plus = pd.DataFrame(modout, columns = self._Variables)
             #run model with parameter value minus perturbation
             self.Parameters[parameter] = value2save - perturbation_factor*value2save
@@ -1498,15 +1499,15 @@ class DAErunner(object):
                 acc_num_LSA[var] = np.mean(np.abs(self._sens_plus[var]
                                            - self._sens_min[var]))
             elif criterion == 'MRE':
-                acc_num_LSA[var] = np.max(np.abs((self._sens_plus[var]
-                                                  - self._sens_min[var]) /
-                                                 self._sens_plus[var]))
+                acc_num_LSA[var] = np.max(np.abs((self._sens_plus[var][1:]
+                                                  - self._sens_min[var][1:]) /
+                                                 self._sens_plus[var][1:]))
             elif criterion == 'SRE':
-                acc_num_LSA[var] = np.mean(np.abs(1 - self._sens_min[var] /
-                                           self._sens_plus[var]))
+                acc_num_LSA[var] = np.mean(np.abs(1 - self._sens_min[var][1:] /
+                                           self._sens_plus[var][1:]))
             elif criterion == 'RATIO':
-                acc_num_LSA[var] = np.max(np.abs(1 - self._sens_min[var] /
-                                          self._sens_plus[var]))
+                acc_num_LSA[var] = np.max(np.abs(1 - self._sens_min[var][1:] /
+                                          self._sens_plus[var][1:]))
             else:
                 raise Exception("Criterion '" + criterion + "' is not a valid "
                                 "criterion, please select one of following "
