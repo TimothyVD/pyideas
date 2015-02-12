@@ -11,7 +11,9 @@ import numpy as np
 from biointense.modelbase import BaseModel
 
 
-def alg_model_function(t, parameters):
+def alg_model_function(independent, parameters):
+    t = independent['t']
+
     W0 = parameters['W0']
     Wf = parameters['Wf']
     mu = parameters['mu']

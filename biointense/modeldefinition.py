@@ -253,8 +253,10 @@ def generate_non_derivative_part_definition(model):
     model : biointense.model
 
     '''
-    modelstr = 'def fun_alg('+ model.independent[0] + \
-                    ', parameters, *args, **kwargs):\n'
+    modelstr = 'def fun_alg(independent, parameters, *args, **kwargs):\n'
+    # Get independent
+    modelstr = write_independent(modelstr, model.independent)
+    modelstr = write_whiteline(modelstr)
     # Get the parameter values
     modelstr = write_parameters(modelstr, model.parameters)
     modelstr = write_whiteline(modelstr)
@@ -275,37 +277,4 @@ def generate_non_derivative_part_definition(model):
     modelstr = write_whiteline(modelstr)
 
     modelstr = write_non_derivative_return(modelstr, model._ordered_var['algebraic'])
-    return modelstr
-
-def generate_ND_non_derivative_part_definition(model):
-    '''Write derivative of model as definition in file
-
-    Writes a file with a derivative definition to run the model and
-    use it for other applications
-
-    Parameters
-    -----------
-    model : biointense.model
-
-    '''
-    modelstr = 'def fun_alg(independent, parameters, *args, **kwargs):\n'
-    # Get independent
-    modelstr = write_independent(modelstr, model.independent)
-    modelstr = write_whiteline(modelstr)
-    # Get the parameter values
-    modelstr = write_parameters(modelstr, model.parameters)
-    modelstr = write_whiteline(modelstr)
-
-    # Write down external called functions - not yet provided!
-    #write_external_call(defstr, varname, fname, argnames)
-    #write_whiteline(modelstr)
-
-    # Write down the equation of algebraic
-    modelstr = write_algebraic_solve(modelstr,
-                                     model.systemfunctions['algebraic'],
-                                     model.independent[0])
-    modelstr = write_whiteline(modelstr)
-
-    modelstr = write_non_derivative_return(modelstr,
-                                           model._ordered_var['algebraic'])
     return modelstr

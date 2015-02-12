@@ -24,7 +24,7 @@ modelstr = generate_ode_derivative_definition(M_fermentor)
 algstr = generate_non_derivative_part_definition(M_fermentor)
 
 def test_alg_writepart():
-    algref = "def fun_alg(t, parameters, *args, **kwargs):\n    K_S = parameters['K_S']\n    mu_max = parameters['mu_max']\n    Q_in = parameters['Q_in']\n    V = parameters['V']\n    Ys = parameters['Ys']\n    S_in = parameters['S_in']\n\n    solved_variables = args[0]\n    S = solved_variables[:, 0]\n    X = solved_variables[:, 1]\n\n    P = Q_in*X + np.zeros(len(t))\n\n    nonder = np.array([P]).T\n    return nonder"
+    algref = "def fun_alg(independent, parameters, *args, **kwargs):\n    t = independent['t']\n\n    K_S = parameters['K_S']\n    mu_max = parameters['mu_max']\n    Q_in = parameters['Q_in']\n    V = parameters['V']\n    Ys = parameters['Ys']\n    S_in = parameters['S_in']\n\n    solved_variables = args[0]\n    S = solved_variables[:, 0]\n    X = solved_variables[:, 1]\n\n    P = Q_in*X + np.zeros(len(t))\n\n    nonder = np.array([P]).T\n    return nonder"
     assert algref == algstr
 
 def test_der_writepart():

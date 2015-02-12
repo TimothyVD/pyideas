@@ -59,10 +59,10 @@ class TestAlgebraicModel(unittest.TestCase):
         model.initialize_model()
 
         #str version check
-        algref = "def fun_alg(t, parameters, *args, **kwargs):\n    mu = parameters['mu']\n    Wf = parameters['Wf']\n    W0 = parameters['W0']\n\n\n    W = W0*Wf/(W0+(Wf-W0)*np.exp(-mu*t)) + np.zeros(len(t))\n\n    nonder = np.array([W]).T\n    return nonder"
+        algref = "def fun_alg(independent, parameters, *args, **kwargs):\n    t = independent['t']\n\n    mu = parameters['mu']\n    Wf = parameters['Wf']\n    W0 = parameters['W0']\n\n\n    W = W0*Wf/(W0+(Wf-W0)*np.exp(-mu*t)) + np.zeros(len(t))\n\n    nonder = np.array([W]).T\n    return nonder"
         assert algref == model.fun_alg_str
 
-        result = model.fun_alg(model._independent_values['t'], parameters)
+        result = model.fun_alg(model._independent_values, parameters)
 
         #def calc check
         assert result[-1] == 9.4492688322077534
@@ -105,7 +105,7 @@ class TestOdeModel(unittest.TestCase):
         model.initialize_model()
 
         #str version check
-        algref = "def fun_alg(t, parameters, *args, **kwargs):\n    K_S = parameters['K_S']\n    mu_max = parameters['mu_max']\n    Q_in = parameters['Q_in']\n    V = parameters['V']\n    Ys = parameters['Ys']\n    S_in = parameters['S_in']\n\n    solved_variables = args[0]\n    S = solved_variables[:, 0]\n    X = solved_variables[:, 1]\n\n    P = Q_in*t/X + np.zeros(len(t))\n\n    nonder = np.array([P]).T\n    return nonder"
+        algref = "def fun_alg(independent, parameters, *args, **kwargs):\n    t = independent['t']\n\n    K_S = parameters['K_S']\n    mu_max = parameters['mu_max']\n    Q_in = parameters['Q_in']\n    V = parameters['V']\n    Ys = parameters['Ys']\n    S_in = parameters['S_in']\n\n    solved_variables = args[0]\n    S = solved_variables[:, 0]\n    X = solved_variables[:, 1]\n\n    P = Q_in*t/X + np.zeros(len(t))\n\n    nonder = np.array([P]).T\n    return nonder"
         assert algref == model.fun_alg_str
 
         oderef  = "def fun_ode(odes, t, parameters, *args, **kwargs):\n    K_S = parameters['K_S']\n    mu_max = parameters['mu_max']\n    Q_in = parameters['Q_in']\n    V = parameters['V']\n    Ys = parameters['Ys']\n    S_in = parameters['S_in']\n\n    S = odes[0]\n    X = odes[1]\n\n    P = Q_in*t/X\n\n    dX = -Q_in/V*X+mu_max*S/(S+K_S)*X\n    dS = Q_in/V*(S_in-S)-1/Ys*mu_max*S/(S+K_S)*X\n    return [dS, dX]\n\n"

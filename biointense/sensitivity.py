@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 import matplotlib.pyplot as plt
+from copy import deepcopy
 
 
 class Sensitivity(object):
@@ -32,19 +33,24 @@ class Sensitivity(object):
 class LocalSensitivity(Sensitivity):
     """
     """
-    def __init__(self, model, perturb_parameters):
+    def __init__(self, model, parameters):
         """
         """
         self.model = model
-        self.perturb_parameters = perturb_parameters
+        self.parameters = parameters
+
+    @property
+    def parameter_values(self):
+            return dict((par, self._parameter_values[par]) for par in
+                        self.parameters if par in self._parameter_values)
 
     def _rescale_sensitivity(self, sensitivity_PD, scaling):
         """
         """
         variables = list(sensitivity_PD.columns.levels[0])
-        perturb_par = pd.Series(self.perturb_parameters)
+        perturb_par = pd.Series(self._parameter_values)[self.parameters]
         sensitivity_len = len(sensitivity_PD.index)
-        parameter_len = len(self.perturb_parameters)
+        parameter_len = len(self.parameters)
 
         # Problem with keeping the same order!
         par_values = []
@@ -68,10 +74,10 @@ class LocalSensitivity(Sensitivity):
                                 'the independent/initial conditions!')
             elif min(sensitivity_PD.min()) == 0 or min(sensitivity_PD.max()) == 0:
                 for var in variables:
-                     sensitivity_PD[var] = sensitivity_PD[var]*par_values/sensitivity_PD[var].mean()
+                    sensitivity_PD[var] = sensitivity_PD[var]*par_values/sensitivity_PD[var].mean()
             else:
                 for var in variables:
-                     sensitivity_PD[var] = sensitivity_PD[var]*par_values/np.tile(np.array(sensitivity_PD[var]),(len(par_values),1)).T
+                    sensitivity_PD[var] = sensitivity_PD[var]*par_values/np.tile(np.array(sensitivity_PD[var]),(len(par_values),1)).T
         elif scaling != 'CAS':
             raise Exception('You have to choose one of the sensitivity '
                             'methods which are available: CAS, CPRS or CTRS')
@@ -82,13 +88,14 @@ class LocalSensitivity(Sensitivity):
 class NumericalLocalSensitivity(LocalSensitivity):
     """
     """
-    def __init__(self, model, perturb_parameters, perturbation=1e-6,
+    def __init__(self, model, parameters, perturbation=1e-6,
                  procedure="central"):
         """
         """
         self.model = model
-        self.perturb_parameters = {}
-        self.set_perturbation(perturb_parameters, perturbation=perturbation)
+        self.parameters = []
+        self._parameter_values = {}.fromkeys(model.parameters.keys())
+        self.set_perturbation(parameters, perturbation=perturbation)
         self.set_procedure(procedure)
         self._initiate_par()
         self._initiate_var()
@@ -97,7 +104,7 @@ class NumericalLocalSensitivity(LocalSensitivity):
         """
         """
         dummy_np = np.empty([len(self.model._independent_values.values()[0]),
-                             len(self.perturb_parameters),
+                             len(self.parameters),
                              len(self.model.variables_of_interest)])
         self._sens_forw = dummy_np.copy()
         self._sens_back = dummy_np.copy()
@@ -106,7 +113,7 @@ class NumericalLocalSensitivity(LocalSensitivity):
         """
         """
         self._par_order = {}
-        for i, par in enumerate(self.perturb_parameters):
+        for i, par in enumerate(self.parameters):
             self._par_order[par] = i
 
     def _initiate_var(self):
@@ -138,48 +145,23 @@ class NumericalLocalSensitivity(LocalSensitivity):
         """
         Ignore current perturbations
         """
-        res = {}
-        if isinstance(parameters, list):
-            for par in parameters:
-                res[par] = perturbation
-        elif isinstance(parameters, dict):
-            res = parameters
-        else:
-            raise Exception('Parameters should be a list or a dict which is '
-                            'valid for all parameters or a dict with for each '
-                            'parameter the corresponding perturbation factor')
-        self.perturb_parameters = res
-        self._initiate_par()
+        self.parameters = []
 
-    def update_perturbation(self, parameters, perturbation=1e-6):
-        """
-        Keep all current perturbations: only overwrite the ones which are set
-        """
         if isinstance(parameters, list):
             for par in parameters:
-                self.perturb_parameters[par] = perturbation
+                self._parameter_values[par] = perturbation
         elif isinstance(parameters, dict):
-            self.perturb_parameters = parameters
+            for par in parameters:
+                self._parameter_values[par] = parameters[par]
         else:
             raise Exception('Parameters should be a list or a dict which is '
                             'valid for all parameters or a dict with for each '
                             'parameter the corresponding perturbation factor')
 
-    def remove_perturbation(self, parameters):
-        """
-        Keep all current perturbations: only overwrite the ones which are set
-        """
-        if isinstance(parameters, list):
-            for par in parameters:
-                try:
-                    del self.perturb_parameters[par]
-                except NameError:
-                    print(par + "is currently not a perturbed parameter, so "
-                          "ignoring the remove option for this parameter.")
-        else:
-            raise Exception('Parameters should be a list or a dict which is '
-                            'valid for all parameters or a dict with for each '
-                            'parameter the corresponding perturbation factor')
+        for par, par_value in self._parameter_values.items():
+            if par_value is not None:
+                self.parameters.append(par)
+
         self._initiate_par()
 
     def _model_output_pert(self, parameter, perturbation):
@@ -247,8 +229,9 @@ class NumericalLocalSensitivity(LocalSensitivity):
         variables of interest
         """
         num_sens = {}
-        for par in self.perturb_parameters.items():
-            num_sens[par[0]] = self._get_sensitivity(par[0], par[1])
+        for par in self.parameters:
+            num_sens[par] = self._get_sensitivity(par,
+                                                  self._parameter_values[par])
 
         num_sens = pd.concat(num_sens, axis=1)
         num_sens = num_sens.reorder_levels([1, 0], axis=1).sort_index(axis=1)
@@ -282,9 +265,9 @@ class NumericalLocalSensitivity(LocalSensitivity):
                             ' be estimated when using the central local'
                             ' sensitivity!')
 
-        dummy_np = np.empty((len(self.perturb_parameters),
+        dummy_np = np.empty((len(self.parameters),
                              len(self.model.variables_of_interest)))
-        acc_num_LSA = pd.DataFrame(dummy_np, index=self.perturb_parameters,
+        acc_num_LSA = pd.DataFrame(dummy_np, index=self.parameters,
                                    columns=self.model.variables_of_interest)
 
         for var in self.model.variables_of_interest:

@@ -12,12 +12,10 @@ from copy import deepcopy
 
 from modelbase import BaseModel
 from modeldefinition import (generate_ode_derivative_definition,
-                             generate_non_derivative_part_definition,
-                             generate_ND_non_derivative_part_definition)
+                             generate_non_derivative_part_definition)
 from solver import (OdeSolver, OdeintSolver, OdespySolver,
                     HybridOdeintSolver, HybridOdeSolver,
-                    HybridOdespySolver, AlgebraicSolver,
-                    AlgebraicNDSolver)
+                    HybridOdespySolver, AlgebraicSolver)
 
 
 class Model(BaseModel):
@@ -213,8 +211,7 @@ class Model(BaseModel):
         return NotImplementedError
 
 
-
-class AlgebraicModel(BaseModel):
+class AlgebraicModel(Model):
 
     def __init__(self, name, system, parameters, comment=None):
         """
@@ -224,33 +221,11 @@ class AlgebraicModel(BaseModel):
         >>> name = 'pingpongbibi'
         >>> AlgebraicModel(name, system, param)
         """
-        super(AlgebraicModel, self).__init__(name, parameters, comment=comment)
+        super(AlgebraicModel, self).__init__(name, system, parameters,
+                                             comment=comment)
 
-        self._ordered_var = {'algebraic': [],
-                             'event': []}
-
-        # solver communication
-        self.systemfunctions = {'algebraic': {}, 'ode': {}}
-        self.initial_conditions = {}
         self._independent_len = {}
 
-        # detect system equations
-        self._system = system
-        self._parse_system_string(self._system, self.parameters)
-        self.variables = list(itertools.chain(*self._ordered_var.values()))
-        self.variables_of_interest = deepcopy(self.variables)
-
-        self.fun_alg = None
-
-    def __str__(self):
-        """
-        string representation
-        """
-        return "Model name: " + str(self.name) + \
-            "\n Variables of interest: \n" + str(self.variables_of_interest) +\
-            "\n Parameters: \n" + str(self.parameters) + \
-            "\n Independent: \n" + str(self.independent) + \
-            "\n Model initialised: " + str(self._initial_up_to_date)
 
     def __repr__(self):
         """
@@ -261,7 +236,6 @@ class AlgebraicModel(BaseModel):
               "\n Functions: \n" + str(self.systemfunctions) +
               "\n Parameters: \n" + str(self.parameters) +
               "\n Independent: \n" + str(self.independent) +
-              "\n Initial conditions: \n" + str(self.initial_conditions) +
               "\n Model initialised: " + str(self._initial_up_to_date))
 
     def _parse_system_string(self, system, parameters):
@@ -289,6 +263,11 @@ class AlgebraicModel(BaseModel):
                 self.systemfunctions['algebraic'][key] = value
                 self._ordered_var['algebraic'].append(key)
 
+    def set_initial(self, *args):
+        """
+        """
+        raise Exception('No initial conditions can be set for algebraics')
+
     def set_independent(self, independent_dict, method='cartesian'):
         """
         """
@@ -308,39 +287,6 @@ class AlgebraicModel(BaseModel):
             self._independent_len[key] = len(independent_dict[key])
             self._independent_values[key] = independent[key].values
         self.independent = self._independent_values.keys()
-
-    def initialize_model(self):
-        """
-        Parse system string equation to functions.
-        """
-        self._check_for_independent()
-
-        #from modeldefinition import
-        if self.systemfunctions['algebraic']:
-            self.fun_alg_str = generate_ND_non_derivative_part_definition(self)
-            exec(self.fun_alg_str)
-            self.fun_alg = fun_alg
-
-        self._initial_up_to_date = True
-
-    def run(self):
-        """
-        Run the model for the given set of parameters, indepentent variable
-        values and output a datagrame with the variables of interest.
-
-        """
-        if not self._initial_up_to_date:
-            self.initialize_model()
-
-        if self.fun_alg:
-            solver = AlgebraicNDSolver(self)
-        else:
-            raise Exception("In an initialized Model, there should always "
-                            "be at least a fun_ode or fun_alg.")
-
-        result = solver.solve()
-
-        return result
 
     def plot_contourf(self, independent_x, independent_y, output, ax=None,
                       **kwargs):

@@ -202,42 +202,12 @@ class AlgebraicSolver(Solver):
         """
         """
         alg_function = self.model.fun_alg
-        model_output = alg_function(self.model._independent_values.values()[0],
-                                    self.model.parameters,
-                                    *args, **kwargs)
-
-        result = pd.DataFrame(model_output,
-                              index=self.model._independent_values.values()[0],
-                              columns=self.model._ordered_var['algebraic'])
-
-        return result
-
-    def solve(self, *args, **kwargs):
-        """
-        Calculate the algebraic equations in function of the independent values
-
-        Returns
-        -------
-        result : pd.DataFrame
-            Contains all outputs from the algebraic equation in function of the
-            independent values
-        """
-        return self._solve_algebraic(*args, **kwargs)
-
-
-class AlgebraicNDSolver(Solver):
-    """
-    Class to calculate the algebraic equations/models
-    """
-    def _solve_algebraic(self, *args, **kwargs):
-        """
-        """
-        alg_function = self.model.fun_alg
         model_output = alg_function(self.model._independent_values,
                                     self.model.parameters,
                                     *args, **kwargs)
 
         result = pd.DataFrame(model_output,
+                              index=self.model._independent_values.values()[0],
                               columns=self.model._ordered_var['algebraic'])
 
         return result
