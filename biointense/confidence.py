@@ -24,14 +24,17 @@ class BaseConfidence(object):
         self.model_output = None
         self.independent = None
 
-        self.variables = sens_PD.columns.levels[0]
-        self.parameters = sens_PD.columns.levels[1]
-        self.parameter_values = pd.DataFrame({par: parameter_dict[par] for par
-                                              in parameter_dict if par in
-                                              self.parameters})
+        self.variables = list(sens_PD.columns.levels[0])
+        self.parameters = list(sens_PD.columns.levels[1])
+        self.parameter_values = pd.Series({par: parameter_dict[par] for par
+                                           in parameter_dict if par in
+                                           self.parameters})
+
+        self.uncertainty_PD = None
+        self._sens_matrix = None
 
         self._data_len = len(sens_PD.index)
-        self._par_len = len(self.parameter)
+        self._par_len = len(self.parameters)
         self._var_len = len(self.variables)
 
         self._FIM = None
@@ -42,8 +45,7 @@ class BaseConfidence(object):
         # Model Prediction Error Covariance Matrix
         self._MPECM = None
 
-    @staticmethod
-    def _sens_PD_2_matrix(sens_PD):
+    def _sens_PD_2_matrix(self, sens_PD):
         """
         """
         len_index = len(sens_PD.index)
@@ -59,7 +61,7 @@ class BaseConfidence(object):
         """
         """
         if self._sens_matrix is None:
-            self._sens_PD_2_matrix(self.sens_PD)
+            self._sens_matrix = self._sens_PD_2_matrix(self.sens_PD)
         return self._sens_matrix
 
     @property
@@ -67,8 +69,8 @@ class BaseConfidence(object):
         '''
         '''
         if self._FIM is None:
-            self._FIM, self._FIM_time = self._calcFIM(self.sens_PD,
-                                                      self.uncertainty_PD)
+            self._FIM, self._FIM_time = self._calc_FIM(self.sens_PD,
+                                                       self.uncertainty_PD)
         return self._FIM
 
     @property
@@ -80,20 +82,12 @@ class BaseConfidence(object):
         return self._PEECM
 
     @property
-    def MPECM(self):
-        '''
-        '''
-        if self._MPECM is None:
-            self._MPECM = np.linalg.inv(self.FIM)
-        return self._PEECM
-
-    @property
     def FIM_time(self):
         '''
         '''
         if self._FIM_time is None:
-            self._FIM, self._FIM_time = self._calcFIM(self.sens_PD,
-                                                      self.uncertainty_PD)
+            self._FIM, self._FIM_time = self._calc_FIM(self.sens_PD,
+                                                       self.uncertainty_PD)
         return self._FIM_time
 
     @FIM.deleter
@@ -136,7 +130,7 @@ class BaseConfidence(object):
 
         # Calculate inverse of ECM_PD
         # 1/Q
-        MECM_inv = np.linalg.inv(np.eye(len(self.get_measured_outputs())) *
+        MECM_inv = np.linalg.inv(np.eye(self._var_len) *
                                  np.atleast_3d(uncertainty_PD))
         # Set all very low numbers to zero (just a precaution, so that
         # solutions would be the same as the old get_FIM method). This is
@@ -343,6 +337,8 @@ class CalibratedConfidence(BaseConfidence):
     def __init__(self, calibrated):
         """
         """
+        super(CalibratedConfidence).__init__(calibrated.model.get_sensitivity(),
+                                             calibrated.model.parameters)
         self.sens_PD = calibrated.model.get_sensitivity()
         self.uncertainty_PD = calibrated.uncertainty
 
