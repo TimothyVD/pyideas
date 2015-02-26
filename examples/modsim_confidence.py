@@ -13,9 +13,6 @@ from biointense.model import AlgebraicModel
 from biointense.sensitivity import NumericalLocalSensitivity
 from biointense.confidence import BaseConfidence
 
-from pandas.util.testing import assert_frame_equal, assert_almost_equal
-
-
 def run_modsim_models_old():
 
     # Data
@@ -66,9 +63,9 @@ def run_modsim_models_new():
     M1.run()
 
     M1sens = NumericalLocalSensitivity(M1, parameters.keys(), perturbation=1e-6)
-    sens_PD = M1sens.get_sensitivity(method='CAS')
 
-    M1conf = BaseConfidence(sens_PD, parameters)
+    M1conf = BaseConfidence(M1sens)
+    M1conf.model = M1
 
     error = np.zeros([1, len(M1._independent_values['t'])]) + 1
     M1conf.uncertainty_PD = pd.DataFrame(np.concatenate(
@@ -81,8 +78,14 @@ def run_modsim_models_new():
 if __name__ == "__main__":
     FIM_old = run_modsim_models_old()
     FIM_new = run_modsim_models_new()
-    # np.testing.assert_almost_equal(FIM_old.FIM, FIM_new.FIM, decimal=7)
-    # assert_frame_equal(FIM_old.get_parameter_confidence(),
-    #                    FIM_new.get_parameter_confidence())
-    # assert_frame_equal(FIM_old.get_parameter_correlation(),
-    #                   FIM_new.get_parameter_correlation())
+    # FIXME!
+    np.testing.assert_allclose(FIM_old.FIM, FIM_new.FIM, rtol=1e-2)
+    np.testing.assert_allclose(FIM_old.get_parameter_confidence(),
+                               FIM_new.get_parameter_confidence(), rtol=1e-2)
+    np.testing.assert_allclose(FIM_old.get_parameter_correlation(),
+                               FIM_new.get_parameter_correlation(), rtol=1e-2)
+
+    np.testing.assert_allclose(FIM_old.get_model_confidence()['W'],
+                               FIM_new.get_model_confidence()['W'], rtol=0.02)
+
+#(sens_PD['W']-M1.calcAlgLSA(Sensitivity='CPRS')['W']).plot()

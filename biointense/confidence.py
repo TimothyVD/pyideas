@@ -15,25 +15,24 @@ class BaseConfidence(object):
     """
     """
 
-    def __init__(self, sens_PD, parameter_dict):
+    def __init__(self, sens):
         """
         """
-        self.sens_PD = sens_PD
-        self.uncertainty_PD = None
-        self.model = None
-        self.model_output = None
-        self.independent = None
+        self.sens = sens
+        self.sens_PD = sens.get_sensitivity(method='CAS')
+        self.model = sens.model
+        self.model_output = self.model.run()
+        self.independent = self.model.independent
 
-        self.variables = list(sens_PD.columns.levels[0])
-        self.parameters = list(sens_PD.columns.levels[1])
-        self.parameter_values = pd.Series({par: parameter_dict[par] for par
-                                           in parameter_dict if par in
-                                           self.parameters})
+        self.variables = list(self.sens_PD.columns.levels[0])
+        self.parameters = self.sens.parameters
+        self.parameter_values = pd.Series({par: self.model.parameters[par] for
+                                           par in self.parameters})
 
         self.uncertainty_PD = None
         self._sens_matrix = None
 
-        self._data_len = len(sens_PD.index)
+        self._data_len = len(self.sens_PD.index)
         self._par_len = len(self.parameters)
         self._var_len = len(self.variables)
 
@@ -133,7 +132,7 @@ class BaseConfidence(object):
         MECM_inv = np.linalg.inv(np.eye(self._var_len) *
                                  np.atleast_3d(uncertainty_PD))
         # Set all very low numbers to zero (just a precaution, so that
-        # solutions would be the same as the old get_FIM method). This is
+        # solutions would be the same FIM_new.MPECMas the old get_FIM method). This is
         # probably not necessary!
         MECM_inv[MECM_inv < 1e-20] = 0.
 
@@ -235,21 +234,26 @@ class BaseConfidence(object):
         for i, var in enumerate(self.variables):
             sigma_var = np.zeros([self._data_len, 5])
 
-            sigma_var[:, 0] = self.model_output[var]
-            sigma_var[:, 1:3] = \
-                stats.t.interval(alpha, n_p, loc=sigma_var[:, 0],
-                                 scale=np.sqrt(self.MPECM.diagonal()[i]).T)
+            sigma_var[:, 0] = self.model_output[var].values
+
+            uncertainty = stats.t.interval(alpha, n_p, loc=self.model_output[var].values,
+                                           scale=np.sqrt(self.MPECM.diagonal(
+                                           axis1=1, axis2=2))[:, 0])
+
+            sigma_var[:, 1] = uncertainty[0]
+            sigma_var[:, 2] = uncertainty[1]
+
             sigma_var[:, 3] = np.abs((sigma_var[:, 2] - sigma_var[:, 0]))
             # Create mask to avoid counter division by zero
             rel_uncertainty = np.divide(sigma_var[:, 3], sigma_var[:, 0])
             mask = np.isfinite(rel_uncertainty)
-            sigma_var[:, 4] = np.zeros(self._data_len)
-            sigma_var[:, 4] = np.abs(sigma_var[:, 4][mask])*100
+            # sigma_var[:, 4] = np.zeros(self._data_len)
+            sigma_var[:, 4] = np.abs(rel_uncertainty[mask])*100
 
             sigma_var = pd.DataFrame(sigma_var, columns=['value', 'lower',
                                                          'upper', 'delta',
                                                          'percent'],
-                                     index=self.variables)
+                                     index=self.sens_PD.index)
             sigma[var] = sigma_var
 
         sigma = pd.concat(sigma, axis=1)
@@ -271,12 +275,15 @@ class BaseConfidence(object):
         # TODO Check if True
         # Mask parameter correlations!
         if self._MPECM is None:
-            PEECM = np.multiply(self.PEECM, np.eye(self._par_len))
+            PEECM = np.repeat(np.atleast_3d(self.PEECM).T,
+                              self._data_len, axis=0)
+            PEECM = np.multiply(PEECM, np.eye(self._par_len))
             # TODO Check if results are ok when var are not measured at the
             # same time
-            self._MPECM = self._dotproduct(sensmatrix, PEECM)
+            self._MPECM = self._dotproduct(np.rollaxis(self.sensmatrix, 2, 1),
+                                           PEECM)
 
-        return MPECM
+        return self._MPECM
 
     def get_model_correlation(self, alpha=0.95):
         '''Calculate correlation between variables
@@ -295,28 +302,26 @@ class BaseConfidence(object):
             For every possible combination of variables a column is made which
             represents the correlation between the two variables.
         '''
+        raise Exception('Needs review')
 
-        if len(self.get_all_outputs()) == 1:
-            if self._print_on:
-                print('Model only has one output!')
+        if len(self.variables) == 1:
             corr = pd.DataFrame(np.ones([1, 1]),
-                                columns=self.get_all_outputs()[0],
-                                index=self._data.get_measured_xdata())
+                                columns=self.variables,
+                                index=self.variables)
         else:
-            comb_gen = list(combinations(self.get_all_outputs(), 2))
-            print(comb_gen)
+            comb_gen = list(combinations(self.variables, 2))
             for i, comb in enumerate(comb_gen):
                 if i is 0:
                     combin = [comb[0] + '-' + comb[1]]
                 else:
                     combin.append([comb[0] + '-' + comb[1]])
 
-            if self._data.get_measured_xdata()[0] == 0:
-                time_uncertainty = self._data.get_measured_xdata()[1:]
-            else:
-                time_uncertainty = self._data.get_measured_xdata()
+#            if self._data.get_measured_xdata()[0] == 0:
+#                time_uncertainty = self._data.get_measured_xdata()[1:]
+#            else:
+#                time_uncertainty = self._data.get_measured_xdata()
 
-            corr = np.zeros([time_len, len(combin)])
+            corr = np.zeros([self._data_len, len(combin)])
             for h, timestep in enumerate(time_uncertainty):
                 tracker = 0
                 for i, var1 in enumerate(self.get_all_outputs()[:-1]):
@@ -347,10 +352,10 @@ class TheoreticalConfidence(BaseConfidence):
     """
     """
 
-    def __init__(self, sens):
+    def __init__(self, sens, uncertainty):
         """
         """
-        self.sens = sens
-
+        super(TheoreticalConfidence).__init__(sens)
+        self.uncertainty_PD = uncertainty
 
 

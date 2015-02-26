@@ -48,14 +48,15 @@ class LocalSensitivity(Sensitivity):
         """
         """
         variables = list(sensitivity_PD.columns.levels[0])
+        parameters = list(sensitivity_PD.columns.levels[1])
         perturb_par = pd.Series(self._parameter_values)[self.parameters]
         sensitivity_len = len(sensitivity_PD.index)
         parameter_len = len(self.parameters)
 
         # Problem with keeping the same order!
         par_values = []
-        for par in perturb_par:
-            par_values.append(parameter_dict[par])
+        for par in parameters:
+            par_values.append(self.model.parameters[par])
         # Convert par_values to np.array with lenght = sensitivity
         par_values = np.array(par_values)*np.ones([sensitivity_len,
                                                    parameter_len])
@@ -240,6 +241,8 @@ class NumericalLocalSensitivity(LocalSensitivity):
 
         num_sens = pd.concat(num_sens, axis=1)
         num_sens = num_sens.reorder_levels([1, 0], axis=1).sort_index(axis=1)
+
+        num_sens = self._rescale_sensitivity(num_sens, method)
 
         return num_sens
 
