@@ -17,7 +17,6 @@ from solver import (OdeSolver, OdeintSolver, OdespySolver,
                     HybridOdeintSolver, HybridOdeSolver,
                     HybridOdespySolver, AlgebraicSolver)
 
-
 class _BiointenseModel(BaseModel):
 
     def __str__(self):
@@ -199,10 +198,10 @@ class Model(_BiointenseModel):
         if not isinstance(initialValues, dict):
             raise TypeError("Initial values are not given as a dict")
         for key, value in initialValues.iteritems():
-            if ((key in self._ordered_var['algebraic'])
-                    or (key in self._ordered_var['event'])
-                    or (key in self._ordered_var['ode'])):
-                self.initial_conditions[key] = value
+            if ((key in self._ordered_var['algebraic']) or
+                (key in self._ordered_var['event']) or
+                (key in self._ordered_var['ode'])):
+                    self.initial_conditions[key] = value
             else:
                 raise NameError('Variable ' + key + " does not exist within "
                                 "the system")
