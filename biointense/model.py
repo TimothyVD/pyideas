@@ -269,6 +269,8 @@ class AlgebraicModel(_BiointenseModel):
 
         if method == "cartesian":
             independent = list(itertools.product(*independent_dict.values()))
+        elif method == "direct":
+            independent = independent_dict
         else:
             raise Exception('Method is not available!')
 

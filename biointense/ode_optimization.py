@@ -397,7 +397,7 @@ class ode_optimizer(object):
 
         return self.optimize_info
 
-    def set_fitting_par_distributions(self,pardistrlist):
+    def set_fitting_par_distributions(self, pardistrlist):
         """
         For each parameter set as fitting parameter, the information
         of the distribution is set.

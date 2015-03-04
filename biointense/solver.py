@@ -206,8 +206,10 @@ class AlgebraicSolver(Solver):
                                     self.model.parameters,
                                     *args, **kwargs)
 
+        index = pd.MultiIndex.from_tuples(zip(*self.model._independent_values.values()),
+                                          names=self.model.independent)
         result = pd.DataFrame(model_output,
-                              index=self.model._independent_values.values()[0],
+                              index=index,
                               columns=self.model._ordered_var['algebraic'])
 
         return result

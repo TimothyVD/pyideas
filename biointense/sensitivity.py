@@ -198,6 +198,8 @@ class NumericalLocalSensitivity(LocalSensitivity):
         output_std = self.model.run()
         par_value = self.model.parameters[parameter]
 
+        self._initiate_forw_back_sens()
+
         if self.procedure == "central":
             output_forw = self._model_output_pert(parameter, perturbation)
             output_back = self._model_output_pert(parameter, -perturbation)

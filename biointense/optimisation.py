@@ -179,6 +179,7 @@ class BaseOptimisation(object):
 
         if kwargs.get('approach') == 'PSO':
             ea = inspyred.swarm.PSO(prng)
+            ea.topology = inspyred.swarm.topologies.ring_topology
         elif kwargs.get('approach') == 'DEA':
             ea = inspyred.ec.DEA(prng)
         elif kwargs.get('approach') == 'SA':
@@ -187,15 +188,16 @@ class BaseOptimisation(object):
             raise Exception('This approach is currently not supported!')
 
         def temp_get_objective(candidates, args):
-            return self._get_objective(obj_fun, candidates, args)
+            return self._obj_fun_inspyred(obj_fun, candidates, args)
 
         ea.terminator = inspyred.ec.terminators.evaluation_termination
         final_pop = ea.evolve(generator=self._sample_generator,
                               evaluator=temp_get_objective,
                               pop_size=kwargs.get('pop_size'),
-                              bounder=inspyred.ec.Bounder(self._bounder_generator()),
-                              maximize=False,
-                              max_evaluations=kwargs.get('max_eval'))#3000
+                              bounder=self._bounder_generator,
+                              maximize=kwargs.get('maximize'),
+                              max_evaluations=kwargs.get('max_eval'),
+                              neighborhood_size=5)
 
         final_pop.sort(reverse=True)
         return final_pop, ea
@@ -320,15 +322,11 @@ class ParameterOptimisation(BaseOptimisation):
                                                    initial_parset=initial_parset,
                                                    add_plot=add_plot,
                                                    pop_size=pop_size,
+                                                   maximize=False,
                                                    max_eval=max_eval, **kwargs)
 
         return final_pop, ea
 
 
-class OEDOptimisation(BaseOptimisation):
-    """
-    """
 
-    def __init__(self, oed):
-        super(OEDOptimisation).__init__(confidence)
 

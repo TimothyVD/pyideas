@@ -19,8 +19,8 @@ parameters = {'Vf': 0.0839, 'Kp': 3.52, 'Km': 143.2}
 
 M1 = AlgebraicModel('Shin_Kim', system, parameters)
 
-SA = np.linspace(0.1, 800., 100)
-SB = np.linspace(0.1, 10., 50)
+SA = np.linspace(0.0, 800., 1000)
+SB = np.linspace(0.0, 10., 100)
 
 M1.set_independent({'SA': SA, 'SB': SB})
 
@@ -28,7 +28,7 @@ M1.initialize_model()
 
 output = M1.run()
 
-M1.plot_contourf('SB', 'SA', output['v'])
+M1.plot_contourf('SA', 'SB', output['v'])
 
 sens = NumericalLocalSensitivity(M1, ['Vf', 'Km', 'Kp'])
 output_sens = sens.get_sensitivity()

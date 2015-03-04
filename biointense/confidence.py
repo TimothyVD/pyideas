@@ -19,17 +19,16 @@ class BaseConfidence(object):
         """
         """
         self.sens = sens
-        self.sens_PD = sens.get_sensitivity(method='CAS')
+        # self.sens_PD = sens.get_sensitivity(method='CAS')
         self.model = sens.model
-        self.model_output = self.model.run()
+        # self.model_output = self.model.run()
         self.independent = self.model.independent
 
         self.variables = list(self.sens_PD.columns.levels[0])
         self.parameters = self.sens.parameters
-        self.parameter_values = pd.Series({par: self.model.parameters[par] for
-                                           par in self.parameters})
+        # self.parameter_values = pd.Series({par: self.model.parameters[par] for
+        #                                   par in self.parameters})
 
-        self.uncertainty_PD = None
         self._sens_matrix = None
 
         self._data_len = len(self.sens_PD.index)
@@ -43,6 +42,18 @@ class BaseConfidence(object):
         self._PEECM = None
         # Model Prediction Error Covariance Matrix
         self._MPECM = None
+
+    @property
+    def sens_PD(self):
+        return self.sens.get_sensitivity(method='CAS')
+
+    @property
+    def model_output(self):
+        return self.model.run()
+
+    @property
+    def parameter_values(self):
+        return pd.Series({par: self.model.parameters[par] for par in self.parameters})
 
     def _sens_PD_2_matrix(self, sens_PD):
         """
@@ -59,38 +70,39 @@ class BaseConfidence(object):
     def sensmatrix(self):
         """
         """
-        if self._sens_matrix is None:
-            self._sens_matrix = self._sens_PD_2_matrix(self.sens_PD)
+        #if self._sens_matrix is None:
+        self._sens_matrix = self._sens_PD_2_matrix(self.sens_PD)
         return self._sens_matrix
 
     @property
     def FIM(self):
         '''
         '''
-        if self._FIM is None:
-            self._FIM, self._FIM_time = self._calc_FIM(self.sens_PD,
-                                                       self.uncertainty_PD)
+        #if self._FIM is None:
+        self._FIM, self._FIM_time = self._calc_FIM(self.sens_PD,
+                                                   self.uncertainty_PD)
         return self._FIM
 
     @property
     def PEECM(self):
         '''
         '''
-        if self._PEECM is None:
-            self._PEECM = np.linalg.inv(self.FIM)
+        #if self._PEECM is None:
+        self._PEECM = np.linalg.inv(self.FIM)
         return self._PEECM
 
     @property
     def FIM_time(self):
         '''
         '''
-        if self._FIM_time is None:
-            self._FIM, self._FIM_time = self._calc_FIM(self.sens_PD,
-                                                       self.uncertainty_PD)
+        #if self._FIM_time is None:
+        self._FIM, self._FIM_time = self._calc_FIM(self.sens_PD,
+                                                   self.uncertainty_PD)
         return self._FIM_time
 
     @FIM.deleter
     def FIM(self):
+        self._
         self._FIM = None
         self._PEECM = None
         self._FIM_time = None
@@ -345,7 +357,13 @@ class CalibratedConfidence(BaseConfidence):
         super(CalibratedConfidence).__init__(calibrated.model.get_sensitivity(),
                                              calibrated.model.parameters)
         self.sens_PD = calibrated.model.get_sensitivity()
-        self.uncertainty_PD = calibrated.uncertainty
+        self.uncertainty = calibrated.uncertainty
+
+    @property
+    def uncertainty_PD():
+        """
+        """
+        return self.uncertainty.get_uncertainty(self.model_output)
 
 
 class TheoreticalConfidence(BaseConfidence):
@@ -355,7 +373,13 @@ class TheoreticalConfidence(BaseConfidence):
     def __init__(self, sens, uncertainty):
         """
         """
-        super(TheoreticalConfidence).__init__(sens)
-        self.uncertainty_PD = uncertainty
+        super(TheoreticalConfidence, self).__init__(sens)
+        self.uncertainty = uncertainty
+
+    @property
+    def uncertainty_PD(self):
+        """
+        """
+        return self.uncertainty.get_uncertainty(self.model_output)
 
 
