@@ -287,7 +287,7 @@ class ParameterOptimisation(BaseOptimisation):
 
         obj_val = OBJECTIVE_FUNCS[obj_fun](modeloutput,
                                            self.measurements.Data,
-                                           self.measurements._Error_Covariance_Matrix_PD)
+                                           1/self.measurements._Error_Covariance_Matrix_PD)
 
         return obj_val
 

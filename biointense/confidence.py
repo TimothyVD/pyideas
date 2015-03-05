@@ -358,12 +358,13 @@ class CalibratedConfidence(BaseConfidence):
                                              calibrated.model.parameters)
         self.sens_PD = calibrated.model.get_sensitivity()
         self.uncertainty = calibrated.uncertainty
+        self.data = calibrated.data
 
     @property
     def uncertainty_PD():
         """
         """
-        return self.uncertainty.get_uncertainty(self.model_output)
+        return self.uncertainty.get_uncertainty(self.data)
 
 
 class TheoreticalConfidence(BaseConfidence):

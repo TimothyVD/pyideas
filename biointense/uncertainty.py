@@ -26,13 +26,11 @@ class Uncertainty(object):
         """
         self.uncertainty_dict = uncertainty_dict
 
-    def get_uncertainty(self, modeloutput):
-        """
-        """
-        uncertainty = modeloutput.copy()
+    def get_uncertainty(self, output):
+        uncertainty = output.copy()
         for var in self.uncertainty_dict.keys():
             sympy_uncertainty = sympy.sympify(self.uncertainty_dict[var])
             fun = sympy.lambdify(var, sympy_uncertainty)
-            uncertainty[var] = fun(modeloutput[var])
+            uncertainty[var] = fun(output[var])
 
         return uncertainty
