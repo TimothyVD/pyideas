@@ -11,8 +11,7 @@ import pandas as pd
 
 from biointense.modelbase import BaseModel
 from biointense.model import Model
-from biointense.solver import HybridOdeSolver, \
-    HybridOdeintSolver, HybridOdespySolver
+from biointense.solver import HybridSolver
 
 
 def michaelis_menten_old():
@@ -87,14 +86,12 @@ def michaelis_menten():
     model.set_independent('t', np.linspace(0, 72, 1000))
     model.initialize_model()
 
-    solver1 = HybridOdeSolver(model)
-    result1 = solver1.solve()
-
-    solver2 = HybridOdeintSolver(model)
-    result2 = solver2.solve()
-
-    solver3 = HybridOdespySolver(model)
-    result3 = solver3.solve()
+    solver1 = HybridSolver(model)
+    result1 = solver1.solve("ode")
+    solver2 = HybridSolver(model)
+    result2 = solver2.solve("odeint")
+    solver3 = HybridSolver(model)
+    result3 = solver3.solve("odespy")
 
     return result1, result2, result3
 

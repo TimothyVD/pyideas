@@ -22,7 +22,7 @@ M1 = AlgebraicModel('Shin_Kim', system, parameters)
 SA = np.linspace(0.0, 800., 1000)
 SB = np.linspace(0.0, 10., 100)
 
-M1.set_independent({'SA': SA, 'SB': SB})
+M1.set_independent({'SA': SA, 'SB': SB}, method="cartesian")
 
 M1.initialize_model()
 

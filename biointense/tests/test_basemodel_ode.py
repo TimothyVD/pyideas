@@ -46,7 +46,7 @@ from biointense.solver import OdeSolver
 
 solver = OdeSolver(model)
 
-result = solver.solve()
+result = solver.solve("ode")
 
 result['S'].plot()
 result['X'].plot()

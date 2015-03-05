@@ -9,7 +9,7 @@ from biointense import DAErunner
 
 # new
 from biointense.model import Model
-from biointense.solver import OdeintSolver
+from biointense.solver import OdeSolver
 
 
 def run_second_order_old():

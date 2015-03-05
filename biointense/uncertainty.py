@@ -27,10 +27,17 @@ class Uncertainty(object):
         self.uncertainty_dict = uncertainty_dict
 
     def get_uncertainty(self, output):
+        """
+        """
         uncertainty = output.copy()
-        for var in self.uncertainty_dict.keys():
-            sympy_uncertainty = sympy.sympify(self.uncertainty_dict[var])
-            fun = sympy.lambdify(var, sympy_uncertainty)
-            uncertainty[var] = fun(output[var])
+        for var, value in self.uncertainty_dict.items():
+            if isinstance(value, str):
+                sympy_uncertainty = sympy.sympify(value)
+                fun = sympy.lambdify(var, sympy_uncertainty)
+                uncertainty[var] = fun(output[var])
+            elif hasattr(value, '__call__'):
+                uncertainty[var] = value
+            else:
+                raise Exception('Only strings and functions can be passed!')
 
         return uncertainty

@@ -290,7 +290,7 @@ class BaseOED(BaseOptimisation):
                             self._dof['independent'][independent].max,
                             step_dict[independent])
 
-        self.model.set_independent(independent_dict)
+        self.model.set_independent(independent_dict, method='cartesian')
 
         index = pd.MultiIndex.from_tuples(zip(*self.model._independent_values.values()),
                                           names=self.model.independent)
@@ -313,4 +313,4 @@ class BaseOED(BaseOptimisation):
             FIM_tot += FIM_evolution[optim_indep, :, :]
             FIM_evolution = FIM_evolution + FIM_evolution[optim_indep, :, :]
 
-        return np.array(experiments), FIM_tot
+        return pd.DataFrame(experiments, columns=self.model.independent), FIM_tot

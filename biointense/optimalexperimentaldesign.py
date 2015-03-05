@@ -203,11 +203,11 @@ class ode_FIM(object):
         # Perform FIM calculation
         # FIM = dy/dx*1/Q*[dy/dx]^T
 
-	# Calculate inverse of ECM_PD
+        # Calculate inverse of ECM_PD
         ECM_inv = np.linalg.inv(np.eye(len(self.get_measured_outputs()))*np.atleast_3d(ECM_PD))
         # Set all very low numbers to zero (just a precaution, so that solutions would be the
         # the same as the old get_FIM method). This is probably not necessary!
-	ECM_inv[ECM_inv < 1e-20] = 0.
+        ECM_inv[ECM_inv < 1e-20] = 0.
         FIM_timestep = np.einsum('ijk,ikl->ijl',
                                       np.einsum('ijk,ikl->ijl',sensmatrix[sens_start:,:,:],
                                       ECM_inv)

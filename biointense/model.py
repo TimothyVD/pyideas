@@ -13,9 +13,8 @@ from copy import deepcopy
 from modelbase import BaseModel
 from modeldefinition import (generate_ode_derivative_definition,
                              generate_non_derivative_part_definition)
-from solver import (OdeSolver, OdeintSolver, OdespySolver,
-                    HybridOdeintSolver, HybridOdeSolver,
-                    HybridOdespySolver, AlgebraicSolver)
+from solver import OdeSolver, AlgebraicSolver, HybridSolver
+
 
 class _BiointenseModel(BaseModel):
 
@@ -23,11 +22,11 @@ class _BiointenseModel(BaseModel):
         """
         string representation
         """
-        return "Model name: " + str(self.name) + \
-            "\n Variables of interest: \n" + str(self.variables_of_interest) +\
-            "\n Parameters: \n" + str(self.parameters) + \
-            "\n Independent: \n" + str(self.independent) + \
-            "\n Model initialised: " + str(self._initial_up_to_date)
+        return ("Model name: " + str(self.name) + "\n"
+                "Variables of interest:" + str(self.variables_of_interest) + "\n"
+                "Parameters: \n" + str(self.parameters) + "\n"
+                "Independent: \n" + str(self.independent) + "\n"
+                "Model initialised: " + str(self._initial_up_to_date) + "\n")
 
     def _parse_system_string(self, system, parameters):
         """
@@ -35,7 +34,8 @@ class _BiointenseModel(BaseModel):
         extract variable names
         first letter == d ==> to ODE
         else ==> to algebraic
-        extract info from system and parameters and store them into the attributes
+        extract info from system and parameters and store them into the
+        attributes
         """
         # assert that 'parameters' and 'system' are a dict
         if not isinstance(parameters, dict):
@@ -74,7 +74,7 @@ class _BiointenseModel(BaseModel):
 
         self._initial_up_to_date = True
 
-    def run(self):
+    def run(self, procedure="odeint"):
         """
         Run the model for the given set of parameters, indepentent variable
         values and output a datagrame with the variables of interest.
@@ -83,17 +83,18 @@ class _BiointenseModel(BaseModel):
         if not self._initial_up_to_date:
             self.initialize_model()
 
-        if self._ordered_var.get('ode') and self._ordered_var.get('algebraic'):
-            solver = HybridOdeintSolver(self)
-        elif self._ordered_var.get('ode'):
-            solver = OdeintSolver(self)
+        if self._ordered_var.get('ode'):
+            if self._ordered_var.get('algebraic'):
+                solver = HybridSolver(self)
+            else:
+                solver = OdeSolver(self)
+            result = solver.solve(procedure)
         elif self._ordered_var.get('algebraic'):
             solver = AlgebraicSolver(self)
+            result = solver.solve()
         else:
             raise Exception("In an initialized Model, there should always "
                             "be at least a fun_ode or fun_alg.")
-
-        result = solver.solve()
 
         return result
 
@@ -260,12 +261,13 @@ class AlgebraicModel(_BiointenseModel):
               "\n Independent: \n" + str(self.independent) +
               "\n Model initialised: " + str(self._initial_up_to_date))
 
-    def set_independent(self, independent_dict, method='cartesian'):
+    def set_independent(self, independent_dict, method='direct'):
         """
         """
         # check the data type of the input
-        if not isinstance(independent_dict, dict):
-            raise TypeError("independent_dict should be dict!")
+        if not isinstance(independent_dict, dict) and \
+            not isinstance(independent_dict, pd.core.frame.DataFrame):
+                raise TypeError("independent_dict should be dict!")
 
         if method == "cartesian":
             independent = list(itertools.product(*independent_dict.values()))

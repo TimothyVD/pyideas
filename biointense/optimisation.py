@@ -7,6 +7,7 @@ Created on Thu Feb 26 17:19:34 2015
 
 from scipy import optimize
 import numpy as np
+import pandas as pd
 try:
     import inspyred  # Global optimization
     INSPYRED_IMPORT = True
@@ -49,6 +50,7 @@ class BaseOptimisation(object):
     def __init__(self):
         self._optim_par = None
         self._distributions_set = False
+        self.modmeas = None
 
 
     @property
@@ -72,6 +74,10 @@ class BaseOptimisation(object):
                                           method=method, *args, **kwargs)
 
         return optimize_info
+
+    def _set_modmeas(self, modeloutput, measurements):
+        self.modmeas = pd.concat((measurements, modeloutput), axis=1,
+                                 keys=['Measured', 'Modelled'])
 
     def _obj_fun(self, parray):
         '''
@@ -203,23 +209,49 @@ class BaseOptimisation(object):
         return final_pop, ea
 
 
+
+
 class ParameterOptimisation(BaseOptimisation):
     """
     """
 
-    def __init__(self, model, measurements, optim_par):
+    def __init__(self, model, measurements, optim_par=None,
+                 overwrite_independent=False):
         super(ParameterOptimisation, self).__init__()
 
         self.model = model
         self.measurements = measurements
 
-        self._optim_par = optim_par
+        if optim_par is not None:
+            self._optim_par = optim_par
+        else:
+            self._optim_par = self.model.parameters.keys()
         self._set_optim_ref()
+
+        self._set_independent(overwrite_independent)
 
     def _set_optim_ref(self):
         self._optim_ref = {}
         for par in self.optim_par:
             self._optim_ref[par] = 'parameters'
+
+    def _set_independent(self, overwrite_independent):
+        """
+        """
+        independent = self.measurements.Data.index.names
+        independent_val = self.measurements.Data.index
+
+        independent_dict = {}
+        for key in independent:
+            if overwrite_independent:
+                independent_dict[key] = \
+                    independent_val.get_level_values(key).values
+            else:
+                independent_dict[key] = \
+                    np.append(self._independent_values[key],
+                              independent_val.get_level_values(key).values)
+        self.model.set_independent(independent_dict)
+
 
     @property
     def optim_par(self):
@@ -277,6 +309,8 @@ class ParameterOptimisation(BaseOptimisation):
                                  self._pardict_to_pararray(pardict),
                                  method, *args, **kwargs)
 
+        self._set_modmeas(self.model.run(), self.measurements.Data)
+
         return optimize_info
 
     def _obj_fun(self, obj_fun, pararray=None):
@@ -324,6 +358,8 @@ class ParameterOptimisation(BaseOptimisation):
                                                    pop_size=pop_size,
                                                    maximize=False,
                                                    max_eval=max_eval, **kwargs)
+
+        self._set_modmeas(self.model.run(), self.measurements.Data)
 
         return final_pop, ea
 
