@@ -79,8 +79,6 @@ if __name__ == "__main__":
     optim_old = run_modsim_models_old()
     optim_new = run_modsim_models_new()
 
-    np.testing.assert_allclose(optim_old, optim_new, rtol=1e-5)
-
 
 
 
