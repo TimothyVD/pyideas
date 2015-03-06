@@ -248,9 +248,15 @@ class ParameterOptimisation(BaseOptimisation):
                     independent_val.get_level_values(key).values
             else:
                 independent_dict[key] = \
-                    np.append(self._independent_values[key],
+                    np.append(self.model._independent_values[key],
                               independent_val.get_level_values(key).values)
-        self.model.set_independent(independent_dict)
+        # Check for duplicates and delete those
+        independent_pd = pd.DataFrame(independent_dict)
+        # Remove any duplicates
+        independent_pd = independent_pd.drop_duplicates()
+        # Make sure the values are ordered (important for ODEs)
+        independent_pd = independent_pd.sort(columns=independent)
+        self.model.set_independent(independent_pd)
 
 
     @property

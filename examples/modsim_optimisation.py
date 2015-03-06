@@ -43,8 +43,8 @@ def run_modsim_models_new():
     # Data
     file_path = os.path.join(biointense.BASE_DIR, '..', 'examples', 'data',
                              'grasdata.csv')
-    data = pd.read_csv(file_path, header=0, names=['time', 'W'])
-    measurements = biointense.ode_measurements(data)
+    data = pd.read_csv(file_path, header=0, names=['t', 'W'])
+    measurements = biointense.ode_measurements(data, xdata='t')
 
     parameters = {'W0': 20.0805,
                   'Wf': 0.97523,
@@ -54,7 +54,7 @@ def run_modsim_models_new():
 
     M1 = AlgebraicModel('Modsim1', system, parameters)
 
-    M1.set_independent({'t': np.array([0., 20., 29., 41., 50., 65., 72.])})
+    M1.set_independent({'t': np.array([0., 4., 6., 41., 50., 65., 72.])})
 
     M1.set_variables_of_interest(['W'])
 

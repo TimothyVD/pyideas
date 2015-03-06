@@ -38,6 +38,7 @@ def test_alg_state():
     P = 50 * np.exp(-0.2*x)
 
     expected = pd.DataFrame({'P': P, 'S': S}, index=x)
+    expected.index.name = 't'
     expected['A'] = expected['S'] + expected['P']
 
     assert_frame_equal(result, expected.reindex(columns=result.columns))
@@ -67,6 +68,7 @@ def test_alg_substitution():
         + 50 * np.exp((k1 + 1)*x)
 
     expected = pd.DataFrame({'S': S, 'P': P}, index=x)
+    expected.index.name = 't'
     expected['A'] = expected['S'] + expected['P']
 
     assert_frame_equal(result, expected.reindex(columns=result.columns))
