@@ -112,11 +112,11 @@ class BaseConfidence(object):
         """
         """
         # dy/dp*weight
-        dydx_weigth = np.einsum('ijk,ikl->ijl', sensmatrix.astype(float), weight.astype(float))
+        dydx_weigth = np.einsum('ijk,ikl->ijl', sensmatrix, weight)
         # [dy/dp]^T
-        sensmatrix_t = np.rollaxis(sensmatrix.astype(float), 2, 1)
+        sensmatrix_t = np.rollaxis(sensmatrix, 2, 1)
         # dy/dp*weigth*[dy/dp]^T
-        dydx_weight_dydx = np.einsum('ijk,ikl->ijl', dydx_weigth, sensmatrix_t.astype(float))
+        dydx_weight_dydx = np.einsum('ijk,ikl->ijl', dydx_weigth, sensmatrix_t)
 
         return dydx_weight_dydx
 

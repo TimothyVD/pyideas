@@ -16,6 +16,13 @@ except:
 import pandas as pd
 
 
+ODE_INTEGRATORS = {}
+ODE_INTEGRATORS['ode'] = ['vode', 'zvode', 'lsoda', 'dopri5', 'dop853']
+ODE_INTEGRATORS['odespy'] = odespy.list_available_solvers()
+
+STD_ODE_INTEGRATOR = {'ode': 'lsoda', 'odespy': 'lsoda_scipy', 'odeint': ''}
+
+
 class Solver(object):
 
     def __init__(self, model):
@@ -54,8 +61,36 @@ class OdeSolver(Solver):
                                'ode': self._solve_ode,
                                'odespy': self._solve_odespy}
 
+    def _check_ode_integrator_setting(self, procedure):
+        """
+        """
+        if self.ode_integrator is None:
+            self.ode_integrator = STD_ODE_INTEGRATOR[procedure]
+        else:
+            if procedure is not 'odeint' and
+            self.ode_integrator not in ODE_INTEGRATORS[procedure]:
+                raise Exception(self.ode_integrator + ' is not available, '
+                                'please choose one from the ODE_INTEGRATORS '
+                                'list.')
+
     def _solve_odeint(self):
         """
+        Calculate the ode equations using scipy integrate odeint solvers
+
+        Returns
+        -------
+        result : pd.DataFrame
+        Contains all outputs from the ode equations in function of the
+        independent values
+
+        Notes
+        ------
+        The scipy integrate odeint module can be found on [1]_.
+
+        References
+        -----------
+        .. [1] http://docs.scipy.org/doc/scipy-0.14.0/reference/generated/
+        scipy.integrate.odeint.html
         """
         res = odeint(self.model.fun_ode,
                      self._initial_conditions,
@@ -70,10 +105,23 @@ class OdeSolver(Solver):
 
     def _solve_ode(self):
         """
-        """
-        # Default value for odespy
-        self.ode_integrator = self.ode_integrator or 'lsoda'
+        Calculate the ode equations using scipy integrate ode solvers
 
+        Returns
+        -------
+        result : pd.DataFrame
+        Contains all outputs from the ode equations in function of the
+        independent values
+
+        Notes
+        ------
+        The scipy integrate ode module can be found on [1]_.
+
+        References
+        -----------
+        .. [1] http://docs.scipy.org/doc/scipy-0.14.0/reference/generated/
+        scipy.integrate.ode.html
+        """
         # Make wrapper function to
         def wrapper(independent_values, initial_conditions, parameters):
             return self.model.fun_ode(
@@ -105,10 +153,23 @@ class OdeSolver(Solver):
 
     def _solve_odespy(self):
         """
-        """
-        # Default value for odespy
-        self.ode_integrator = self.ode_integrator or 'lsoda_scipy'
+        Calculate the ode equations using scipy integrate ode solvers
 
+        Returns
+        -------
+        result : pd.DataFrame
+        Contains all outputs from the ode equations in function of the
+        independent values
+
+        Notes
+        ------
+        The odespy package can be found on [1]_.
+
+        References
+        -----------
+        .. [1] H. P. Langtangen and L. Wang. Odespy software package.
+        URL: https://github.com/hplgit/odespy. 2014
+        """
         solver = odespy.__getattribute__(self.ode_integrator)
         solver = solver(self.model.fun_ode)
         if self.ode_solver_options is not None:
@@ -123,7 +184,7 @@ class OdeSolver(Solver):
 
         return result
 
-    def solve(self, procedure):
+    def solve(self, procedure='odeint'):
         """
         Calculate the ode equations using scipy integrate odeint solvers
 
@@ -133,6 +194,8 @@ class OdeSolver(Solver):
             Contains all outputs from the ode equations in function of the
             independent values
         """
+        self._check_ode_integrator_setting(procedure)
+
         return self._ode_procedure[procedure]()
 
 
@@ -148,7 +211,7 @@ class AlgebraicSolver(Solver):
                                     self.model.parameters,
                                     *args, **kwargs)
 
-        index = pd.MultiIndex.from_tuples(zip(*self.model._independent_values.values()),
+        index = pd.MultiIndex.from_arrays(self.model._independent_values.values(),
                                           names=self.model.independent)
         result = pd.DataFrame(model_output,
                               index=index,

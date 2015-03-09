@@ -411,7 +411,7 @@ class DirectLocalSensitivity(LocalSensitivity):
     def __init__(self, model):
         """
         """
-        if not issubclass(model.__class__, _BiointenseModel):
+        if not isinstance(model, _BiointenseModel):
             raise Exception("DirectLocalSensitivity can only be used for "
                             "(subclasses of the) _BiointenseModel class")
         self.model = model
