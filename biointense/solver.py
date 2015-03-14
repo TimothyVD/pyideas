@@ -67,7 +67,7 @@ class OdeSolver(Solver):
         if self.ode_integrator is None:
             self.ode_integrator = STD_ODE_INTEGRATOR[procedure]
         else:
-            if procedure is not 'odeint' and
+            if procedure is not 'odeint' and \
             self.ode_integrator not in ODE_INTEGRATORS[procedure]:
                 raise Exception(self.ode_integrator + ' is not available, '
                                 'please choose one from the ODE_INTEGRATORS '

@@ -11,6 +11,8 @@ import pandas as pd
 try:
     import inspyred  # Global optimization
     INSPYRED_IMPORT = True
+    INSPYRED_APPROACH = {'PSO': inspyred.swarm.PSO, 'DEA': inspyred.ec.DEA,
+                         'SA': inspyred.ec.SA}
 except:
     INSPYRED_IMPORT = False
 
@@ -43,55 +45,166 @@ def sse(*args):
 OBJECTIVE_FUNCS = {'wsse': wsse, 'sse': sse}
 
 
-class BaseOptimisation(object):
+class _BaseOptimisation(object):
     """
     """
 
-    def __init__(self):
-        self._optim_par = None
+    def __init__(self, model):
+        self.model = model
+        self._dof_model = self._get_dof_model()
+        self._dof = None
+        self._dof_ordered = None
+        # [Parameters, Initial, ]
+        self._how_to_order_dof = ['parameters', 'initial', 'independent']
+        self._dof_len = [0, 0, 0]
+
         self._distributions_set = False
         self.modmeas = None
 
+    @staticmethod
+    def _flatten_list(some_list):
+        return [item for sublist in some_list for item in sublist]
+
+    def _get_dof_model(self):
+        """
+        """
+        try:
+            initial_list = self.model.initial
+        except AttributeError:
+            initial_list = []
+
+        _dof_list = self._flatten_list([self.model.parameters.keys(),
+                                        self.model.independent,
+                                        initial_list])
+
+        _dof_ref = {}.fromkeys(_dof_list, None)
+        _dof_ref.update({}.fromkeys(self.model.parameters.keys(),
+                                    'parameters'))
+
+        _dof_ref.update({}.fromkeys(self.model.independent,
+                                    'independent'))
+        _dof_ref.update({}.fromkeys(initial_list,
+                                    'initial'))
+
+        return _dof_ref
 
     @property
-    def optim_par(self):
+    def dof(self):
         """
         """
-        return self._optim_par
+        return self._dof
 
-    @optim_par.setter
-    def optim_par(self, par_to_optim):
+    @dof.setter
+    def dof(self, dof_list):
         """
         """
+        self._dof = []
+        self._dof_ordered = {'parameters': [],
+                             'independent': [],
+                             'initial': []}
+
+        # Select dof according to subgroup they belong to
+        for dof in dof_list:
+            self._dof_ordered[self._dof_model[dof]].append(dof)
+
+        # Append dof in certain order
+        for subgroup in self._how_to_order_dof:
+            self._dof.append(self._dof_ordered[subgroup])
+            # Calc length for each subgroup
+            self._dof_len.append(len(self._dof_ordered[subgroup]))
+
+        self._dof = self._flatten_list(self._dof)
+
+    def _dof_dict_to_array(self, dof_dict):
+        """
+        """
+        dof_list = []
+
+        for key in self.dof:
+            if isinstance(dof_dict[key], float):
+                dof_list.append([dof_dict[key]])
+            else:
+                dof_list.append(*list(dof_dict[key]))
+
+        dof_list = self._flatten_list(dof_list)
+
+        return np.array(dof_list)
+
+    def _dof_array_to_dict(self, dof_array):
+        """
+        """
+        # A FIX FOR CERTAIN SCIPY MINIMIZE ALGORITHMS
+        dof_array = dof_array.flatten()
+
+        split_array = np.split(dof_array, np.cumsum(self._dof_len[:-1]))
+
+        dof_dict = {'parameters': {},
+                    'independent': {},
+                    'initial': {}}
+
+        if bool(self._dof_len[0]):
+            dof_dict['parameters'].update(dict(zip(self._dof_ordered['parameters'],
+                                                   split_array[0])))
+        if bool(self._dof_len[1]):
+            dof_dict['initial'].update(dict(zip(self._dof_ordered['initial'],
+                                                split_array[1])))
+        if bool(self._dof_len[2]):
+            # Necessary in case of multiple independent
+            indep_split = np.split(split_array[2], self._dof_len[-1])
+
+            dof_dict['independent'].update(dict(zip(self._dof_ordered['independent'],
+                                                    indep_split)))
+        return dof_dict
+
+    def _dof_dict_to_model(self, dof_dict):
+        """
+        """
+        if bool(self._dof_len[0]):
+            self.model.set_parameters(dof_dict['parameters'])
+        if bool(self._dof_len[1]):
+            self.model.set_initial(dof_dict['initial'])
+        if bool(self._dof_len[2]):
+            self.model.set_independent(dof_dict['independent'])
+
+    def _dof_array_to_model(self, dof_array):
+        """
+        """
+        dof_dict = self._dof_array_to_dict(dof_array)
+        self._dof_dict_to_model(dof_dict)
+
+
+    def _run_model(self, dof_array=None):
+        '''
+        ATTENTION: Zero-point also added, need to be excluded for optimization
+        '''
+        if dof_array is not None:
+            # Set new parameters values
+            dof_dict = self._dof_array_to_dict(dof_array)
+            self._dof_dict_to_model(dof_dict)
+
+        return self.model.run()
+
+    def _obj_fun(self, obj_crit, parray):
+        '''
+        '''
+        # Run model
+
+        # Evaluate model
+
         return NotImplementedError
 
-    def _local_optimize(self, obj_fun, parray, method, *args, **kwargs):
+    def _local_optimize(self, obj_fun, dof_array, method, *args, **kwargs):
         '''
         Wrapper for scipy.optimize.minimize
         '''
-
-        optimize_info = optimize.minimize(obj_fun, parray,
-                                          method=method, *args, **kwargs)
+        optimize_info = optimize.minimize(obj_fun, dof_array,
+                                          method=method, **kwargs)
 
         return optimize_info
 
     def _set_modmeas(self, modeloutput, measurements):
         self.modmeas = pd.concat((measurements, modeloutput), axis=1,
                                  keys=['Measured', 'Modelled'])
-
-    def _obj_fun(self, parray):
-        '''
-        '''
-        return NotImplementedError
-
-    def _sample_generator(self, random, args):
-        '''
-        '''
-        samples = []
-        #use get_fitting_parameters, since this is ordered dict!!
-        for parameter in self.optim_par:
-            samples.append(self.pardistributions[parameter].aValue())
-        return samples
 
     def set_fitting_par_distributions(self, pardistrlist):
         """
@@ -148,24 +261,32 @@ class BaseOptimisation(object):
         else:
             raise Exception("Bad input type, give list of ModPar instances.")
 
-    def _bounder_generator(self):
-        '''
-        Genere
-        '''
-        minsample = []
-        maxsample = []
-        #use get_fitting_parameters, since this is ordered dict!!
-        for parameter in self.optim_par:
-            minsample.append(self.pardistributions[parameter].min)
-            maxsample.append(self.pardistributions[parameter].max)
-        return minsample, maxsample
 
-    def _obj_fun_inspyred(self, obj_fun, candidates, args):
+    # Bioinspyred specific stuff
+
+    def _inspyred_bounder(self):
         '''
         '''
         return NotImplementedError
 
-    def _bioinspyred_optimize(self, obj_fun, **kwargs):
+    def _inspyred_sampler(self, random, args):
+        '''
+        '''
+        samples = []
+        #use get_fitting_parameters, since this is ordered dict!!
+        for parameter in self.optim_par:
+            samples.append(self.pardistributions[parameter].aValue())
+        return samples
+
+    def _inspyred_obj_fun(self, obj_fun, candidates, args):
+        '''
+        '''
+        fitness = []
+        for cs in candidates:
+            fitness.append(obj_fun(parray=np.array(cs)))
+        return fitness
+
+    def _inspyred_optimize(self, obj_fun, **kwargs):
         """
 
         Notes
@@ -183,18 +304,16 @@ class BaseOptimisation(object):
             prng = Random()
             prng.seed(time())
 
-        if kwargs.get('approach') == 'PSO':
-            ea = inspyred.swarm.PSO(prng)
-            ea.topology = inspyred.swarm.topologies.ring_topology
-        elif kwargs.get('approach') == 'DEA':
-            ea = inspyred.ec.DEA(prng)
-        elif kwargs.get('approach') == 'SA':
-            ea = inspyred.ec.SA(prng)
+        if kwargs.get('approach') in INSPYRED_APPROACH:
+            ea = INSPYRED_APPROACH[kwargs.get('approach')]
         else:
             raise Exception('This approach is currently not supported!')
 
+        if kwargs.get('approach') == 'PSO':
+            ea.topology = inspyred.swarm.topologies.ring_topology
+
         def temp_get_objective(candidates, args):
-            return self._obj_fun_inspyred(obj_fun, candidates, args)
+            return self._inspyred_obj_fun_(obj_fun, candidates, args)
 
         ea.terminator = inspyred.ec.terminators.evaluation_termination
         final_pop = ea.evolve(generator=self._sample_generator,
@@ -209,31 +328,42 @@ class BaseOptimisation(object):
         return final_pop, ea
 
 
-
-
-class ParameterOptimisation(BaseOptimisation):
+class ParameterOptimisation(_BaseOptimisation):
     """
     """
 
     def __init__(self, model, measurements, optim_par=None,
                  overwrite_independent=False):
-        super(ParameterOptimisation, self).__init__()
+        super(ParameterOptimisation, self).__init__(model)
 
-        self.model = model
         self.measurements = measurements
 
         if optim_par is not None:
-            self._optim_par = optim_par
+            self.dof = optim_par
         else:
-            self._optim_par = self.model.parameters.keys()
-        self._set_optim_ref()
+            self.dof = self.model.parameters.keys()
 
         self._set_independent(overwrite_independent)
 
-    def _set_optim_ref(self):
-        self._optim_ref = {}
-        for par in self.optim_par:
-            self._optim_ref[par] = 'parameters'
+    def _bounder(self):
+        '''
+        '''
+        minsample = []
+        maxsample = []
+        for parameter in self._parameter:
+            minsample.append([self._dof['parameter'][parameter].min])
+            maxsample.append([self._dof['parameter'][parameter].max])
+        minsample = np.array([y for x in minsample for y in x])
+        maxsample = np.array([y for x in maxsample for y in x])
+        return minsample, maxsample
+
+    def _bounder_generator(self, candidates, args):
+        candidates = np.array(candidates)
+
+        candidates = np.minimum(np.maximum(candidates, self._minvalues),
+                                self._maxvalues)
+
+        return candidates
 
     def _set_independent(self, overwrite_independent):
         """
@@ -258,106 +388,48 @@ class ParameterOptimisation(BaseOptimisation):
         independent_pd = independent_pd.sort(columns=independent)
         self.model.set_independent(independent_pd)
 
-
-    @property
-    def optim_par(self):
-        """
-        """
-        return self._optim_par
-
-    @optim_par.setter
-    def optim_par(self, optim_par):
-        """
-        """
-        if isinstance(par_to_opt, dict):
-            self._optim_par = optim_par.keys()
-            for key in self.optim_par:
-                self.model.parameters[key] = optim_par[key]
-        elif isinstance(optim_par, list):
-            self._optim_par = optim_par
-        else:
-            raise Exception('par_to_opt needs to be dict or list!')
-
-    def _pardict_to_pararray(self, pardict):
-        """
-        """
-        pararray = np.zeros(len(pardict))
-        for i, key in enumerate(self.optim_par):
-            pararray[i] = pardict[key]
-
-        return pararray
-
-    def _pararray_to_pardict(self, pararray):
-        """
-        """
-        # A FIX FOR CERTAIN SCIPY MINIMIZE ALGORITHMS
-        pararray = pararray.flatten()
-
-        pardict = self.model.parameters.copy()
-        for i, key in enumerate(self.optim_par):
-            pardict[key] = pararray[i]
-
-        return pardict
-
-    def local_optimize(self, pardict=None, obj_fun='wsse',
+    def local_optimize(self, pardict=None, obj_crit='wsse',
                        method='Nelder-Mead', *args, **kwargs):
         '''
         Wrapper for scipy.optimize.minimize
         '''
+        def inner_obj_fun(parray=None):
+            return self._obj_fun(obj_crit, parray=parray)
+
         if pardict is None:
             pardict = self.model.parameters.copy()
 
-        def temp_obj_fun(pararray=None):
-            return self._obj_fun(obj_fun, pararray=pararray)
-
         optimize_info = \
-            self._local_optimize(temp_obj_fun,
-                                 self._pardict_to_pararray(pardict),
+            self._local_optimize(inner_obj_fun,
+                                 self._dof_dict_to_model({'parameters': pardict}),
                                  method, *args, **kwargs)
 
         self._set_modmeas(self.model.run(), self.measurements.Data)
 
         return optimize_info
 
-    def _obj_fun(self, obj_fun, pararray=None):
+    def _obj_fun(self, obj_crit, parray=None):
         """
         """
         # Run model
-        modeloutput = self._run_model(pararray=pararray)
+        modeloutput = self._run_model(dof_array=parray)
 
-        obj_val = OBJECTIVE_FUNCS[obj_fun](modeloutput,
-                                           self.measurements.Data,
-                                           1/self.measurements._Error_Covariance_Matrix_PD)
+        obj_val = OBJECTIVE_FUNCS[obj_crit](modeloutput,
+                                            self.measurements.Data,
+                                            1./self.measurements._Error_Covariance_Matrix_PD)
 
         return obj_val
 
-    def _obj_fun_inspyred(self, obj_fun, candidates, args):
-        '''
-        '''
-        fitness = []
-        for cs in candidates:
-            fitness.append(self._obj_fun(obj_fun, pararray=np.array(cs)))
-        return fitness
-
-    def _run_model(self, pararray=None):
-        '''
-        ATTENTION: Zero-point also added, need to be excluded for optimization
-        '''
-        #run option
-        if pararray is not None:
-            #run model first with new parameters
-            pardict = self._pararray_to_pardict(pararray)
-            self.model.set_parameters(pardict)
-
-        return self.model.run()
-
-    def bioinspyred_optimize(self, obj_fun='wsse', prng=None, approach='PSO',
+    def bioinspyred_optimize(self, obj_crit='wsse', prng=None, approach='PSO',
                              initial_parset=None, add_plot=True,
                              pop_size=16, max_eval=256, **kwargs):
         """
         """
+        def inner_obj_fun(parray=None):
+            return self._obj_fun(obj_crit, parray=parray)
 
-        final_pop, ea = self._bioinspyred_optimize(obj_fun=obj_fun, prng=prng,
+        final_pop, ea = self._bioinspyred_optimize(inner_obj_fun,
+                                                   prng=prng,
                                                    approach=approach,
                                                    initial_parset=initial_parset,
                                                    add_plot=add_plot,
@@ -368,7 +440,3 @@ class ParameterOptimisation(BaseOptimisation):
         self._set_modmeas(self.model.run(), self.measurements.Data)
 
         return final_pop, ea
-
-
-
-

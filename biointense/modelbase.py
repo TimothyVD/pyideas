@@ -4,6 +4,7 @@
 from __future__ import division
 
 import warnings
+import pandas as pd
 
 class BaseModel(object):
 

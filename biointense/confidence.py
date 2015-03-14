@@ -45,7 +45,11 @@ class BaseConfidence(object):
 
     @property
     def sens_PD(self):
-        return self.sens.get_sensitivity(method='CAS')
+        sens_PD = self.sens.get_sensitivity(method='CAS')
+        # Temp fix!
+        # Necessary because order is changing
+        self.parameters = list(sens_PD.columns.levels[1])
+        return sens_PD
 
     @property
     def model_output(self):
@@ -177,17 +181,18 @@ class BaseConfidence(object):
 
         CI = np.zeros([self.PEECM.shape[1], 8])
 
-        CI[:, 0] = self.parameter_values.values
+        # Adapt order to the one used in confidence
+        CI[:, 0] = self.parameter_values[self.parameters]
         for i, variance in enumerate(np.array(self.PEECM.diagonal())):
             # TODO check whether sum or median or... should be used
             # TODO Check of de absolute waarde hier gebruikt mag worden!!!!
             CI[i, 1:3] = stats.t.interval(alpha, n_p,
-                                          loc=self.parameter_values.values[i],
+                                          loc=CI[i, 0],
                                           scale=np.sqrt(abs(variance)))
             CI[i, 3] = stats.t.interval(alpha, n_p,
                                         scale=np.sqrt(abs(variance)))[1]
-        CI[:, 4] = abs(CI[:, 3]/self.parameter_values.values)*100
-        CI[:, 5] = self.parameter_values.values/np.sqrt(abs(self.PEECM.diagonal()))
+        CI[:, 4] = abs(CI[:, 3]/CI[:, 0])*100
+        CI[:, 5] = CI[:, 0]/np.sqrt(abs(self.PEECM.diagonal()))
         CI[:, 6] = stats.t.interval(alpha, n_p)[1]
         CI[:, 7] = CI[:, 5] >= CI[i, 6]
 

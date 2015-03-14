@@ -64,14 +64,16 @@ def run_modsim_models_new():
 
     optim = ParameterOptimisation(M1 , measurements, ['W0', 'Wf', 'mu'])
 
-    optim.local_optimize(obj_fun='wsse')
+    optim.local_optimize(obj_crit='wsse')
 
-#    optim.set_fitting_par_distributions([ModPar('Wf', 0.0, 20.0,
-#                                                'randomUniform'),
-#                                         ModPar('mu', 0.0, 20.0,
-#                                                'randomUniform')])
-#
-#    final_pop, ea = optim.bioinspyred_optimize()
+    optim.set_fitting_par_distributions([ModPar('W0', 0.0, 20.0,
+                                                'randomUniform'),
+                                        ModPar('Wf', 0.0, 20.0,
+                                                'randomUniform'),
+                                         ModPar('mu', 0.0, 20.0,
+                                                'randomUniform')])
+
+    final_pop, ea = optim.bioinspyred_optimize()
 
     return optim.local_optimize(obj_fun='wsse').x
 

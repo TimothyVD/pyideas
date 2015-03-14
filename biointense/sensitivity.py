@@ -43,8 +43,7 @@ class LocalSensitivity(Sensitivity):
 
     @property
     def parameter_values(self):
-            return dict((par, self._parameter_values[par]) for par in
-                        self.parameters if par in self._parameter_values)
+            return self.model.parameters[self.parameters]
 
     def _rescale_sensitivity(self, sensitivity_PD, scaling):
         """
@@ -97,9 +96,9 @@ class NumericalLocalSensitivity(LocalSensitivity):
         """
         self.model = model
         self.parameters = []
-        self._parameter_values = {}.fromkeys(model.parameters.keys())
+        self._parameter_values = {}.fromkeys(self.model.parameters.keys())
         if parameters is None:
-            self.set_perturbation(model.parameters.keys(),
+            self.set_perturbation(list(model.parameters.keys()),
                                   perturbation=perturbation)
         else:
             self.set_perturbation(parameters,

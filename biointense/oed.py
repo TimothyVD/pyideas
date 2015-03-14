@@ -292,7 +292,7 @@ class BaseOED(BaseOptimisation):
 
         self.model.set_independent(independent_dict, method='cartesian')
 
-        index = pd.MultiIndex.from_tuples(zip(*self.model._independent_values.values()),
+        index = pd.MultiIndex.from_arrays(self.model._independent_values.values(),
                                           names=self.model.independent)
 
         if OED_CRITERIA_MAXIMIZE[criterion]:
@@ -314,3 +314,104 @@ class BaseOED(BaseOptimisation):
             FIM_evolution = FIM_evolution + FIM_evolution[optim_indep, :, :]
 
         return pd.DataFrame(experiments, columns=self.model.independent), FIM_tot
+
+
+class RobustOED(BaseOED):
+    def __init__(self, confidence):
+        """
+        """
+        super(RobustOED).__init__(confidence)
+
+
+
+    def _run_for_all_parameter_sets(self, parameter_sets):
+        """
+        """
+        FIM = []
+        for parameters in parameter_sets:
+            self.model.set_parameters(parameters)
+
+            FIM.append(OED_CRITERIA['D'](self.confidence.FIM))
+
+        return FIM
+
+    def _obj_fun_parameter_sets(self, candidates, args):
+        '''
+        '''
+        fitness = []
+        for cs in candidates:
+            fitness.append(self._obj_fun(obj_fun, pararray=np.array(cs)))
+        return fitness
+
+    def my_constraint_function(self, candidate):
+        """Return the number of constraints that candidate violates."""
+        # In this case, we'll just say that the point has to lie
+        # within a circle centered at (0, 0) of radius 1.
+        if self._obj_fun_parameter_sets([candidate], 0) < self.psi_independent:
+            return 1
+        else:
+            return 0
+
+
+    def _optimize_for_independent(self, parameter_sets, criterion):
+        """
+        """
+        self._criterion = criterion
+
+        self._minvalues, self._maxvalues = self._bounder()
+
+        final_pop, ea = self._bioinspyred_optimize(obj_fun=_run_for_all_parameter_sets,
+                                                   prng=prng,
+                                                   approach=approach,
+                                                   initial_parset=initial_parset,
+                                                   pop_size=pop_size,
+                                                   maximize=OED_CRITERIA_MAXIMIZE[criterion],
+                                                   max_eval=max_eval,
+                                                   constraint_func=my_constraint_function,
+                                                   **kwargs)
+        return final_pop, ea
+
+
+
+    def _optimize_for_parameter(self, independent_sets, approach):
+        """
+        """
+
+
+    def maximin(self, parameter_ranges, independent_ranges, approach='brute',
+                start_parameter=None, K_max=100):
+        """
+
+        References
+        -----------
+        S.P. Asprey, S. Macchietto, Designing robust optimal dynamic
+        experiments, Journal of Process Control, Volume 12, Issue 4, June 2002,
+        Pages 545-556, ISSN 0959-1524,
+        http://dx.doi.org/10.1016/S0959-1524(01)00020-8.
+        (http://www.sciencedirect.com/science/article/pii/S0959152401000208)
+        """
+        parameter_sets = []
+        independent_samples = []
+
+        parameter_sets = self.get_initial_parameter_set(start_parameter,
+                                                        approach)
+        self.psi_parameter = 0
+        self.psi_independent = 1
+        K = 0
+
+        while self.psi_parameter < self.psi_independent and K <= K_max:
+            # Try to optimize independents to maximize D criterion
+
+            independent_sample, self.psi_independent = \
+                self._optimize_for_independent(parameter_sets, approach)
+            independent_samples.append(independent_sample)
+
+            # Try to find worst performing parameter set (min D criterion)
+            parameter_set, self.psi_parameter = \
+                self._optimize_for_parameters(independent_sets, approach)
+            parameter_sets.append(parameter_set)
+
+            # Increase K
+            K += 1
+
+        return independent_sample
