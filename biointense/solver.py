@@ -236,7 +236,7 @@ class HybridSolver(OdeSolver, AlgebraicSolver):
     """
     Class for solving hybrid system of odes and algebraic equations by using.
     """
-    def solve(self, procedure):
+    def solve(self, procedure="odeint"):
         """
         Solve hybrid system of odes and algebraic equations. After calculating
         the odes, the algebraic equations are calculated again.
@@ -246,6 +246,7 @@ class HybridSolver(OdeSolver, AlgebraicSolver):
         result : pd.DataFrame
         Contains all outputs from both odes and algebraics
         """
+        self._check_ode_integrator_setting(procedure)
         ode_result = self._ode_procedure[procedure]()
         alg_result = self._solve_algebraic(ode_result.values)
 

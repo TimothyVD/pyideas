@@ -59,7 +59,9 @@ class _BaseOptimisation(object):
         self._dof_len = [0, 0, 0]
 
         self._distributions_set = False
+        self._dof_distributions = None
         self.modmeas = None
+        self._independent_samples = None
 
     @staticmethod
     def _flatten_list(some_list):
@@ -99,6 +101,7 @@ class _BaseOptimisation(object):
         """
         """
         self._dof = []
+        self._dof_len = []
         self._dof_ordered = {'parameters': [],
                              'independent': [],
                              'initial': []}
@@ -114,6 +117,9 @@ class _BaseOptimisation(object):
             self._dof_len.append(len(self._dof_ordered[subgroup]))
 
         self._dof = self._flatten_list(self._dof)
+
+        self._dof_lower_bnd = None
+        self._dof_upper_bnd = None
 
     def _dof_dict_to_array(self, dof_dict):
         """
@@ -206,7 +212,7 @@ class _BaseOptimisation(object):
         self.modmeas = pd.concat((measurements, modeloutput), axis=1,
                                  keys=['Measured', 'Modelled'])
 
-    def set_fitting_par_distributions(self, pardistrlist):
+    def set_dof_distributions(self, dof_dist_list):
         """
         For each parameter set as fitting parameter, the information
         of the distribution is set.
@@ -220,46 +226,42 @@ class _BaseOptimisation(object):
             guess value for the parameters
 
         """
-        #Checking if distirbutions are already set
+        # Checking if distirbutions are already set
         if not self._distributions_set:
-            self.pardistributions = {}
+            self._dof_distributions = {}
             self._distributions_set = True
 
-        if isinstance(pardistrlist,ModPar): #one parameter
-            if len(self.optim_par) > 1:
-                raise Exception("""Only one parameterdistirbution is given,
-                whereas the number of fitting parameters is %d
-                """ %len(self.optim_par))
-            else:
-                if pardistrlist.name in self.optim_par:
-                    par_value = self.model.__getattribute__(self._optim_ref[parameter.name])[parameter.name]
-                    if not pardistrlist.min < par_value < pardistrlist.max:
-                        raise Exception('Current parvalue is not between min and max value of the parameter!')
-                    if pardistrlist.name in self.pardistributions:
-                        if self._print_on:
-                            print('Parameter distribution info updated for %s' %pardistrlist.name)
-                        self.pardistributions[pardistrlist.name] = pardistrlist
-                    else:
-                        self.pardistributions[pardistrlist.name] = pardistrlist
-                else:
-                    raise Exception('Parameter is not listed as fitting parameter')
+        if isinstance(dof_dist_list, ModPar):  # one parameter
+            dof_dist_list = [dof_dist_list]
 
-        elif isinstance(pardistrlist,list):
-            #A list of ModPar instances
-            for parameter in pardistrlist:
-                if parameter.name in self.optim_par:
-                    par_value = self.model.__getattribute__(self._optim_ref[parameter.name])[parameter.name]
-                    if not parameter.min < par_value < parameter.max:
-                        raise Exception('Current parvalue is not between min and max value of the parameter!')
-                    if parameter.name in self.pardistributions:
-                        print('Parameter distribution info updated for %s' %parameter.name)
-                        self.pardistributions[parameter.name] = parameter
-                    else:
-                        self.pardistributions[parameter.name] = parameter
+        if isinstance(dof_dist_list, list):
+            # A list of ModPar instances
+            for dof in dof_dist_list:
+                if dof.name in self.dof:
+                    self._dof_distributions[dof.name] = dof
                 else:
-                    raise Exception('Parameter %s is not listed as fitting parameter' %parameter.name)
+                    raise Exception('Parameter %s is not listed as fitting '
+                                    'parameter' % parameter.name)
         else:
             raise Exception("Bad input type, give list of ModPar instances.")
+
+        self._set_dof_boundaries()
+
+    def _set_dof_boundaries(self):
+        '''
+        '''
+        minsample = []
+        maxsample = []
+        for dof in self.dof:
+            dof_min = [self._dof_distributions[dof].min]
+            dof_max = [self._dof_distributions[dof].max]
+            if self._dof_model[dof] is 'independent':
+                dof_min *= self._independent_samples
+                dof_max *= self._independent_samples
+            minsample.append(dof_min)
+            maxsample.append(dof_max)
+        self._dof_lower_bnd = np.array(self._flatten_list(minsample))
+        self._dof_upper_bnd = np.array(self._flatten_list(maxsample))
 
 
     # Bioinspyred specific stuff
@@ -273,10 +275,14 @@ class _BaseOptimisation(object):
         '''
         '''
         samples = []
-        #use get_fitting_parameters, since this is ordered dict!!
-        for parameter in self.optim_par:
-            samples.append(self.pardistributions[parameter].aValue())
-        return samples
+        # use get_fitting_parameters, since this is ordered dict!!
+        for dof in self.dof:
+            if self._dof_model[dof] is not 'independent':
+                samples.append([self._dof_distributions[dof].aValue()])
+            else:
+                samples.append(list(self._dof_distributions[dof].MCSample(
+                    self._independent_samples)))
+        return self._flatten_list(samples)
 
     def _inspyred_obj_fun(self, obj_fun, candidates, args):
         '''
@@ -305,7 +311,7 @@ class _BaseOptimisation(object):
             prng.seed(time())
 
         if kwargs.get('approach') in INSPYRED_APPROACH:
-            ea = INSPYRED_APPROACH[kwargs.get('approach')]
+            ea = INSPYRED_APPROACH[kwargs.get('approach')](prng)
         else:
             raise Exception('This approach is currently not supported!')
 
@@ -313,13 +319,13 @@ class _BaseOptimisation(object):
             ea.topology = inspyred.swarm.topologies.ring_topology
 
         def temp_get_objective(candidates, args):
-            return self._inspyred_obj_fun_(obj_fun, candidates, args)
+            return self._inspyred_obj_fun(obj_fun, candidates, args)
 
         ea.terminator = inspyred.ec.terminators.evaluation_termination
-        final_pop = ea.evolve(generator=self._sample_generator,
+        final_pop = ea.evolve(generator=self._inspyred_sampler,
                               evaluator=temp_get_objective,
                               pop_size=kwargs.get('pop_size'),
-                              bounder=self._bounder_generator,
+                              bounder=self._inspyred_bounder,
                               maximize=kwargs.get('maximize'),
                               max_evaluations=kwargs.get('max_eval'),
                               neighborhood_size=5)
@@ -345,23 +351,14 @@ class ParameterOptimisation(_BaseOptimisation):
 
         self._set_independent(overwrite_independent)
 
-    def _bounder(self):
-        '''
-        '''
-        minsample = []
-        maxsample = []
-        for parameter in self._parameter:
-            minsample.append([self._dof['parameter'][parameter].min])
-            maxsample.append([self._dof['parameter'][parameter].max])
-        minsample = np.array([y for x in minsample for y in x])
-        maxsample = np.array([y for x in maxsample for y in x])
-        return minsample, maxsample
+        self._minvalues = None
+        self._maxvalues = None
 
-    def _bounder_generator(self, candidates, args):
+    def _inspyred_bounder(self, candidates, args):
         candidates = np.array(candidates)
 
-        candidates = np.minimum(np.maximum(candidates, self._minvalues),
-                                self._maxvalues)
+        candidates = np.minimum(np.maximum(candidates, self._dof_lower_bnd),
+                                self._dof_upper_bnd)
 
         return candidates
 
@@ -401,7 +398,7 @@ class ParameterOptimisation(_BaseOptimisation):
 
         optimize_info = \
             self._local_optimize(inner_obj_fun,
-                                 self._dof_dict_to_model({'parameters': pardict}),
+                                 self._dof_dict_to_array(pardict),
                                  method, *args, **kwargs)
 
         self._set_modmeas(self.model.run(), self.measurements.Data)
@@ -420,7 +417,7 @@ class ParameterOptimisation(_BaseOptimisation):
 
         return obj_val
 
-    def bioinspyred_optimize(self, obj_crit='wsse', prng=None, approach='PSO',
+    def inspyred_optimize(self, obj_crit='wsse', prng=None, approach='PSO',
                              initial_parset=None, add_plot=True,
                              pop_size=16, max_eval=256, **kwargs):
         """
@@ -428,14 +425,14 @@ class ParameterOptimisation(_BaseOptimisation):
         def inner_obj_fun(parray=None):
             return self._obj_fun(obj_crit, parray=parray)
 
-        final_pop, ea = self._bioinspyred_optimize(inner_obj_fun,
-                                                   prng=prng,
-                                                   approach=approach,
-                                                   initial_parset=initial_parset,
-                                                   add_plot=add_plot,
-                                                   pop_size=pop_size,
-                                                   maximize=False,
-                                                   max_eval=max_eval, **kwargs)
+        final_pop, ea = self._inspyred_optimize(inner_obj_fun,
+                                                prng=prng,
+                                                approach=approach,
+                                                initial_parset=initial_parset,
+                                                add_plot=add_plot,
+                                                pop_size=pop_size,
+                                                maximize=False,
+                                                max_eval=max_eval, **kwargs)
 
         self._set_modmeas(self.model.run(), self.measurements.Data)
 

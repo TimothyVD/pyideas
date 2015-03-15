@@ -87,7 +87,7 @@ def michaelis_menten():
     model.initialize_model()
 
     solver1 = HybridSolver(model)
-    result1 = solver1.solve("ode")
+    result1 = solver1.solve(procedure="ode")
     solver2 = HybridSolver(model)
     result2 = solver2.solve("odeint")
     solver3 = HybridSolver(model)

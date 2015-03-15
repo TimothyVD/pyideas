@@ -62,20 +62,19 @@ def run_modsim_models_new():
 
     M1.run()
 
-    optim = ParameterOptimisation(M1 , measurements, ['W0', 'Wf', 'mu'])
+    optim = ParameterOptimisation(M1 , measurements, ['W0', 'Wf', 'mu'],
+                                  overwrite_independent=True)
 
     optim.local_optimize(obj_crit='wsse')
 
-    optim.set_fitting_par_distributions([ModPar('W0', 0.0, 20.0,
-                                                'randomUniform'),
-                                        ModPar('Wf', 0.0, 20.0,
-                                                'randomUniform'),
-                                         ModPar('mu', 0.0, 20.0,
-                                                'randomUniform')])
+#    optim.set_dof_distributions([ModPar('W0', 0.0, 20.0, 'randomUniform'),
+#                                 ModPar('Wf', 0.0, 20.0, 'randomUniform'),
+#                                 ModPar('mu', 0.0, 2.0, 'randomUniform')])
+#
+#    final_pop, ea = optim.inspyred_optimize(approach='SA', pop_size=50, max_eval=2000)
+#    min(final_pop)
 
-    final_pop, ea = optim.bioinspyred_optimize()
-
-    return optim.local_optimize(obj_fun='wsse').x
+    return optim.local_optimize(obj_crit='wsse').x
 
 if __name__ == "__main__":
     optim_old = run_modsim_models_old()
