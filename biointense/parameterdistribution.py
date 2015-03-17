@@ -11,12 +11,12 @@ import numpy as np
 #from pyFUSE.distributions import *
 from distributions import *
 
-class ModPar(object):    
+class ModPar(object):
     """
     Model Parameter class
-    
+
     The parameter is defined by his distribution, boundaries and optimal guess
-    
+
     Parameters
     ----------
     name : string
@@ -27,9 +27,9 @@ class ModPar(object):
         Maximum value of the parameter distribution
     pardistribution : string
         choose a distributionfrom: randomUniform, randomTriangular, randomTrapezoidal, randomNormal, randomLogNormal
-    *kargs  : 
+    *kargs  :
         Extra arguments necessaty for the chosen distribution
-    
+
     Examples
     ----------
     >>> par1=ModPar('parameter1',0.0,3.0,'randomUniform')
@@ -58,7 +58,7 @@ class ModPar(object):
             raise ValueError('Pardistribution must be a string describing the Priori estimated distribution; choose from: randomUniform, randomTriangular, randomTrapezoidal, randomNormal, randomLogNormal')
         else:
             self.pardistribution = pardistribution
-            
+
         if self.pardistribution =='randomUniform':
             if not len(kargs)==0:
                 raise Exception('No extra arguments added when using randomuniform')
@@ -76,7 +76,7 @@ class ModPar(object):
 #            self.mode2='NaN'
 #            self.mu='NaN'
 #            self.sigma='NaN'
-            
+
         elif self.pardistribution =='randomTriangular':
             if not len(kargs)==1:
                 raise Exception('randomTraingular needs one extra argument: mode (center of triangle)')
@@ -127,9 +127,9 @@ class ModPar(object):
                 raise Exception('minval higher then average-2*std')
             else:
                 self.mu=kargs[0]
-                self.sigma=kargs[1]             
-               
-                
+                self.sigma=kargs[1]
+
+
         #to add: LHSuniform, LHSnormal, pseudorandomUniform, pseudirandomNormal
         else:
             raise Exception('Wrong ditribution name! choose from: randomUniform, randomTriangular, randomTrapezoidal, randomNormal, randomLogNormal')
@@ -140,53 +140,47 @@ class ModPar(object):
         pt3 = 'Min/Max values: '+str(self.min)+' / '+str(self.max)
         return pt1+pt2+pt3
 
-    def MCSample(self,nruns):
+    def MCSample(self, nruns):
         '''
-        Give a sample of nMC samples from the par distribution 
-        
+        Give a sample of nMC samples from the par distribution
+
         Parameters
         ----------
         nruns: int
             number of Monte Carlo samples to take
-        
+
         Returns
         --------
         mcsample: array
             numpy array with the specified number of Monte Carlo samples
-        
+
         '''
-        if self.pardistribution =='randomUniform':
-            return randomUniform(left=self.min,right=self.max,rnsize=nruns)
+        if self.pardistribution == 'randomUniform':
+            return randomUniform(left=self.min, right=self.max, rnsize=nruns)
 #        if self.pardistribution =='discreteUniform':
-#            return randomUniform(left=self.min,right=self.max,rnsize=nruns)            
-        elif self.pardistribution =='randomTriangular':
-            return randomTriangular(left=self.min, mode=self.mode, right=self.max, rnsize=nruns)
-        elif self.pardistribution =='randomTrapezoidal':
-            return randomTrapezoidal(left=self.min,mode1=self.mode1,mode2=self.mode2,right=self.max,rnsize=nruns)
-        elif self.pardistribution =='randomNormal':
+#            return randomUniform(left=self.min,right=self.max,rnsize=nruns)
+        elif self.pardistribution == 'randomTriangular':
+            return randomTriangular(left=self.min, mode=self.mode,
+                                    right=self.max, rnsize=nruns)
+        elif self.pardistribution == 'randomTrapezoidal':
+            return randomTrapezoidal(left=self.min, mode1=self.mode1,
+                                     mode2=self.mode2, right=self.max,
+                                     rnsize=nruns)
+        elif self.pardistribution == 'randomNormal':
             return randomNormal(mu=self.mu, sigma=self.sigma, rnsize=nruns)
-        elif self.pardistribution =='randomLogNormal':
+        elif self.pardistribution == 'randomLogNormal':
             return randomLogNormal(mu=self.mu, sigma=self.sigma, rnsize=nruns)
 
     def aValue(self):
         '''
         Sample 1 value of the pardistribution
         '''
-        if self.pardistribution =='randomUniform':
-            return randomUniform(left=self.min,right=self.max,rnsize=1)[0]
-        elif self.pardistribution =='randomTriangular':
-            return randomTriangular(left=self.min, mode=self.mode, right=self.max, rnsize=1)[0]
-        elif self.pardistribution =='randomTrapezoidal':
-            return randomTrapezoidal(left=self.min,mode1=self.mode1,mode2=self.mode2,right=self.max,rnsize=1)[0]
-        elif self.pardistribution =='randomNormal':
-            return randomNormal(mu=self.mu, sigma=self.sigma, rnsize=1)[0]
-        elif self.pardistribution =='randomLogNormal':
-            return randomLogNormal(mu=self.mu, sigma=self.sigma, rnsize=1)[0]
-    
-    def ahist(self,nruns,nbins=30,saveit='show',*args,**kwargs):
+        return self.MCSample(1)[0]
+
+    def ahist(self, nruns, nbins=30, saveit='show', *args, **kwargs):
         '''
         Returns a histogram from the current parameter distribution
-        
+
         Parameters
         ------------
         nruns: int
@@ -200,10 +194,10 @@ class ModPar(object):
         **kwargs:
             kwargs are used to update the properties of the
             class:`~matplotlib.patches.Patch` instances returned by *hist*
-                
+
         Returns
         --------
-        fig: 
+        fig:
             figure with the histogram
         '''
         plt.hist(self.MCSample(nruns),bins=nbins,*args,**kwargs)
@@ -217,18 +211,18 @@ class ModPar(object):
 
     def LatinH(self,nruns):
         '''
-        Return a sample of nMC samples from the par distribution 
+        Return a sample of nMC samples from the par distribution
         with Latin Hypercube sampling (always randomUniform)
-        
+
         Parameters
         -----------
         nruns: int
             number of Latin HYpercube samples to take
-               
+
         '''
         if not self.pardistribution =='randomUniform':
             raise Exception('Latin hypercube only supported for uniform distribution')
-            
+
         pranges=[self.name]
         low=self.min
         high=self.max
@@ -253,7 +247,7 @@ class ModPar(object):
 def reScale(arr,vmin,vmax):
     '''
     Rescale the sampled values between 0 and 1 towards the real boundaries of the pars
-    
+
     Parameters
     -----------
     arr: array
@@ -265,14 +259,14 @@ def reScale(arr,vmin,vmax):
     '''
     arrout=(vmax-vmin)*arr+vmin
     return arrout
-   
+
 def Sobol(ParsIn,nruns,seed=1):
     '''
     Return a sobol sampling of the parameter space; Sobol is always performed on the entire
     set of parameters used in the analysis.
-    
+
     Parameters
-    ------------    
+    ------------
     ParsIn: list of ModPar instances
         List with all the parameters to sample from
     nruns: int
@@ -280,21 +274,21 @@ def Sobol(ParsIn,nruns,seed=1):
     seed: int
         seed to start from, change this when performing multiple samples or to make sure
         the values are continued by using the last seed
-    
+
     Returns
     --------
-    Pars: narray 
+    Pars: narray
         2D array with the rows the different runs and the pars in the columns
     '''
     ndim=len(ParsIn)
     Pars=np.zeros((nruns,ndim))
-    
-    for i in xrange(1,nruns+1):        
+
+    for i in xrange(1,nruns+1):
         [r, seed_out] = i4_sobol(ndim, seed)
-        Pars[i-1,:]=r        
+        Pars[i-1,:]=r
         seed = seed_out
     for i in range(ndim):
         Pars[:,i]=reScale(Pars[:,i],ParsIn[i].min,ParsIn[i].max)
     print 'The seed to continue this sampling is',seed
-        
+
     return Pars

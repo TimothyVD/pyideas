@@ -4,6 +4,7 @@
 from __future__ import division
 
 import warnings
+import pandas as pd
 
 class BaseModel(object):
 
@@ -88,6 +89,14 @@ class BaseModel(object):
         if not isinstance(value, tuple((float, int))):
             raise TypeError("Value is not given as a float/int")
         self.parameters[parameter] = float(value)
+
+    def set_parameters(self, pardict):
+
+        for par, parvalue in pardict.items():
+            if par not in self.parameters:
+                raise KeyError("Parameter {} not in the model "
+                               "parameters".format(par))
+            self.parameters[par] = parvalue
 
     def set_independent(self, independentVar, values):
         """              "\n Variables: \n" + str(self.variables) +
