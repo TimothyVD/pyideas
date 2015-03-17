@@ -77,7 +77,7 @@ OED_CRITERIA = {'A': A_criterion, 'modA': modA_criterion, 'D': D_criterion,
 OED_CRITERIA_MAXIMIZE = {'A': False, 'modA': True, 'D': True,
                          'E': True, 'modE': False}
 
-class BaseOED(BaseOptimisation):
+class BaseOED(_BaseOptimisation):
     """
     """
 
