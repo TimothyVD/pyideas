@@ -48,7 +48,9 @@ class BaseConfidence(object):
         sens_PD = self.sens.get_sensitivity(method='CAS')
         # Temp fix!
         # Necessary because order is changing
-        self.parameters = list(sens_PD.columns.levels[1])
+        self.parameters = [x for (y, x) in sorted(zip(sens_PD.columns.labels[1],
+                                                      sens_PD.columns.levels[1]))]
+
         return sens_PD
 
     @property
@@ -83,7 +85,7 @@ class BaseConfidence(object):
         '''
         '''
         #if self._FIM is None:
-        self._FIM, self._FIM_time = self._calc_FIM(self.sens_PD,
+        self._FIM, self._FIM_time = self._calc_FIM(self.sensmatrix,
                                                    self.uncertainty_PD)
         return self._FIM
 
@@ -100,13 +102,12 @@ class BaseConfidence(object):
         '''
         '''
         #if self._FIM_time is None:
-        self._FIM, self._FIM_time = self._calc_FIM(self.sens_PD,
+        self._FIM, self._FIM_time = self._calc_FIM(self.sensmatrix,
                                                    self.uncertainty_PD)
         return self._FIM_time
 
     @FIM.deleter
     def FIM(self):
-        self._
         self._FIM = None
         self._PEECM = None
         self._FIM_time = None
@@ -124,7 +125,7 @@ class BaseConfidence(object):
 
         return dydx_weight_dydx
 
-    def _calc_FIM(self, sens_PD, uncertainty_PD):
+    def _calc_FIM(self, sensmatrix, uncertainty_PD):
         '''
         Help function for get_FIM
 
@@ -152,7 +153,7 @@ class BaseConfidence(object):
         # probably not necessary!
         MECM_inv[MECM_inv < 1e-20] = 0.
 
-        FIM_timestep = self._dotproduct(self.sensmatrix, MECM_inv)
+        FIM_timestep = self._dotproduct(sensmatrix, MECM_inv)
 
         # FIM = sum(FIM(t))
         FIM = np.sum(FIM_timestep, axis=0)

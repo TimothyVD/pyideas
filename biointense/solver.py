@@ -7,6 +7,7 @@ Created on Sun Jan  4 11:52:12 2015
 from __future__ import division
 
 from scipy.integrate import odeint, ode
+from itertools import product
 
 try:
     import odespy
@@ -203,19 +204,46 @@ class AlgebraicSolver(Solver):
     """
     Class to calculate the algebraic equations/models
     """
-    def _solve_algebraic(self, *args, **kwargs):
+    def _solve_algebraic_generic(self, alg_function, *args, **kwargs):
         """
         """
-        alg_function = self.model.fun_alg
         model_output = alg_function(self.model._independent_values,
                                     self.model.parameters,
                                     *args, **kwargs)
+
+        return model_output
+
+    def _solve_algebraic(self, *args, **kwargs):
+        """
+        """
+
+        model_output = self._solve_algebraic_generic(self.model.fun_alg, *args,
+                                                     **kwargs)
 
         index = pd.MultiIndex.from_arrays(self.model._independent_values.values(),
                                           names=self.model.independent)
         result = pd.DataFrame(model_output,
                               index=index,
                               columns=self.model._ordered_var['algebraic'])
+        return result
+
+    def _solve_algebraic_lsa(self, alg_function, *args, **kwargs):
+        """
+        """
+        model_output = self._solve_algebraic_generic(alg_function, *args,
+                                                     **kwargs)
+
+        index = pd.MultiIndex.from_arrays(self.model._independent_values.values(),
+                                          names=self.model.independent)
+
+        columns = pd.MultiIndex.from_tuples(list(product(
+                        self.model._ordered_var['algebraic'],
+                        self.model.parameters.keys())))
+
+        indep_len = len(self.model._independent_values.values()[0])
+
+        result = pd.DataFrame(model_output.reshape(indep_len, -1),
+                              index=index, columns=columns)
 
         return result
 

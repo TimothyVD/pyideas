@@ -65,13 +65,13 @@ def run_modsim_models_new():
     optim = ParameterOptimisation(M1 , measurements, ['W0', 'Wf', 'mu'],
                                   overwrite_independent=True)
 
-#    optim.set_dof_distributions([ModPar('W0', 0.0, 20.0, 'randomUniform'),
-#                                 ModPar('Wf', 0.0, 20.0, 'randomUniform'),
-#                                 ModPar('mu', 0.0, 2.0, 'randomUniform')])
-#
-#    final_pop, ea = optim.inspyred_optimize(approach='SA', pop_size=50,
-#                                            max_eval=2000)
-#    min(final_pop)
+    optim.set_dof_distributions([ModPar('W0', 0.0, 20.0, 'randomUniform'),
+                                 ModPar('Wf', 0.0, 20.0, 'randomUniform'),
+                                 ModPar('mu', 0.0, 2.0, 'randomUniform')])
+
+    final_pop, ea = optim.inspyred_optimize(approach='SA', pop_size=50,
+                                            max_eval=2000)
+    min(final_pop)
 
     return optim.local_optimize(obj_crit='wsse').x
 
