@@ -15,7 +15,7 @@ class BaseConfidence(object):
     """
     """
 
-    def __init__(self, sens):
+    def __init__(self, sens, sens_method='CAS'):
         """
         """
         self.sens = sens
@@ -23,6 +23,7 @@ class BaseConfidence(object):
         self.model = sens.model
         # self.model_output = self.model.run()
         self.independent = self.model.independent
+        self.sens_method = sens_method
 
         self.variables = list(self.sens_PD.columns.levels[0])
         self.parameters = self.sens.parameters
@@ -45,7 +46,7 @@ class BaseConfidence(object):
 
     @property
     def sens_PD(self):
-        sens_PD = self.sens.get_sensitivity(method='CAS')
+        sens_PD = self.sens.get_sensitivity(method=self.sens_method)
         # Temp fix!
         # Necessary because order is changing
         self.parameters = [x for (y, x) in sorted(zip(sens_PD.columns.labels[1],
@@ -377,10 +378,11 @@ class TheoreticalConfidence(BaseConfidence):
     """
     """
 
-    def __init__(self, sens, uncertainty):
+    def __init__(self, sens, uncertainty, sens_method='CAS'):
         """
         """
-        super(TheoreticalConfidence, self).__init__(sens)
+        super(TheoreticalConfidence, self).__init__(sens,
+                                                    sens_method=sens_method)
         self.uncertainty = uncertainty
 
     @property

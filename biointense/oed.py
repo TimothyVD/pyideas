@@ -151,8 +151,8 @@ class BaseOED(_BaseOptimisation):
         independent_dict = {}
         for independent in step_dict.keys():
             independent_dict[independent] = \
-                np.linspace(self._dof['independent'][independent].min,
-                            self._dof['independent'][independent].max,
+                np.linspace(self._dof_distributions[independent].min,
+                            self._dof_distributions[independent].max,
                             step_dict[independent])
 
         self.model.set_independent(independent_dict, method='cartesian')
@@ -297,6 +297,18 @@ class RobustOED(object):
 
     def maximin(self, approach='PSO', K_max=100):
         """
+        Parameters
+        -----------
+        approach : str
+            Which optimization approach should be followed. PSO|DEA|SA
+        K_max : int
+            Maximum number of internal loops
+
+        Returns
+        -------
+        independent_sample :
+
+
         References
         -----------
         S.P. Asprey, S. Macchietto, Designing robust optimal dynamic
@@ -329,7 +341,7 @@ class RobustOED(object):
                 self._optimize_for_parameters()
 
             # If parameter sample is not yet in parameter samples: append it.
-            if not (np.any([(parameter_sample == x).all() for x in test])):
+            if not (np.any([(parameter_sample == x).all() for x in parameter_sets])):
                 parameter_sets.append(parameter_sample)
 
             # Increase K

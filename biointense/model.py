@@ -178,14 +178,14 @@ class Model(_BiointenseModel):
     def __repr__(self):
         """
         """
-        print("Model name: " + str(self.name) +
-              "\n Variables: \n" + str(self.variables) +
-              "\n Variables of interest: \n" + str(self.variables_of_interest) +
-              "\n Functions: \n" + str(self.systemfunctions) +
-              "\n Parameters: \n" + str(self.parameters) +
-              "\n Independent: \n" + str(self.independent) +
-              "\n Initial conditions: \n" + str(self.initial_conditions) +
-              "\n Model initialised: " + str(self._initial_up_to_date))
+        return("Model name: " + str(self.name) +
+               "\n Variables: \n" + str(self.variables) +
+               "\n Variables of interest: \n" + str(self.variables_of_interest) +
+               "\n Functions: \n" + str(self.systemfunctions) +
+               "\n Parameters: \n" + str(self.parameters) +
+               "\n Independent: \n" + str(self.independent) +
+               "\n Initial conditions: \n" + str(self.initial_conditions) +
+               "\n Model initialised: " + str(self._initial_up_to_date))
 
     def set_initial(self, initialValues):
         """
