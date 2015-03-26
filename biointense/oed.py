@@ -143,7 +143,7 @@ class BaseOED(_BaseOptimisation):
             print('Individual with minimum fitness is selected!')
             return min(final_pop)
 
-    def brute_oed(self, step_dict, criterion='D'):
+    def brute_oed(self, step_dict, criterion='D', replacement=True):
         """
         """
         self._criterion = criterion
@@ -177,6 +177,9 @@ class BaseOED(_BaseOptimisation):
 
             FIM_tot += FIM_evolution[optim_indep, :, :]
             FIM_evolution = FIM_evolution + FIM_evolution[optim_indep, :, :]
+
+            if not replacement:
+                FIM_evolution[optim_indep, :, :] = 1e-20
 
         return pd.DataFrame(experiments, columns=self.model.independent), FIM_tot
 
@@ -253,7 +256,6 @@ class RobustOED(object):
         else:
             return 0
 
-
     def _optimize_for_independent(self, parameter_sets, **kwargs):
         """
         """
@@ -293,7 +295,6 @@ class RobustOED(object):
         worst_individual = min(final_pop)
 
         return worst_individual.candidate, worst_individual.fitness
-
 
     def maximin(self, approach='PSO', K_max=100):
         """
@@ -341,7 +342,8 @@ class RobustOED(object):
                 self._optimize_for_parameters()
 
             # If parameter sample is not yet in parameter samples: append it.
-            if not (np.any([(parameter_sample == x).all() for x in parameter_sets])):
+            if not (np.any([(parameter_sample == x).all() for x in
+                    parameter_sets])):
                 parameter_sets.append(parameter_sample)
 
             # Increase K

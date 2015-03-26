@@ -8,6 +8,8 @@ import numpy as np
 from scipy import stats
 import pandas as pd
 
+from biointense.sensitivity import DirectLocalSensitivity
+
 #def get_error_pd( )
 
 
@@ -358,12 +360,11 @@ class BaseConfidence(object):
 class CalibratedConfidence(BaseConfidence):
     """
     """
-    def __init__(self, calibrated):
+    def __init__(self, calibrated, sens_method='CAS'):
         """
         """
-        super(CalibratedConfidence).__init__(calibrated.model.get_sensitivity(),
-                                             calibrated.model.parameters)
-        self.sens_PD = calibrated.model.get_sensitivity()
+        super(CalibratedConfidence).__init__(DirectLocalSensitivity(calibrated.dof),
+                                             sens_method=sens_method)
         self.uncertainty = calibrated.uncertainty
         self.data = calibrated.data
 
