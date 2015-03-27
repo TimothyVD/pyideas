@@ -8,6 +8,8 @@ import numpy as np
 from scipy import stats
 import pandas as pd
 
+from biointense.sensitivity import DirectLocalSensitivity
+
 #def get_error_pd( )
 
 
@@ -15,7 +17,7 @@ class BaseConfidence(object):
     """
     """
 
-    def __init__(self, sens):
+    def __init__(self, sens, sens_method='CAS'):
         """
         """
         self.sens = sens
@@ -23,6 +25,7 @@ class BaseConfidence(object):
         self.model = sens.model
         # self.model_output = self.model.run()
         self.independent = self.model.independent
+        self.sens_method = sens_method
 
         self.variables = list(self.sens_PD.columns.levels[0])
         self.parameters = self.sens.parameters
@@ -45,10 +48,12 @@ class BaseConfidence(object):
 
     @property
     def sens_PD(self):
-        sens_PD = self.sens.get_sensitivity(method='CAS')
+        sens_PD = self.sens.get_sensitivity(method=self.sens_method)
         # Temp fix!
         # Necessary because order is changing
-        self.parameters = list(sens_PD.columns.levels[1])
+        self.parameters = [x for (y, x) in sorted(zip(sens_PD.columns.labels[1],
+                                                      sens_PD.columns.levels[1]))]
+
         return sens_PD
 
     @property
@@ -83,7 +88,7 @@ class BaseConfidence(object):
         '''
         '''
         #if self._FIM is None:
-        self._FIM, self._FIM_time = self._calc_FIM(self.sens_PD,
+        self._FIM, self._FIM_time = self._calc_FIM(self.sensmatrix,
                                                    self.uncertainty_PD)
         return self._FIM
 
@@ -100,13 +105,12 @@ class BaseConfidence(object):
         '''
         '''
         #if self._FIM_time is None:
-        self._FIM, self._FIM_time = self._calc_FIM(self.sens_PD,
+        self._FIM, self._FIM_time = self._calc_FIM(self.sensmatrix,
                                                    self.uncertainty_PD)
         return self._FIM_time
 
     @FIM.deleter
     def FIM(self):
-        self._
         self._FIM = None
         self._PEECM = None
         self._FIM_time = None
@@ -124,7 +128,7 @@ class BaseConfidence(object):
 
         return dydx_weight_dydx
 
-    def _calc_FIM(self, sens_PD, uncertainty_PD):
+    def _calc_FIM(self, sensmatrix, uncertainty_PD):
         '''
         Help function for get_FIM
 
@@ -152,7 +156,7 @@ class BaseConfidence(object):
         # probably not necessary!
         MECM_inv[MECM_inv < 1e-20] = 0.
 
-        FIM_timestep = self._dotproduct(self.sensmatrix, MECM_inv)
+        FIM_timestep = self._dotproduct(sensmatrix, MECM_inv)
 
         # FIM = sum(FIM(t))
         FIM = np.sum(FIM_timestep, axis=0)
@@ -356,12 +360,11 @@ class BaseConfidence(object):
 class CalibratedConfidence(BaseConfidence):
     """
     """
-    def __init__(self, calibrated):
+    def __init__(self, calibrated, sens_method='CAS'):
         """
         """
-        super(CalibratedConfidence).__init__(calibrated.model.get_sensitivity(),
-                                             calibrated.model.parameters)
-        self.sens_PD = calibrated.model.get_sensitivity()
+        super(CalibratedConfidence).__init__(DirectLocalSensitivity(calibrated.dof),
+                                             sens_method=sens_method)
         self.uncertainty = calibrated.uncertainty
         self.data = calibrated.data
 
@@ -376,10 +379,11 @@ class TheoreticalConfidence(BaseConfidence):
     """
     """
 
-    def __init__(self, sens, uncertainty):
+    def __init__(self, sens, uncertainty, sens_method='CAS'):
         """
         """
-        super(TheoreticalConfidence, self).__init__(sens)
+        super(TheoreticalConfidence, self).__init__(sens,
+                                                    sens_method=sens_method)
         self.uncertainty = uncertainty
 
     @property

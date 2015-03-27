@@ -121,12 +121,12 @@ class _BaseOptimisation(object):
         self._dof_lower_bnd = None
         self._dof_upper_bnd = None
 
-    def _dof_dict_to_array(self, dof_dict):
+    def _dof_dict_to_array_generic(self, dof, dof_dict):
         """
         """
         dof_list = []
 
-        for key in self.dof:
+        for key in dof:
             if isinstance(dof_dict[key], float):
                 dof_list.append([dof_dict[key]])
             else:
@@ -136,48 +136,59 @@ class _BaseOptimisation(object):
 
         return np.array(dof_list)
 
-    def _dof_array_to_dict(self, dof_array):
+    def _dof_dict_to_array(self, dof_dict):
+        """
+        """
+        return self._dof_dict_to_array_generic(self._dof, dof_dict)
+
+    def _dof_array_to_dict_generic(self, dof_len, dof_ordered, dof_array):
         """
         """
         # A FIX FOR CERTAIN SCIPY MINIMIZE ALGORITHMS
         dof_array = dof_array.flatten()
 
-        split_array = np.split(dof_array, np.cumsum(self._dof_len[:-1]))
+        split_array = np.split(dof_array, np.cumsum(dof_len[:-1]))
 
         dof_dict = {'parameters': {},
                     'independent': {},
                     'initial': {}}
 
-        if bool(self._dof_len[0]):
-            dof_dict['parameters'].update(dict(zip(self._dof_ordered['parameters'],
+        if bool(dof_len[0]):
+            dof_dict['parameters'].update(dict(zip(dof_ordered['parameters'],
                                                    split_array[0])))
-        if bool(self._dof_len[1]):
-            dof_dict['initial'].update(dict(zip(self._dof_ordered['initial'],
+        if bool(dof_len[1]):
+            dof_dict['initial'].update(dict(zip(dof_ordered['initial'],
                                                 split_array[1])))
-        if bool(self._dof_len[2]):
+        if bool(dof_len[2]):
             # Necessary in case of multiple independent
-            indep_split = np.split(split_array[2], self._dof_len[-1])
+            indep_split = np.split(split_array[2], dof_len[-1])
 
-            dof_dict['independent'].update(dict(zip(self._dof_ordered['independent'],
+            dof_dict['independent'].update(dict(zip(dof_ordered['independent'],
                                                     indep_split)))
         return dof_dict
+
+    def _dof_array_to_dict(self, dof_array):
+        """
+        """
+        return self._dof_array_to_dict_generic(self._dof_len,
+                                               self._dof_ordered,
+                                               dof_array)
 
     def _dof_dict_to_model(self, dof_dict):
         """
         """
-        if bool(self._dof_len[0]):
-            self.model.set_parameters(dof_dict['parameters'])
-        if bool(self._dof_len[1]):
+        self.model.set_parameters(dof_dict['parameters'])
+        try:
             self.model.set_initial(dof_dict['initial'])
-        if bool(self._dof_len[2]):
-            self.model.set_independent(dof_dict['independent'])
+        except:
+            pass
+        self.model.set_independent(dof_dict['independent'])
 
     def _dof_array_to_model(self, dof_array):
         """
         """
         dof_dict = self._dof_array_to_dict(dof_array)
         self._dof_dict_to_model(dof_dict)
-
 
     def _run_model(self, dof_array=None):
         '''
@@ -266,10 +277,13 @@ class _BaseOptimisation(object):
 
     # Bioinspyred specific stuff
 
-    def _inspyred_bounder(self):
-        '''
-        '''
-        return NotImplementedError
+    def _inspyred_bounder(self, candidates, args):
+        candidates = np.array(candidates)
+
+        candidates = np.minimum(np.maximum(candidates, self._dof_lower_bnd),
+                                self._dof_upper_bnd)
+
+        return candidates
 
     def _inspyred_sampler(self, random, args):
         '''
@@ -353,14 +367,6 @@ class ParameterOptimisation(_BaseOptimisation):
 
         self._minvalues = None
         self._maxvalues = None
-
-    def _inspyred_bounder(self, candidates, args):
-        candidates = np.array(candidates)
-
-        candidates = np.minimum(np.maximum(candidates, self._dof_lower_bnd),
-                                self._dof_upper_bnd)
-
-        return candidates
 
     def _set_independent(self, overwrite_independent):
         """

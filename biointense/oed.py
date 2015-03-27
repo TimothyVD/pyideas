@@ -7,7 +7,7 @@ Created on Sat Feb  7 17:03:10 2015
 import numpy as np
 import pandas as pd
 
-from biointense.optimisation import BaseOptimisation
+from biointense.optimisation import _BaseOptimisation
 #from sklearn.utils.extmath import cartesian
 
 def A_criterion(FIM):
@@ -81,181 +81,46 @@ class BaseOED(_BaseOptimisation):
     """
     """
 
-    def __init__(self, confidence):
-        super(BaseOED, self).__init__()
+    def __init__(self, confidence, dof_list):
+        super(BaseOED, self).__init__(confidence.model)
         self.confidence = confidence
-        self.model = confidence.model
-
-#        self._optim_par = []
-#        Dof distributions
-#        # ODE
-#        self._dof = {'initial': {'SA': dist},
-#                     'independent': {'t': dist}}
-#        # Algebraic
-#        self._dof = {'initial': {},
-#                     'independent': {'SA': dist,
-#                                     'SB': dist}}
-        self._dof = {'initial': {},
-                     'independent': {},
-                     'parameter': {}}
-
-        self._initial = []
-        self._len_initial = 0
-        self._independent = []
-        self._len_independent = 0
-        self._parameter = []
-        self._len_parameter = 0
-
-        self._independent_samples = 0
+        self.dof = dof_list
 
         self._criterion = 'D'
 
-    def set_degrees_of_freedom(self, dof_dict, samples):
-        """
-        """
-        initial = dof_dict.get('initial', {})
-        self._len_initial = len(initial)
-        self._initial = initial.keys()
-        independent = dof_dict.get('independent', {})
-        self._len_independent = len(independent)
-        self._independent = independent.keys()
-        parameter = dof_dict.get('parameter', {})
-        self._len_parameter = len(parameter)
-        self._parameter = parameter.keys()
-        if self._len_initial > 0 and self._len_independent > 0:
-            raise Exception('A multidimensional model cannot have initial '
-                            'values!')
-
-        self._dof = {'initial': {},
-                     'independent': {},
-                     'parameter': {}}
-
-        self._independent_samples = samples
-
-        if isinstance(dof_dict, dict):
-            if bool(initial):
-                self._dof['initial'] = initial
-            if bool(independent):
-                self._dof['independent'] = independent
-            if bool(parameter):
-                self._dof['parameter'] = parameter
-
-        else:
-            raise Exception('optim_par needs to be a dict!')
-
-    def _array_to_initial(self, array):
-        """
-        """
-        for i, key in enumerate(self._initial):
-            self.model.set_initial({key: array[i]})
-
-    def _array_to_independent(self, array):
-        """
-        """
-        array = np.reshape(array, [self._len_independent,
-                                   self._independent_samples])
-
-        for i, key in enumerate(self._independent):
-            self.model.set_independent({key: array[i, :]})
-
-    def _array_to_parameter(self, array):
-        """
-        """
-        for i, key in enumerate(self._parameter):
-            self.model.set_parameters({key: array[i]})
-
-    def _array_to_model(self, array):
-        """
-        """
-        # A FIX FOR CERTAIN SCIPY MINIMIZE ALGORITHMS
-        array = array.flatten()
-
-        self._array_to_initial(array[:self._len_initial])
-        self._array_to_parameter(array[self._len_initial:self._len_initial + self._len_parameter])
-        self._array_to_independent(array[self._len_initial + self._len_parameter:])
-
-    def _bounder(self):
-        '''
-        Genere
-        '''
-        minsample = []
-        maxsample = []
-        #use get_fitting_parameters, since this is ordered dict!!
-        for initial in self._initial:
-            minsample.append([self._dof['initial'][initial].min])
-            maxsample.append([self._dof['initial'][initial].max])
-        for parameter in self._parameter:
-            minsample.append([self._dof['parameter'][parameter].min])
-            maxsample.append([self._dof['parameter'][parameter].max])
-        for independent in self._independent:
-            minsample.append([self._dof['independent'][independent].min] *
-                              self._independent_samples)
-            maxsample.append([self._dof['independent'][independent].max] *
-                              self._independent_samples)
-        minsample = np.array([y for x in minsample for y in x])
-        maxsample = np.array([y for x in maxsample for y in x])
-        return minsample, maxsample
-
-    def _bounder_generator(self, candidates, args):
-        candidates = np.array(candidates)
-
-        candidates = np.minimum(np.maximum(candidates, self._minvalues),
-                                self._maxvalues)
-
-        return candidates
-
-    def _sample_generator(self, random, args):
-        '''
-        '''
-        samples = []
-        #use get_fitting_parameters, since this is ordered dict!!
-        for initial in self._initial:
-            samples.append([self._dof['initial'][initial].aValue()])
-        for parameter in self._parameter:
-            samples.append([self._dof['parameter'][parameter].aValue()])
-        for independent in self._independent:
-            samples.append(list(self._dof['independent'][independent].MCSample(
-                self._independent_samples)))
-        samples = [y for x in samples for y in x]
-        return samples
-
-    def _run_confidence(self, array=None):
+    def _run_confidence(self, dof_array=None):
         '''
         ATTENTION: Zero-point also added, need to be excluded for optimization
         '''
         #run option
-        if array is not None:
-            #run model first with new parameters
-            pardict = self._array_to_model(array)
+        if dof_array is not None:
+            # Set new parameters values
+            dof_dict = self._dof_array_to_dict(dof_array)
+            self._dof_dict_to_model(dof_dict)
 
-    def _obj_fun(self, obj_fun, array=None):
+        return self.confidence.FIM
+
+    def _obj_fun(self, obj_crit, dof_array=None):
         """
         """
         # Run model
-        modeloutput = self._run_confidence(array=array)
+        FIM = self._run_confidence(dof_array=dof_array)
 
-        obj_val = OED_CRITERIA[obj_fun](self.confidence.FIM)
+        obj_val = OED_CRITERIA[obj_crit](FIM)
 
         return obj_val
 
-    def _obj_fun_inspyred(self, obj_fun, candidates, args):
-        '''
-        '''
-        fitness = []
-        for cs in candidates:
-            fitness.append(self._obj_fun(obj_fun, array=np.array(cs)))
-        return fitness
-
-    def bioinspyred_optimize(self, criterion='D', prng=None, approach='PSO',
+    def inspyred_optimize(self, criterion='D', prng=None, approach='PSO',
                              initial_parset=None, pop_size=16, max_eval=256,
                              **kwargs):
         """
         """
         self._criterion = criterion
 
-        self._minvalues, self._maxvalues = self._bounder()
+        def inner_obj_fun(dof_array=None):
+            return self._obj_fun(obj_crit, dof_array=dof_array)
 
-        final_pop, ea = self._bioinspyred_optimize(obj_fun=criterion,
+        final_pop, ea = self._bioinspyred_optimize(inner_obj_fun,
                                                    prng=prng,
                                                    approach=approach,
                                                    initial_parset=initial_parset,
@@ -278,7 +143,7 @@ class BaseOED(_BaseOptimisation):
             print('Individual with minimum fitness is selected!')
             return min(final_pop)
 
-    def brute_oed(self, step_dict, criterion='D'):
+    def brute_oed(self, step_dict, criterion='D', replacement=True):
         """
         """
         self._criterion = criterion
@@ -286,8 +151,8 @@ class BaseOED(_BaseOptimisation):
         independent_dict = {}
         for independent in step_dict.keys():
             independent_dict[independent] = \
-                np.linspace(self._dof['independent'][independent].min,
-                            self._dof['independent'][independent].max,
+                np.linspace(self._dof_distributions[independent].min,
+                            self._dof_distributions[independent].max,
                             step_dict[independent])
 
         self.model.set_independent(independent_dict, method='cartesian')
@@ -313,74 +178,137 @@ class BaseOED(_BaseOptimisation):
             FIM_tot += FIM_evolution[optim_indep, :, :]
             FIM_evolution = FIM_evolution + FIM_evolution[optim_indep, :, :]
 
+            if not replacement:
+                FIM_evolution[optim_indep, :, :] = 1e-20
+
         return pd.DataFrame(experiments, columns=self.model.independent), FIM_tot
 
 
-class RobustOED(BaseOED):
-    def __init__(self, confidence):
+class RobustOED(object):
+    def __init__(self, confidence, independent_samples=None):
         """
         """
-        super(RobustOED).__init__(confidence)
+        self.confidence = confidence
+        self.model = confidence.model
+        self.independent_samples = independent_samples
 
+        self._dof = {'par': {'dof_len': None,
+                             'dof_ordered': None,
+                             'dof': None},
+                     'ind': {'dof_len': None,
+                             'dof_ordered': None,
+                             'dof': None}}
 
+        self._oed = {'par': None,
+                     'ind': None}
 
-    def _run_for_all_parameter_sets(self, parameter_sets):
+        self._criterion = 'D'
+
+    def _set_dof_distributions(self, oed_type, modpar_list, samples):
         """
         """
-        FIM = []
-        for parameters in parameter_sets:
-            self.model.set_parameters(parameters)
+        names = [dof.name for dof in modpar_list]
+        self._oed[oed_type] = BaseOED(self.confidence, names)
+        self._oed[oed_type]._independent_samples = samples
+        self._oed[oed_type].set_dof_distributions(modpar_list)
+        self._dof[oed_type]['dof'] = self._oed[oed_type].dof
+        self._dof[oed_type]['dof_len'] = self._oed[oed_type]._dof_len
+        self._dof[oed_type]['dof_ordered'] = self._oed[oed_type]._dof_ordered
 
-            FIM.append(OED_CRITERIA['D'](self.confidence.FIM))
+    def set_parameter_distributions(self, modpar_list):
+        """
+        """
+        self._set_dof_distributions('par', modpar_list, 0)
 
-        return FIM
+    def set_independent_distributions(self, modpar_list):
+        """
+        """
+        self._set_dof_distributions('ind', modpar_list, self.independent_samples)
 
-    def _obj_fun_parameter_sets(self, candidates, args):
-        '''
-        '''
-        fitness = []
-        for cs in candidates:
-            fitness.append(self._obj_fun(obj_fun, pararray=np.array(cs)))
-        return fitness
+    def _outer_obj_fun(self, independent_sample, parameter_sets):
+        """
+        """
+        self._oed['ind']._dof_array_to_model(independent_sample)
+        FIM_inner = []
+        for parameter_sample in parameter_sets:
+            FIM_inner.append(self._inner_obj_fun(parameter_sets, 'ind'))
+
+        return np.min(FIM_inner)
+
+    def _inner_obj_fun(self, parameter_sample, oed_type):
+        """
+        """
+        par_dict = self._oed[oed_type]._dof_array_to_dict_generic(
+                            self._dof['par']['dof_len'],
+                            self._dof['par']['dof_ordered'],
+                            np.array(parameter_sample))
+
+        self._oed[oed_type]._dof_dict_to_model(par_dict)
+
+        return OED_CRITERIA['D'](self._oed[oed_type].confidence.FIM)
 
     def my_constraint_function(self, candidate):
         """Return the number of constraints that candidate violates."""
         # In this case, we'll just say that the point has to lie
         # within a circle centered at (0, 0) of radius 1.
-        if self._obj_fun_parameter_sets([candidate], 0) < self.psi_independent:
+        if self._oed['ind']._obj_fun('D', candidate) < self.psi_independent:
             return 1
         else:
             return 0
 
-
-    def _optimize_for_independent(self, parameter_sets, criterion):
+    def _optimize_for_independent(self, parameter_sets, **kwargs):
         """
         """
-        self._criterion = criterion
+        def temp_obj_fun(parray=None):
+            return self._outer_obj_fun(parray, parameter_sets)
 
-        self._minvalues, self._maxvalues = self._bounder()
+        final_pop, ea = self._oed['ind']._inspyred_optimize(
+                                obj_fun=temp_obj_fun,
+                                prng=None,
+                                approach='PSO',
+                                initial_parset=None,
+                                pop_size=16,
+                                maximize=True,
+                                max_eval=1000,
+                                **kwargs)
 
-        final_pop, ea = self._bioinspyred_optimize(obj_fun=_run_for_all_parameter_sets,
-                                                   prng=prng,
-                                                   approach=approach,
-                                                   initial_parset=initial_parset,
-                                                   pop_size=pop_size,
-                                                   maximize=OED_CRITERIA_MAXIMIZE[criterion],
-                                                   max_eval=max_eval,
-                                                   constraint_func=my_constraint_function,
-                                                   **kwargs)
-        return final_pop, ea
+        best_individual = max(final_pop)
 
+        return best_individual.candidate, best_individual.fitness
 
-
-    def _optimize_for_parameter(self, independent_sets, approach):
+    def _optimize_for_parameters(self, **kwargs):
         """
         """
+        def temp_obj_fun(parray=None):
+            return self._inner_obj_fun(parray, 'par')
 
+        final_pop, ea = self._oed['par']._inspyred_optimize(
+                             obj_fun=temp_obj_fun,
+                             prng=None,
+                             approach='PSO',
+                             initial_parset=None,
+                             pop_size=16,
+                             maximize=False, #only valid for D
+                             max_eval=1000,
+                             **kwargs)
 
-    def maximin(self, parameter_ranges, independent_ranges, approach='brute',
-                start_parameter=None, K_max=100):
+        worst_individual = min(final_pop)
+
+        return worst_individual.candidate, worst_individual.fitness
+
+    def maximin(self, approach='PSO', K_max=100):
         """
+        Parameters
+        -----------
+        approach : str
+            Which optimization approach should be followed. PSO|DEA|SA
+        K_max : int
+            Maximum number of internal loops
+
+        Returns
+        -------
+        independent_sample :
+
 
         References
         -----------
@@ -390,28 +318,35 @@ class RobustOED(BaseOED):
         http://dx.doi.org/10.1016/S0959-1524(01)00020-8.
         (http://www.sciencedirect.com/science/article/pii/S0959152401000208)
         """
-        parameter_sets = []
-        independent_samples = []
 
-        parameter_sets = self.get_initial_parameter_set(start_parameter,
-                                                        approach)
+        parameter_sets = [self._oed['par']._dof_dict_to_array(
+                                self.model.parameters.copy())]
+
         self.psi_parameter = 0
         self.psi_independent = 1
         K = 0
 
         while self.psi_parameter < self.psi_independent and K <= K_max:
             # Try to optimize independents to maximize D criterion
-
             independent_sample, self.psi_independent = \
-                self._optimize_for_independent(parameter_sets, approach)
-            independent_samples.append(independent_sample)
+                self._optimize_for_independent(parameter_sets)
+
+            # Convert output of independent to dof_dict output
+            ind_dict = self._oed['ind']._dof_array_to_dict(independent_sample)
+
+            # Adapt all dofs which were optimised in independent
+            self._oed['par']._dof_dict_to_model(ind_dict)
 
             # Try to find worst performing parameter set (min D criterion)
-            parameter_set, self.psi_parameter = \
-                self._optimize_for_parameters(independent_sets, approach)
-            parameter_sets.append(parameter_set)
+            parameter_sample, self.psi_parameter = \
+                self._optimize_for_parameters()
+
+            # If parameter sample is not yet in parameter samples: append it.
+            if not (np.any([(parameter_sample == x).all() for x in
+                    parameter_sets])):
+                parameter_sets.append(parameter_sample)
 
             # Increase K
             K += 1
 
-        return independent_sample
+        return independent_sample, parameter_sets
