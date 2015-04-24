@@ -71,7 +71,7 @@ class _BaseOptimisation(object):
         """
         """
         try:
-            initial_list = self.model.initial
+            initial_list = self.model._ordered_var['ode']
         except AttributeError:
             initial_list = []
 
@@ -353,7 +353,7 @@ class ParameterOptimisation(_BaseOptimisation):
     """
 
     def __init__(self, model, measurements, optim_par=None,
-                 overwrite_independent=False):
+                 overwrite_independent=True):
         super(ParameterOptimisation, self).__init__(model)
 
         self.measurements = measurements
@@ -364,9 +364,24 @@ class ParameterOptimisation(_BaseOptimisation):
             self.dof = self.model.parameters.keys()
 
         self._set_independent(overwrite_independent)
+        if overwrite_independent:
+            self._align_indexes()
+        else:
+            raise Warning('Multidimensional independent can raise problems!')
 
         self._minvalues = None
         self._maxvalues = None
+
+    def _align_indexes(self):
+        """
+        """
+        measurement_index = self.measurements.Data.index
+        if len(measurement_index.names) > 1:
+            model_index = self.model.run().index
+
+            if not model_index.names == measurement_index.names:
+                new_index = measurement_index.reorder_levels(model_index.names)
+                self.measurements.Data.index = new_index
 
     def _set_independent(self, overwrite_independent):
         """
@@ -407,7 +422,7 @@ class ParameterOptimisation(_BaseOptimisation):
                                  self._dof_dict_to_array(pardict),
                                  method, *args, **kwargs)
 
-        self._set_modmeas(self.model.run(), self.measurements.Data)
+        self._set_modmeas(self._run_model(), self.measurements.Data)
 
         return optimize_info
 
@@ -415,10 +430,12 @@ class ParameterOptimisation(_BaseOptimisation):
         """
         """
         # Run model
-        modeloutput = self._run_model(dof_array=parray)
+        model_output = self._run_model(dof_array=parray)
+        model_output.sort_index(inplace=True)
+        data_output = self.measurements.Data
+        data_output.sort_index(inplace=True)
 
-        obj_val = OBJECTIVE_FUNCS[obj_crit](modeloutput,
-                                            self.measurements.Data,
+        obj_val = OBJECTIVE_FUNCS[obj_crit](model_output, data_output,
                                             1./self.measurements._Error_Covariance_Matrix_PD)
 
         return obj_val
@@ -440,6 +457,74 @@ class ParameterOptimisation(_BaseOptimisation):
                                                 maximize=False,
                                                 max_eval=max_eval, **kwargs)
 
-        self._set_modmeas(self.model.run(), self.measurements.Data)
+        self._set_modmeas(self._run_model(), self.measurements.Data)
 
         return final_pop, ea
+
+
+class MultiParameterOptimisation(ParameterOptimisation):
+    """
+    """
+    def __init__(self, model, measurements, optim_par=None,
+                 independent_var='t'):
+        super(ParameterOptimisation, self).__init__(model)
+
+        self.measurements = measurements
+        self._independent_var = independent_var
+
+        if optim_par is not None:
+            self.dof = optim_par
+        else:
+            self.dof = self.model.parameters.keys()
+
+        #
+        measurement_index = measurements.Data.index
+        drop_independent_level = measurement_index.droplevel(self._independent_var)
+        # Keep unique initial conditions
+        self.conditions = {}
+        self.conditions['values'] = drop_independent_level.unique()
+        # Save order of values
+        self.conditions['names'] = drop_independent_level.names
+
+    def _run_model(self, dof_array=None):
+        '''
+        ATTENTION: Zero-point also added, need to be excluded for optimization
+        '''
+        all_model_output = None
+        output_start = 0
+
+        if dof_array is not None:
+            # Set new parameters values
+            dof_dict = self._dof_array_to_dict(dof_array)
+            self._dof_dict_to_model(dof_dict)
+
+        for init_vals in self.conditions['values']:
+            init_cond = dict(zip(self.conditions['names'], init_vals))
+            self.model.set_initial(init_cond)
+
+            indep_val = np.array(self.measurements.Data.xs(init_vals,
+                                                           level=['IPA', 'BA', 'ACE', 'MPPA']).index)
+            if indep_val[0] != 0.0:
+                output_start = 1
+                indep_val = np.concatenate([np.array([0.]), indep_val])
+            self._set_independent(indep_val)
+
+            model_output = self.model.run()
+
+            if all_model_output is None:
+                all_model_output = model_output.iloc[output_start:]
+            else:
+                all_model_output = pd.concat([all_model_output,
+                                              model_output.iloc[output_start:]],
+                                             axis=0)
+
+        all_model_output.index = self.measurements.Data.index
+        return all_model_output
+
+    def _set_independent(self, independent_val):
+        """
+        """
+        independent_dict = {}
+        independent_dict[self._independent_var] = independent_val
+        self.model.set_independent(independent_dict)
+

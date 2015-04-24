@@ -53,7 +53,7 @@ class LocalSensitivity(Sensitivity):
         parameters = list(sensitivity_PD.columns.levels[1])
         perturb_par = pd.Series(self.parameter_values)[self.parameters]
         sensitivity_len = len(sensitivity_PD.index)
-        parameter_len = len(self.parameters)
+        parameter_len = len(parameters)
 
         # Problem with keeping the same order!
         par_values = []
@@ -435,7 +435,7 @@ class DirectLocalSensitivity(LocalSensitivity):
 
         if ode:
             dfdtheta, dfdx, self._dxdtheta_start = sensdef.generate_ode_sens(
-                ode, alg, self.model.parameters)
+                ode, alg, self.model.parameters[self.parameters])
             self._fun_ode_str = sensdef.generate_ode_derivative_part_definition(
                                     self.model, dfdtheta, dfdx)
             exec(self._fun_ode_str)
@@ -443,9 +443,9 @@ class DirectLocalSensitivity(LocalSensitivity):
 
         if alg:
             dgdtheta, dgdx = sensdef.generate_alg_sens(ode, alg,
-                                                       self.model.parameters)
+                                                       self.parameters)
             self._fun_alg_str = sensdef.generate_non_derivative_part_definition(
-                                    self.model, dgdtheta, dgdx)
+                                    self.model, dgdtheta, dgdx, self.parameters)
             exec(self._fun_alg_str)
             self._fun_alg = fun_alg_lsa
 
@@ -453,7 +453,7 @@ class DirectLocalSensitivity(LocalSensitivity):
         """
         """
         solver = AlgebraicSolver(self.model)
-        return solver._solve_algebraic_lsa(self._fun_alg)
+        return solver._solve_algebraic_lsa(self._fun_alg, self.parameters)
 
     def get_sensitivity(self, method='CAS'):
         """

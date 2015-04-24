@@ -108,7 +108,7 @@ class BaseOED(_BaseOptimisation):
             self._dof_dict_to_model(dof_dict)
 
         FIM = self.confidence.FIM
-        if preFIM:
+        if self.preFIM:
             FIM += self.preFIM
 
         return FIM
@@ -281,7 +281,7 @@ class RobustOED(object):
         self.confidence = confidence
         self.model = confidence.model
         self.independent_samples = independent_samples
-        self.preFIM = None
+        self._preFIM = None
 
         self._dof = {'par': {'dof_len': None,
                              'dof_ordered': None,
@@ -295,13 +295,15 @@ class RobustOED(object):
 
         self._criterion = 'D'
 
+        self.independent_dist = None
+
     def _set_dof_distributions(self, oed_type, modpar_list, samples):
         """
 
         """
         names = [dof.name for dof in modpar_list]
         self._oed[oed_type] = BaseOED(self.confidence, names,
-                                      preFIM=self.preFIM)
+                                      preFIM=self._preFIM)
         self._oed[oed_type]._independent_samples = samples
         self._oed[oed_type].set_dof_distributions(modpar_list)
         self._dof[oed_type]['dof'] = self._oed[oed_type].dof
@@ -325,7 +327,8 @@ class RobustOED(object):
         self._oed['ind']._dof_array_to_model(independent_sample)
         FIM_inner = []
         for parameter_sample in parameter_sets:
-            FIM_inner.append(self._inner_obj_fun(parameter_sample, 'ind'))
+            FIM_inner.append(self._inner_obj_fun(parameter_sample, 'ind',
+                                                 dist_checker=True))
 
         return FIM_inner
 
@@ -337,7 +340,7 @@ class RobustOED(object):
 
         return np.min(FIM_inner)
 
-    def _inner_obj_fun(self, parameter_sample, oed_type):
+    def _inner_obj_fun(self, parameter_sample, oed_type, dist_checker=False):
         """
         """
         par_dict = self._oed[oed_type]._dof_array_to_dict_generic(
@@ -347,7 +350,31 @@ class RobustOED(object):
 
         self._oed[oed_type]._dof_dict_to_model(par_dict)
 
-        return OED_CRITERIA['D'](self._oed[oed_type].confidence.FIM)
+        dist_check = 1.
+        if dist_checker and self.independent_dist is not None:
+            dist_check = self._distance_checker(par_dict['independent'])
+
+        return dist_check*OED_CRITERIA['D'](self._oed[oed_type].confidence.FIM)
+
+    def _distance_checker(self, ind_dict):
+        """
+        """
+        array_size = [self.independent_samples, self.independent_samples]
+        ones_array = np.ones(array_size)
+        dist_tracker = np.zeros(array_size)
+
+        for ind, val in ind_dict.items():
+            ind_array = ones_array * val
+            ind_array = np.abs(ind_array - ind_array.T)
+            np.fill_diagonal(ind_array, self.independent_dist[ind])
+
+            dist_tracker += ind_array >= self.independent_dist[ind]
+
+        if 0. in dist_tracker:
+            dist_check = 0.
+        else:
+            dist_check = 1.
+        return dist_check
 
     def my_constraint_function(self, candidate):
         """Return the number of constraints that candidate violates."""
@@ -382,7 +409,7 @@ class RobustOED(object):
         """
         """
         def temp_obj_fun(parray=None):
-            return self._inner_obj_fun(parray, 'par')
+            return self._inner_obj_fun(parray, 'par', dist_checker=False)
 
         final_pop, ea = self._oed['par']._inspyred_optimize(
                              obj_fun=temp_obj_fun,
@@ -456,6 +483,9 @@ class RobustOED(object):
 
             # Increase K
             K += 1
+
+            if self.psi_independent[-1] == 0.:
+                self.psi_independent[-1] = 1000
 
         if self.psi_parameter[-1] >= self.psi_independent[-1]:
             self.maximin_success = True

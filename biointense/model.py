@@ -9,6 +9,7 @@ import pandas as pd
 import itertools
 import matplotlib.pyplot as plt
 from copy import deepcopy
+import warnings
 
 from modelbase import BaseModel
 from modeldefinition import (generate_ode_derivative_definition,
@@ -145,7 +146,8 @@ class _BiointenseModel(BaseModel):
 
 class Model(_BiointenseModel):
 
-    def __init__(self, name, system, parameters, comment=None):
+    def __init__(self, name, system, parameters, ode_independent='t',
+                 comment=None):
         """
         uses the "biointense"-style model definition
         >>> sir = {'dS' : '-k*I*B/N',
@@ -165,6 +167,8 @@ class Model(_BiointenseModel):
         # solver communication
         self.systemfunctions = {'algebraic': {}, 'ode': {}}
         self.initial_conditions = {}
+
+        self._ode_independent = ode_independent
 
         # detect system equations
         self._system = system
@@ -221,7 +225,7 @@ class AlgebraicModel(_BiointenseModel):
         >>> system = {'v' : 'Vf * SA * SB/(Kp * SA + Km * SB + SA * SB)'}
         >>> param = {'Vf': 1., 'Km': 1., 'Kp': 1.}
         >>> name = 'pingpongbibi'
-        >>> AlgebraicModel(name, system, param)
+        >>> AlgebraicModel(name, system,kernel param)
         """
         self._check_if_odes(system.keys())
 

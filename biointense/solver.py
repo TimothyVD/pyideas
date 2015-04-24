@@ -54,6 +54,7 @@ class OdeSolver(Solver):
         """
         """
         self.model = model
+        self.independent = model._ode_independent
         self.ode_solver_options = ode_solver_options or {}
         self.ode_integrator = ode_integrator
         self._initial_conditions = [self.model.initial_conditions[var]
@@ -69,7 +70,7 @@ class OdeSolver(Solver):
             self.ode_integrator = STD_ODE_INTEGRATOR[procedure]
         else:
             if procedure is not 'odeint' and \
-            self.ode_integrator not in ODE_INTEGRATORS[procedure]:
+               self.ode_integrator not in ODE_INTEGRATORS[procedure]:
                 raise Exception(self.ode_integrator + ' is not available, '
                                 'please choose one from the ODE_INTEGRATORS '
                                 'list.')
@@ -95,11 +96,11 @@ class OdeSolver(Solver):
         """
         res = odeint(self.model.fun_ode,
                      self._initial_conditions,
-                     self.model._independent_values.values()[0],
+                     self.model._independent_values[self.independent],
                      args=(self.model.parameters,),
                      **self.ode_solver_options)
         # Put output in pandas dataframe
-        result = pd.DataFrame(res, index=self.model._independent_values.values()[0],
+        result = pd.DataFrame(res, index=self.model._independent_values[self.independent],
                               columns=self.model._ordered_var['ode'])
 
         return result
@@ -123,6 +124,8 @@ class OdeSolver(Solver):
         .. [1] http://docs.scipy.org/doc/scipy-0.14.0/reference/generated/
         scipy.integrate.ode.html
         """
+        self._check_ode_integrator_setting("ode")
+
         # Make wrapper function to
         def wrapper(independent_values, initial_conditions, parameters):
             return self.model.fun_ode(
@@ -132,10 +135,10 @@ class OdeSolver(Solver):
                                              **self.ode_solver_options)
 
         solver.set_initial_value(self._initial_conditions,
-                                 self.model._independent_values.values()[0][0])
+                                 self.model._independent_values[self.independent][0])
         solver.set_f_params(self.model.parameters)
 
-        xdata = self.model._independent_values.values()[0]
+        xdata = self.model._independent_values[self.independent]
         timesteps = xdata[1:] - xdata[:-1]
         model_output = []
         xdata = []
@@ -171,6 +174,8 @@ class OdeSolver(Solver):
         .. [1] H. P. Langtangen and L. Wang. Odespy software package.
         URL: https://github.com/hplgit/odespy. 2014
         """
+        self._check_ode_integrator_setting("ode")
+
         solver = odespy.__getattribute__(self.ode_integrator)
         solver = solver(self.model.fun_ode)
         if self.ode_solver_options is not None:
@@ -178,7 +183,7 @@ class OdeSolver(Solver):
         solver.set_initial_condition(self._initial_conditions)
         solver.set(f_args=(self.model.parameters,))
 
-        model_output, xdata = solver.solve(self.model._independent_values.values()[0])
+        model_output, xdata = solver.solve(self.model._independent_values[self.independent])
 
         result = pd.DataFrame(model_output, index=xdata,
                               columns=self.model._ordered_var['ode'])
@@ -220,14 +225,19 @@ class AlgebraicSolver(Solver):
         model_output = self._solve_algebraic_generic(self.model.fun_alg, *args,
                                                      **kwargs)
 
-        index = pd.MultiIndex.from_arrays(self.model._independent_values.values(),
+        # TODO! Is dict for (Algebraic)model, but not for optim
+        if isinstance(self.model._independent_values, dict):
+            independent = self.model._independent_values.values()
+        else:
+            raise Exception('Independent needs to be dict of array(s)!')
+        index = pd.MultiIndex.from_arrays(independent,
                                           names=self.model.independent)
         result = pd.DataFrame(model_output,
                               index=index,
                               columns=self.model._ordered_var['algebraic'])
         return result
 
-    def _solve_algebraic_lsa(self, alg_function, *args, **kwargs):
+    def _solve_algebraic_lsa(self, alg_function, parameters, *args, **kwargs):
         """
         """
         model_output = self._solve_algebraic_generic(alg_function, *args,
@@ -237,8 +247,8 @@ class AlgebraicSolver(Solver):
                                           names=self.model.independent)
 
         columns = pd.MultiIndex.from_tuples(list(product(
-                        self.model._ordered_var['algebraic'],
-                        self.model.parameters.keys())))
+                        self.model._ordered_var['algebraic'], parameters)))
+                        #, sortorder=0)
 
         indep_len = len(self.model._independent_values.values()[0])
 

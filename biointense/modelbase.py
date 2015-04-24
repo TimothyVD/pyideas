@@ -25,7 +25,7 @@ class BaseModel(object):
         self._check_name()
         self.comment = comment
 
-        # solver communication
+        # solver communicationkernel
         self.modeltype = "basemodel"
         self.independent = []
         self._independent_values = {}
@@ -98,15 +98,11 @@ class BaseModel(object):
                                "parameters".format(par))
             self.parameters[par] = parvalue
 
-    def set_independent(self, independentVar, values):
-        """              "\n Variables: \n" + str(self.variables) +
-        set independent variables
+    def set_independent(self, independent_dict):
         """
-        # check the data type of the input
-        if not isinstance(independentVar, str):
-            raise TypeError("Independent variable is not given as a string")
-        self.independent = [independentVar]
-        self._independent_values = {independentVar: values}
+        """
+        self.independent = independent_dict.keys()
+        self._independent_values = independent_dict
 
     def _check_for_independent(self):
         """

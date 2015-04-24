@@ -7,6 +7,7 @@ Created on Sat Feb  7 16:59:56 2015
 import numpy as np
 from scipy import stats
 import pandas as pd
+from copy import deepcopy
 
 from biointense.sensitivity import DirectLocalSensitivity
 
@@ -28,13 +29,14 @@ class BaseConfidence(object):
         self.sens_method = sens_method
 
         self.variables = list(self.sens_PD.columns.levels[0])
-        self.parameters = self.sens.parameters
+        self.parameters = deepcopy(self.sens.parameters)
+
+        self.repeats_per_sample = 1
         # self.parameter_values = pd.Series({par: self.model.parameters[par] for
         #                                   par in self.parameters})
 
         self._sens_matrix = None
 
-        self._data_len = len(self.sens_PD.index)
         self._par_len = len(self.parameters)
         self._var_len = len(self.variables)
 
@@ -51,10 +53,13 @@ class BaseConfidence(object):
         sens_PD = self.sens.get_sensitivity(method=self.sens_method)
         # Temp fix!
         # Necessary because order is changing
-        self.parameters = [x for (y, x) in sorted(zip(sens_PD.columns.labels[1],
-                                                      sens_PD.columns.levels[1]))]
+        self.parameters = sens_PD.columns.get_level_values(1)
 
         return sens_PD
+
+    @property
+    def _data_len(self):
+        return len(self.sens_PD.index)*self.repeats_per_sample
 
     @property
     def model_output(self):
@@ -68,12 +73,9 @@ class BaseConfidence(object):
         """
         """
         len_index = len(sens_PD.index)
-        len_variables = len(self.variables)
-        len_parameters = len(self.parameters)
 
-        return sens_PD.values.reshape([len_index,
-                                       len_parameters,
-                                       len_variables])
+        return sens_PD.values.reshape([len_index, self._par_len,
+                                       self._var_len])
 
     @property
     def sensmatrix(self):
@@ -90,7 +92,7 @@ class BaseConfidence(object):
         #if self._FIM is None:
         self._FIM, self._FIM_time = self._calc_FIM(self.sensmatrix,
                                                    self.uncertainty_PD)
-        return self._FIM
+        return self.repeats_per_sample*self._FIM
 
     @property
     def PEECM(self):
@@ -107,7 +109,7 @@ class BaseConfidence(object):
         #if self._FIM_time is None:
         self._FIM, self._FIM_time = self._calc_FIM(self.sensmatrix,
                                                    self.uncertainty_PD)
-        return self._FIM_time
+        return self.repeats_per_sample*self._FIM_time
 
     @FIM.deleter
     def FIM(self):
@@ -181,7 +183,7 @@ class BaseConfidence(object):
             the interval and the relative uncertainty in percent.
 
         '''
-        n_p = self._data_len - len(self.parameters)
+        n_p = self._data_len - self._par_len
 
         CI = np.zeros([self.PEECM.shape[1], 8])
 
@@ -253,7 +255,7 @@ class BaseConfidence(object):
         sigma = {}
 
         for i, var in enumerate(self.variables):
-            sigma_var = np.zeros([self._data_len, 5])
+            sigma_var = np.zeros([len(self.model_output[var]), 5])
 
             sigma_var[:, 0] = self.model_output[var].values
 
@@ -297,7 +299,7 @@ class BaseConfidence(object):
         # Mask parameter correlations!
         if self._MPECM is None:
             PEECM = np.repeat(np.atleast_3d(self.PEECM).T,
-                              self._data_len, axis=0)
+                              len(self.sens_PD.index), axis=0)
             PEECM = np.multiply(PEECM, np.eye(self._par_len))
             # TODO Check if results are ok when var are not measured at the
             # same time

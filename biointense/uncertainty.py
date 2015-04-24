@@ -16,9 +16,12 @@ class Uncertainty(object):
 
     Example
     -------
+    >>> def uncertainty_y1(y1):
+    >>>     return (0.1*y1)**2
     >>>
     >>> uncertainty_dict = {'y1': '0.05*y1',
                             'y2': '0.09*y2'}
+    >>>
     """
 
     def __init__(self, uncertainty_dict):
@@ -36,7 +39,7 @@ class Uncertainty(object):
                 fun = sympy.lambdify(var, sympy_uncertainty)
                 uncertainty[var] = fun(output[var])
             elif hasattr(value, '__call__'):
-                uncertainty[var] = value
+                uncertainty[var] = value(output[var])
             else:
                 raise Exception('Only strings and functions can be passed!')
 

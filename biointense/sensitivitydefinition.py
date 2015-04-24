@@ -63,7 +63,7 @@ def generate_alg_sens(odefunctions, algebraicfunctions, parameters):
         states_matrix = sympy.Matrix(sympy.sympify(odefunctions.keys(),
                                                    _clash))
     # Set up symbolic matrix of parameters
-    parameter_matrix = sympy.Matrix(sympy.sympify(parameters.keys(), _clash))
+    parameter_matrix = sympy.Matrix(sympy.sympify(parameters, _clash))
 
     algebraic_matrix = _alg_swap(algebraicfunctions)
 
@@ -160,7 +160,7 @@ def generate_ode_derivative_definition(model, dfdtheta, dfdx):
 
     return replace_numpy_fun(modelstr)
 
-def generate_non_derivative_part_definition(model, dgdtheta, dgdx):
+def generate_non_derivative_part_definition(model, dgdtheta, dgdx, parameters):
     '''Write derivative of model as definition in file
 
     Writes a file with a derivative definition to run the model and
@@ -201,9 +201,9 @@ def generate_non_derivative_part_definition(model, dgdtheta, dgdx):
     # Write dgdtheta as symbolic array
     modelstr += ('    dgdtheta = np.zeros([indep_len, '
                  '' + str(len(model.systemfunctions['algebraic'].keys())) + ', '
-                 '' + str(len(model.parameters.keys())) + '])\n')
+                 '' + str(len(parameters)) + '])\n')
     for i, alg in enumerate(model.systemfunctions['algebraic'].keys()):
-        for j, par in enumerate(model.parameters.keys()):
+        for j, par in enumerate(parameters):
             modelstr += ('    dgdtheta[:,' + str(i) + ',' + str(j) + '] = '
                          '' + str(dgdtheta[i, j]) + '\n')
 
