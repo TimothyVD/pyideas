@@ -83,12 +83,12 @@ def write_array_extraction(defstr, ode_variables):
                                                                 str(i))
     return defstr
 
-def write_external_call(defstr, varname, fname, argnames):
+def write_external_call(modelstr, externalfunctions):
     """
 
     Parameters
     -----------
-    defstr : str
+    modelstr : str
         str containing the definition to solve in model
     varname : str
         variable name to calculate
@@ -97,12 +97,33 @@ def write_external_call(defstr, varname, fname, argnames):
     argnames : list
         other arguments that the function request (e.g. t or other varnames)
     """
-    #defstr += '    ' + varname + ' = ' + str(fname) + '('
-    defstr += '    {0} = {1}('.format(varname, fname)
-    for argument in argnames:
-        defstr += str(argument) + ','
-    defstr += ')\n'
-    return defstr
+    vardict = {}
+
+    modelstr += "    externalfunctions = args[0]\n\n"
+
+    for idname, iddict in externalfunctions.items():
+        variable = iddict['variable']
+        if vardict.get(variable) is None:
+            vardict[variable] = [idname]
+        else:
+            vardict[variable].append(idname)
+
+        modelstr += "    {0} = externalfunctions['{0}']['fun'](".format(idname)
+        for argument in iddict['arguments']:
+            modelstr += argument + ','
+        modelstr += ')\n'
+    modelstr += '\n'
+
+    for variable, idnames in vardict.items():
+        modelstr += '    {0} = '.format(variable)
+        for i, idname in enumerate(idnames):
+            if i is 0:
+                modelstr += idname
+            else:
+                modelstr += ' + ' + idname
+        modelstr += '\n'
+
+    return modelstr
 
 def replace_numpy_fun(m):
     """
@@ -229,13 +250,15 @@ def generate_ode_derivative_definition(model):
     # Get the current variable values from the solver
     modelstr = write_ode_indices(modelstr, model._ordered_var['ode'])
     modelstr = write_whiteline(modelstr)
+
+    # Write down external called functions - not yet provided!
+    if model.externalfunctions:
+        modelstr = write_external_call(modelstr, model.externalfunctions)
+        modelstr = write_whiteline(modelstr)
+
     # Write down necessary algebraic equations (if none, nothing written)
     modelstr = write_algebraic_lines(modelstr, model.systemfunctions['algebraic'])
     modelstr = write_whiteline(modelstr)
-
-    # Write down external called functions - not yet provided!
-    #write_external_call(defstr, varname, fname, argnames)
-    #write_whiteline(modelstr)
 
     # Write down the current derivative values
     modelstr = write_ode_lines(modelstr, model.systemfunctions['ode'])
@@ -267,8 +290,9 @@ def generate_non_derivative_part_definition(model):
         modelstr = write_whiteline(modelstr)
 
     # Write down external called functions - not yet provided!
-    #write_external_call(defstr, varname, fname, argnames)
-    #write_whiteline(modelstr)
+    if model.externalfunctions:
+        modelstr = write_external_call(modelstr, model.externalfunctions)
+        modelstr = write_whiteline(modelstr)
 
     # Write down the equation of algebraic
     modelstr = write_algebraic_solve(modelstr,

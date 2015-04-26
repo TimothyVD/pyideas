@@ -75,7 +75,18 @@ class OdeSolver(Solver):
                                 'please choose one from the ODE_INTEGRATORS '
                                 'list.')
 
-    def _solve_odeint(self):
+    def _args_ode_function(self, **kwargs):
+        """
+        """
+        externalfunctions = kwargs.get('externalfunctions')
+        if externalfunctions:
+            args = (self.model.parameters, externalfunctions,)
+        else:
+            args = (self.model.parameters,)
+
+        return args
+
+    def _solve_odeint(self, **kwargs):
         """
         Calculate the ode equations using scipy integrate odeint solvers
 
@@ -94,18 +105,20 @@ class OdeSolver(Solver):
         .. [1] http://docs.scipy.org/doc/scipy-0.14.0/reference/generated/
         scipy.integrate.odeint.html
         """
+        args = self._args_ode_function(**kwargs)
+        print(args)
+
         res = odeint(self.model.fun_ode,
                      self._initial_conditions,
                      self.model._independent_values[self.independent],
-                     args=(self.model.parameters,),
-                     **self.ode_solver_options)
+                     args=args, **self.ode_solver_options)
         # Put output in pandas dataframe
         result = pd.DataFrame(res, index=self.model._independent_values[self.independent],
                               columns=self.model._ordered_var['ode'])
 
         return result
 
-    def _solve_ode(self):
+    def _solve_ode(self, **kwargs):
         """
         Calculate the ode equations using scipy integrate ode solvers
 
@@ -126,6 +139,8 @@ class OdeSolver(Solver):
         """
         self._check_ode_integrator_setting("ode")
 
+        args = self._args_ode_function(**kwargs)
+
         # Make wrapper function to
         def wrapper(independent_values, initial_conditions, parameters):
             return self.model.fun_ode(
@@ -136,7 +151,7 @@ class OdeSolver(Solver):
 
         solver.set_initial_value(self._initial_conditions,
                                  self.model._independent_values[self.independent][0])
-        solver.set_f_params(self.model.parameters)
+        solver.set_f_params(*args)
 
         xdata = self.model._independent_values[self.independent]
         timesteps = xdata[1:] - xdata[:-1]
@@ -155,7 +170,7 @@ class OdeSolver(Solver):
 
         return result
 
-    def _solve_odespy(self):
+    def _solve_odespy(self, **kwargs):
         """
         Calculate the ode equations using scipy integrate ode solvers
 
@@ -176,12 +191,14 @@ class OdeSolver(Solver):
         """
         self._check_ode_integrator_setting("ode")
 
+        args = self._args_ode_function(**kwargs)
+
         solver = odespy.__getattribute__(self.ode_integrator)
         solver = solver(self.model.fun_ode)
         if self.ode_solver_options is not None:
             solver.set(**self.ode_solver_options)
         solver.set_initial_condition(self._initial_conditions)
-        solver.set(f_args=(self.model.parameters,))
+        solver.set(f_args=args)
 
         model_output, xdata = solver.solve(self.model._independent_values[self.independent])
 
@@ -190,7 +207,7 @@ class OdeSolver(Solver):
 
         return result
 
-    def solve(self, procedure='odeint'):
+    def solve(self, procedure='odeint', **kwargs):
         """
         Calculate the ode equations using scipy integrate odeint solvers
 
@@ -202,7 +219,7 @@ class OdeSolver(Solver):
         """
         self._check_ode_integrator_setting(procedure)
 
-        return self._ode_procedure[procedure]()
+        return self._ode_procedure[procedure](**kwargs)
 
 
 class AlgebraicSolver(Solver):
@@ -274,7 +291,7 @@ class HybridSolver(OdeSolver, AlgebraicSolver):
     """
     Class for solving hybrid system of odes and algebraic equations by using.
     """
-    def solve(self, procedure="odeint"):
+    def solve(self, procedure="odeint", **kwargs):
         """
         Solve hybrid system of odes and algebraic equations. After calculating
         the odes, the algebraic equations are calculated again.
@@ -285,8 +302,8 @@ class HybridSolver(OdeSolver, AlgebraicSolver):
         Contains all outputs from both odes and algebraics
         """
         self._check_ode_integrator_setting(procedure)
-        ode_result = self._ode_procedure[procedure]()
-        alg_result = self._solve_algebraic(ode_result.values)
+        ode_result = self._ode_procedure[procedure](**kwargs)
+        alg_result = self._solve_algebraic(ode_result.values, **kwargs)
 
         result = pd.concat([ode_result, alg_result], axis=1)
 

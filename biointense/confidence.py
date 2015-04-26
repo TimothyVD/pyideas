@@ -154,7 +154,7 @@ class BaseConfidence(object):
         MECM_inv = np.linalg.inv(np.eye(self._var_len) *
                                  np.atleast_3d(uncertainty_PD))
         # Set all very low numbers to zero (just a precaution, so that
-        # solutions would be the same FIM_new.MPECMas the old get_FIM method). This is
+        # solutions would be the same as the old get_FIM method). This is
         # probably not necessary!
         MECM_inv[MECM_inv < 1e-20] = 0.
 
@@ -294,13 +294,13 @@ class BaseConfidence(object):
             error covariance matrix.
 
         '''
-
-        # TODO Check if True
-        # Mask parameter correlations!
+        # Parameter correlations should be taken into account, because these
+        # lower the model output uncertainty
         if self._MPECM is None:
             PEECM = np.repeat(np.atleast_3d(self.PEECM).T,
                               len(self.sens_PD.index), axis=0)
-            PEECM = np.multiply(PEECM, np.eye(self._par_len))
+
+            # PEECM = np.multiply(PEECM, np.eye(self._par_len))
             # TODO Check if results are ok when var are not measured at the
             # same time
             self._MPECM = self._dotproduct(np.rollaxis(self.sensmatrix, 2, 1),

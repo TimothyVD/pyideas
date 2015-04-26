@@ -89,10 +89,11 @@ class _BiointenseModel(BaseModel):
                 solver = HybridSolver(self)
             else:
                 solver = OdeSolver(self)
-            result = solver.solve(procedure)
+            result = solver.solve(procedure=procedure,
+                                  externalfunctions=self.externalfunctions)
         elif self._ordered_var.get('algebraic'):
             solver = AlgebraicSolver(self)
-            result = solver.solve()
+            result = solver.solve(externalfunctions=self.externalfunctions)
         else:
             raise Exception("In an initialized Model, there should always "
                             "be at least a fun_ode or fun_alg.")
@@ -109,7 +110,7 @@ class _BiointenseModel(BaseModel):
 
         # Can also be deleted
 
-    def add_event(self, variable, ext_fun, tijdsbehandeling, idname):
+    def add_event(self, idname, variable, ext_fun, arguments):
         """
         Variable is defined by external influence. This can be either a
         measured value of input (e.g. rainfall) or a function that defines
@@ -126,23 +127,30 @@ class _BiointenseModel(BaseModel):
         contacate them.
         """
         self._initial_up_to_date = False
+        self._has_external = True
 
-        return NotImplementedError
+        self.externalfunctions[idname] = {'variable': variable,
+                                          'fun': ext_fun,
+                                          'arguments': arguments}
 
     def list_current_events(self):
         """
         """
-        return NotImplementedError
+        return self.externalfunctions
 
     def exclude_event(self, idname):
         """
         """
-        return NotImplementedError
+        del self.externalfunctions[idname]
+
+        if not bool(self.externalfunctions):
+            self._has_external = False
 
     def _collect_time_steps(self):
         """
         """
         return NotImplementedError
+
 
 class Model(_BiointenseModel):
 
@@ -166,6 +174,7 @@ class Model(_BiointenseModel):
 
         # solver communication
         self.systemfunctions = {'algebraic': {}, 'ode': {}}
+        self.externalfunctions = {}
         self.initial_conditions = {}
 
         self._ode_independent = ode_independent
@@ -178,6 +187,8 @@ class Model(_BiointenseModel):
 
         self.fun_alg = None
         self.fun_ode = None
+
+        self._has_external = False
 
     def __repr__(self):
         """
@@ -236,6 +247,7 @@ class AlgebraicModel(_BiointenseModel):
 
         # solver communication
         self.systemfunctions = {'algebraic': {}}
+        self.externalfunctions = {}
 
         # Keep track of length of individiual independent
         self._independent_len = {}
