@@ -106,7 +106,6 @@ class OdeSolver(Solver):
         scipy.integrate.odeint.html
         """
         args = self._args_ode_function(**kwargs)
-        print(args)
 
         res = odeint(self.model.fun_ode,
                      self._initial_conditions,

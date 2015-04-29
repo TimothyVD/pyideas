@@ -40,6 +40,8 @@ class BaseConfidence(object):
         self._par_len = len(self.parameters)
         self._var_len = len(self.variables)
 
+        self.par_relations = None
+
         self._FIM = None
         # Measurement Error Covariance Matrix
         self._MECM = None
@@ -53,13 +55,44 @@ class BaseConfidence(object):
         sens_PD = self.sens.get_sensitivity(method=self.sens_method)
         # Temp fix!
         # Necessary because order is changing
-        self.parameters = sens_PD.columns.get_level_values(1)
+        self.parameters = list(sens_PD.columns.get_level_values(1))
 
         return sens_PD
 
     @property
     def _data_len(self):
         return len(self.sens_PD.index)*self.repeats_per_sample
+
+    @property
+    def _mask_parameters(self):
+        if self.par_relations is None:
+            return 1.
+        else:
+            temp_all = np.concatenate(self.par_relations.values())
+            unique_all = np.unique(temp_all)
+
+            mask_dict = {}
+            for par, exp in self.par_relations.items():
+                mask_dict[par] = unique_all.copy()
+                i = 0
+                for val in mask_dict[par]:
+                    if val in self.par_relations[par]:
+                        mask_dict[par][i] = 1
+                    else:
+                        mask_dict[par][i] = 0
+                    i += 1
+
+            mask_array = None
+            for par in self.parameters:
+                if mask_array is None:
+                    mask_array = np.atleast_2d(mask_dict[par])
+                else:
+                    mask_array = np.concatenate([mask_array,
+                                                 np.atleast_2d(mask_dict[par])],
+                                                axis=0)
+            #combined = np.einsum('ij, kj-> jik', mask_array, mask_array)
+            combined = np.atleast_3d(mask_array.T)
+        return combined
 
     @property
     def model_output(self):
@@ -82,7 +115,9 @@ class BaseConfidence(object):
         """
         """
         #if self._sens_matrix is None:
-        self._sens_matrix = self._sens_PD_2_matrix(self.sens_PD)
+        sens_matrix = self._sens_PD_2_matrix(self.sens_PD)
+        self._sens_matrix = self._mask_parameters*sens_matrix
+
         return self._sens_matrix
 
     @property
@@ -99,7 +134,11 @@ class BaseConfidence(object):
         '''
         '''
         #if self._PEECM is None:
-        self._PEECM = np.linalg.inv(self.FIM)
+        try:
+            self._PEECM = np.linalg.inv(self.FIM)
+        except:
+            raise Warning('Pseudo inverse was used!')
+            self._PEECM = np.linalg.pinv(self.FIM)
         return self._PEECM
 
     @property

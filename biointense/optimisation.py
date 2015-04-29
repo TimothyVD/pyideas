@@ -72,7 +72,7 @@ class _BaseOptimisation(object):
         """
         try:
             initial_list = self.model._ordered_var['ode']
-        except AttributeError:
+        except KeyError:
             initial_list = []
 
         _dof_list = self._flatten_list([self.model.parameters.keys(),

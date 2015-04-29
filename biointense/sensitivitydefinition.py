@@ -10,6 +10,8 @@ from sympy.abc import _clash
 
 from biointense.modeldefinition import *
 
+import pprint
+
 
 def generate_ode_sens(odefunctions, algebraicfunctions, parameters):
     '''Analytic derivation of the local sensitivities of ODEs
@@ -24,7 +26,7 @@ def generate_ode_sens(odefunctions, algebraicfunctions, parameters):
     # Set up symbolic matrix of variables
     states_matrix = sympy.Matrix(sympy.sympify(odefunctions.keys(), _clash))
     # Set up symbolic matrix of parameters
-    parameter_matrix = sympy.Matrix(sympy.sympify(parameters.keys(), _clash))
+    parameter_matrix = sympy.Matrix(sympy.sympify(parameters, _clash))
 
     # Replace algebraic stuff in system_matrix to perform LSA
     if bool(algebraicfunctions):
@@ -118,23 +120,23 @@ def generate_ode_derivative_definition(model, dfdtheta, dfdx):
     '''
     modelstr = 'def fun_ode_lsa(odes, t, parameters, *args, **kwargs):\n'
     # Get the parameter values
-    modelstr = moddef.write_parameters(modelstr, model.parameters)
-    modelstr = moddef.write_whiteline(modelstr)
+    modelstr = write_parameters(modelstr, model.parameters)
+    modelstr = write_whiteline(modelstr)
     # Get the current variable values from the solver
-    modelstr = moddef.write_ode_indices(modelstr, model._ordered_var['ode'])
-    modelstr = moddef.write_whiteline(modelstr)
+    modelstr = write_ode_indices(modelstr, model._ordered_var['ode'])
+    modelstr = write_whiteline(modelstr)
     # Write down necessary algebraic equations (if none, nothing written)
-    modelstr = moddef.write_algebraic_lines(modelstr,
+    modelstr = write_algebraic_lines(modelstr,
                                             model.systemfunctions['algebraic'])
-    modelstr = moddef.write_whiteline(modelstr)
+    modelstr = write_whiteline(modelstr)
 
     # Write down external called functions - not yet provided!
     #write_external_call(defstr, varname, fname, argnames)
     #write_whiteline(modelstr)
 
     # Write down the current derivative values
-    modelstr = moddef.write_ode_lines(modelstr, model.systemfunctions['ode'])
-    modelstr = moddef.write_derivative_return(modelstr,
+    modelstr = write_ode_lines(modelstr, model.systemfunctions['ode'])
+    modelstr = write_derivative_return(modelstr,
                                               model._ordered_var['ode'])
 
     modelstr += '\n    #Sensitivities\n\n'
