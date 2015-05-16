@@ -65,6 +65,8 @@ class BaseConfidence(object):
 
     @property
     def _mask_parameters(self):
+        """
+        """
         if self.par_relations is None:
             return 1.
         else:
@@ -261,9 +263,11 @@ class BaseConfidence(object):
         R = np.zeros(self.PEECM.shape)
 
         for i in range(0, len(self.PEECM)):
-            for j in range(0, len(self.PEECM)):
-                R[i, j] = self.PEECM[i, j]/(np.sqrt(self.PEECM[i, i] *
-                                                    self.PEECM[j, j]))
+            for j in range(i, len(self.PEECM)):
+                corr = self.PEECM[i, j]/(np.sqrt(self.PEECM[i, i] *
+                                                 self.PEECM[j, j]))
+                R[i, j] = corr
+                R[j, i] = corr
 
         R = pd.DataFrame(R, columns=self.parameters, index=self.parameters)
 
