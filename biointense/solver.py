@@ -244,6 +244,8 @@ class AlgebraicSolver(Solver):
         # TODO! Is dict for (Algebraic)model, but not for optim
         if isinstance(self.model._independent_values, dict):
             independent = self.model._independent_values.values()
+        elif isinstance(self.model._independent_values, pd.DataFrame):
+            independent = self.model._independent_values.values
         else:
             raise Exception('Independent needs to be dict of array(s)!')
         index = pd.MultiIndex.from_arrays(independent,

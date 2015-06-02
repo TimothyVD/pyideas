@@ -408,7 +408,8 @@ class CalibratedConfidence(BaseConfidence):
     def __init__(self, calibrated, sens_method='CAS'):
         """
         """
-        super(CalibratedConfidence).__init__(DirectLocalSensitivity(calibrated.dof),
+        super(CalibratedConfidence, self).__init__(DirectLocalSensitivity(calibrated.model,
+                                                                    calibrated.dof),
                                              sens_method=sens_method)
         self.uncertainty = calibrated.uncertainty
         self.data = calibrated.data

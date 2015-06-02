@@ -17,6 +17,7 @@ except:
     INSPYRED_IMPORT = False
 
 from parameterdistribution import *
+from biointense import Model
 from time import time
 from random import Random
 
@@ -175,14 +176,16 @@ class _BaseOptimisation(object):
                                                dof_array)
 
     def _dof_dict_to_model(self, dof_dict):
+        """Helper function to pass dof to model
+        bool functions are necessary, especially for the independent to avoid
+        overwriting of current independent sets by empty dicts
         """
-        """
-        self.model.set_parameters(dof_dict['parameters'])
-        try:
+        if bool(dof_dict['parameters']):
+            self.model.set_parameters(dof_dict['parameters'])
+        if bool(dof_dict['initial']):
             self.model.set_initial(dof_dict['initial'])
-        except:
-            pass
-        self.model.set_independent(dof_dict['independent'])
+        if bool(dof_dict['independent']):
+            self.model.set_independent(dof_dict['independent'])
 
     def _dof_array_to_model(self, dof_array):
         """
@@ -352,8 +355,7 @@ class ParameterOptimisation(_BaseOptimisation):
     """
     """
 
-    def __init__(self, model, measurements, optim_par=None,
-                 overwrite_independent=True):
+    def __init__(self, model, measurements, optim_par=None):
         super(ParameterOptimisation, self).__init__(model)
 
         self.measurements = measurements
@@ -363,48 +365,26 @@ class ParameterOptimisation(_BaseOptimisation):
         else:
             self.dof = self.model.parameters.keys()
 
-        self._set_independent(overwrite_independent)
-        if overwrite_independent:
-            self._align_indexes()
-        else:
-            raise Warning('Multidimensional independent can raise problems!')
+        self._set_independent()
 
         self._minvalues = None
         self._maxvalues = None
 
-    def _align_indexes(self):
+    def _set_independent(self):
         """
-        """
-        measurement_index = self.measurements.Data.index
-        if len(measurement_index.names) > 1:
-            model_index = self.model.run().index
 
-            if not model_index.names == measurement_index.names:
-                new_index = measurement_index.reorder_levels(model_index.names)
-                self.measurements.Data.index = new_index
-
-    def _set_independent(self, overwrite_independent):
         """
-        """
-        independent = self.measurements.Data.index.names
-        independent_val = self.measurements.Data.index
-
-        independent_dict = {}
-        for key in independent:
-            if overwrite_independent:
-                independent_dict[key] = \
-                    independent_val.get_level_values(key).values
-            else:
-                independent_dict[key] = \
-                    np.append(self.model._independent_values[key],
-                              independent_val.get_level_values(key).values)
-        # Check for duplicates and delete those
-        independent_pd = pd.DataFrame(independent_dict)
-        # Remove any duplicates
-        independent_pd = independent_pd.drop_duplicates()
-        # Make sure the values are ordered (important for ODEs)
-        independent_pd = independent_pd.sort(columns=independent)
-        self.model.set_independent(independent_pd)
+        # If model is of Model type, only 1 independent variable can be selected
+        # this means that for ODE models it is forced that the first timestep
+        # should occur at timestep 0 instead. This is verified and overruled
+        # if necessary
+        if isinstance(self.model, Model):
+            independent = self.measurements._independent
+            independent_var = self.measurements._independent.keys()[0]
+            independent_val = self.measurements._independent.values()[0]
+            if independent_val[0] != 0.:
+                independent[independent_var] = np.insert(independent_val, 0., 0.)
+        self.model.set_independent(independent)
 
     def local_optimize(self, pardict=None, obj_crit='wsse',
                        method='Nelder-Mead', *args, **kwargs):
@@ -431,9 +411,9 @@ class ParameterOptimisation(_BaseOptimisation):
         """
         # Run model
         model_output = self._run_model(dof_array=parray)
-        model_output.sort_index(inplace=True)
+        #model_output.sort_index(inplace=True)
         data_output = self.measurements.Data
-        data_output.sort_index(inplace=True)
+        #data_output.sort_index(inplace=True)
 
         obj_val = OBJECTIVE_FUNCS[obj_crit](model_output, data_output,
                                             1./self.measurements._Error_Covariance_Matrix_PD)
@@ -521,10 +501,10 @@ class MultiParameterOptimisation(ParameterOptimisation):
         all_model_output.index = self.measurements.Data.index
         return all_model_output
 
-    def _set_independent(self, independent_val):
-        """
-        """
-        independent_dict = {}
-        independent_dict[self._independent_var] = independent_val
-        self.model.set_independent(independent_dict)
+#    def _set_independent(self, independent_val):
+#        """
+#        """
+#        independent_dict = {}
+#        independent_dict[self._independent_var] = independent_val
+#        self.model.set_independent(independent_dict)
 

@@ -89,11 +89,12 @@ class _BiointenseModel(BaseModel):
                 solver = HybridSolver(self)
             else:
                 solver = OdeSolver(self)
-            result = solver.solve(procedure=procedure,
-                                  externalfunctions=self.externalfunctions)
+            result = solver.solve(procedure=procedure)#,
+                                  #externalfunctions=self.externalfunctions)
         elif self._ordered_var.get('algebraic'):
             solver = AlgebraicSolver(self)
-            result = solver.solve(externalfunctions=self.externalfunctions)
+            #result = solver.solve(externalfunctions=self.externalfunctions)
+            result = solver.solve()
         else:
             raise Exception("In an initialized Model, there should always "
                             "be at least a fun_ode or fun_alg.")
@@ -283,7 +284,7 @@ class AlgebraicModel(_BiointenseModel):
         # check the data type of the input
         if not isinstance(independent_dict, dict) and \
             not isinstance(independent_dict, pd.core.frame.DataFrame):
-                raise TypeError("independent_dict should be dict!")
+                raise TypeError("independent_dict should be dict or pd.DF!")
 
         if method == "cartesian":
             independent = list(itertools.product(*independent_dict.values()))
