@@ -487,7 +487,7 @@ class MultiParameterOptimisation(ParameterOptimisation):
             if indep_val[0] != 0.0:
                 output_start = 1
                 indep_val = np.concatenate([np.array([0.]), indep_val])
-            self._set_independent(indep_val)
+            self.model.set_independent({'t': indep_val})
 
             model_output = self.model.run()
 

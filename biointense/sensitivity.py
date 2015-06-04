@@ -449,6 +449,11 @@ class DirectLocalSensitivity(LocalSensitivity):
             exec(self._fun_alg_str)
             self._fun_alg = fun_alg_lsa
 
+    def _get_ode_sensitivity(self):
+        """
+        """
+        solver
+
     def _get_alg_sensitivity(self):
         """
         """
@@ -463,8 +468,6 @@ class DirectLocalSensitivity(LocalSensitivity):
         direct_sens = self._rescale_sensitivity(direct_sens, method)
 
         return direct_sens
-
-
 
 class GlobalSensitivity(Sensitivity):
     """

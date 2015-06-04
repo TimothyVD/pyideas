@@ -212,7 +212,7 @@ def write_derivative_return(defstr, ode_variables):
         variable names (!sequence is important)
     """
     ode_variables = ["d" + variable for variable in ode_variables]
-    defstr += '    return [' + ', '.join(ode_variables) + ']\n\n'
+    defstr += '    return [' + ', '.join(ode_variables) + ']'
     return defstr
 
 def write_non_derivative_return(defstr, algebraic_variables):

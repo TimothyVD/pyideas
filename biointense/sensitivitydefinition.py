@@ -136,8 +136,6 @@ def generate_ode_derivative_definition(model, dfdtheta, dfdx):
 
     # Write down the current derivative values
     modelstr = write_ode_lines(modelstr, model.systemfunctions['ode'])
-    modelstr = write_derivative_return(modelstr,
-                                              model._ordered_var['ode'])
 
     modelstr += '\n    #Sensitivities\n\n'
 
@@ -145,7 +143,7 @@ def generate_ode_derivative_definition(model, dfdtheta, dfdx):
     modelstr += '    state_len = len(odes)/(len(parameters)+1)\n'
     # Reshape ODES input to array with right dimensions in order to perform
     # matrix multiplication
-    modelstr += ('    dxdtheta = array(odes[state_len:].reshape(state_len, '
+    modelstr += ('    dxdtheta = np.array(odes[state_len:].reshape(state_len, '
                  'len(parameters)))\n\n')
 
     # Write dfdtheta as symbolic array
@@ -155,10 +153,10 @@ def generate_ode_derivative_definition(model, dfdtheta, dfdx):
     modelstr += '\n    dfdx = '
     modelstr += pprint.pformat(dfdx)
     # Calculate derivative in order to integrate this
-    modelstr += '\n    dxdtheta = dfdtheta + dot(dfdx, dxdtheta)\n'
+    modelstr += '\n    dxdtheta = dfdtheta + np.dot(dfdx, dxdtheta)\n'
 
-    modelstr += ('    return ' + str(odefunctions).replace("'", "") + " "
-                 '+ list(dxdtheta.reshape(-1,))\n\n\n')
+    modelstr += write_derivative_return(modelstr, model._ordered_var['ode'])
+    modelstr += ' + list(dxdtheta.reshape(-1,))\n\n'
 
     return replace_numpy_fun(modelstr)
 
