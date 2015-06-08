@@ -79,12 +79,41 @@ class _BiointenseModel(BaseModel):
         """
         """
         externalfunctions = kwargs.get('externalfunctions')
-        args = (self.fun_ode, self.initial_conditions,
-                self._independent_values.values()[0])
+        initial_conditions = [self.initial_conditions[var]
+                              for var in self._ordered_var['ode']]
+        args = (self.fun_ode, initial_conditions,
+                self._independent_values)
         if externalfunctions:
-            args = tuple(args, (self.model.parameters, externalfunctions,))
+            args += tuple(((self.parameters, externalfunctions,),))
         else:
-            args = tuple(args, (self.model.parameters,))
+            args += tuple(((self.parameters,),))
+
+        return args
+
+    def _args_alg_function(self, **kwargs):
+        """
+        """
+        externalfunctions = kwargs.get('externalfunctions')
+        args = (self.fun_alg, self._independent_values)
+        if externalfunctions:
+            args += tuple(((self.parameters, externalfunctions,),))
+        else:
+            args += tuple(((self.parameters,),))
+
+        return args
+
+    def _args_ode_alg_function(self, **kwargs):
+        """
+        """
+        externalfunctions = kwargs.get('externalfunctions')
+        initial_conditions = [self.initial_conditions[var]
+                              for var in self._ordered_var['ode']]
+        args = (self.fun_ode, self.fun_alg, initial_conditions,
+                self._independent_values)
+        if externalfunctions:
+            args += tuple(((self.parameters, externalfunctions,),))
+        else:
+            args += tuple(((self.parameters,),))
 
         return args
 
@@ -97,25 +126,34 @@ class _BiointenseModel(BaseModel):
         if not self._initial_up_to_date:
             self.initialize_model()
 
-        args = self._args_ode_function()
+        ode_var = self._ordered_var.get('ode')
+        alg_var = self._ordered_var.get('algebraic')
 
-        if self._ordered_var.get('ode'):
-            if self._ordered_var.get('algebraic'):
-                solver = HybridSolver(self.fun_ode,)
+        if ode_var:
+            var = [] + ode_var
+            if alg_var:
+                var += alg_var
+                ode_alg_args = self._args_ode_alg_function()
+                solver = HybridSolver(*ode_alg_args)
             else:
-                args =
-                solver = OdeSolver(self.fun_ode, self.initial_conditions,
-                                   self._independent_values.values()[0], args)
+                ode_args = self._args_ode_function()
+                solver = OdeSolver(*ode_args)
             result = solver.solve(procedure=procedure)#,
                                   #externalfunctions=self.externalfunctions)
-        elif self._ordered_var.get('algebraic'):
-            solver = AlgebraicSolver(self)
+        elif alg_var:
+            var = [] + alg_var
+            alg_args = self._args_alg_function()
+            solver = AlgebraicSolver(*alg_args)
             #result = solver.solve(externalfunctions=self.externalfunctions)
             result = solver.solve()
         else:
             raise Exception("In an initialized Model, there should always "
                             "be at least a fun_ode or fun_alg.")
 
+        result = pd.DataFrame(result,
+                              index=self._independent_values.values()[0],
+                              columns=var)
+        result.index.name = self.independent[0]
         return result
 
     @classmethod
