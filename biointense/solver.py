@@ -33,10 +33,10 @@ def _flatten_list(some_list):
 
 class _Solver(object):
 
-    def __init__(self, model):
+    def __init__(self, fun, independent):
         """
         """
-        self.model = model
+        self.fun = fun
 
     def _check_solver_sanity(self):
         """
@@ -57,14 +57,15 @@ class _Solver(object):
 class OdeSolver(_Solver):
     """
     """
-    def __init__(self, model, ode_solver_options=None, ode_integrator=None):
+    def __init__(self, fun_ode, initial_conditions, args,
+                 ode_solver_options=None, ode_integrator=None):
         """
         """
-        self.model = model
-        self.independent = model._ode_independent
+        self.fun_ode = fun_ode
+        self.initial_conditions = initial_conditions
+        self.independent = model._independent_values.values()[0]
         self.ode_solver_options = ode_solver_options or {}
         self.ode_integrator = ode_integrator
-        self._initial_conditions = None
         self._ode_procedure = {'odeint': self._solve_odeint,
                                'ode': self._solve_ode,
                                'odespy': self._solve_odespy}
@@ -92,7 +93,7 @@ class OdeSolver(_Solver):
 
         return args
 
-    def _solve_odeint(self, fun_ode, **kwargs):
+    def _solve_odeint(self, **kwargs):
         """
         Calculate the ode equations using scipy integrate odeint solvers
 
@@ -113,14 +114,14 @@ class OdeSolver(_Solver):
         """
         args = self._args_ode_function(**kwargs)
 
-        res = odeint(fun_ode,
-                     self._initial_conditions,
-                     self.model._independent_values[self.independent],
+        res = odeint(self.fun_ode,
+                     self.initial_conditions,
+                     self.independent,
                      args=args, **self.ode_solver_options)
 
-        return res, self.model._independent_values[self.independent]
+        return res
 
-    def _solve_ode(self, fun_ode, **kwargs):
+    def _solve_ode(self, **kwargs):
         """
         Calculate the ode equations using scipy integrate ode solvers
 
@@ -145,16 +146,16 @@ class OdeSolver(_Solver):
 
         # Make wrapper function to
         def wrapper(independent_values, initial_conditions, parameters):
-            return fun_ode(initial_conditions, independent_values, parameters)
+            return self.fun(initial_conditions, independent_values, parameters)
 
         solver = ode(wrapper).set_integrator(self.ode_integrator,
                                              **self.ode_solver_options)
 
-        solver.set_initial_value(self._initial_conditions,
-                                 self.model._independent_values[self.independent][0])
+        solver.set_initial_value(self.initial_conditions,
+                                 self.independent[0])
         solver.set_f_params(*args)
 
-        xdata = self.model._independent_values[self.independent]
+        xdata = self.independent
         timesteps = xdata[1:] - xdata[:-1]
         model_output = []
         xdata = []
@@ -166,9 +167,9 @@ class OdeSolver(_Solver):
                 model_output.append(solver.y)
                 xdata.append(solver.t)
 
-        return model_output, xdata
+        return model_output
 
-    def _solve_odespy(self, fun_ode, **kwargs):
+    def _solve_odespy(self, **kwargs):
         """
         Calculate the ode equations using scipy integrate ode solvers
 
@@ -195,16 +196,16 @@ class OdeSolver(_Solver):
         args = self._args_ode_function(**kwargs)
 
         solver = odespy.__getattribute__(self.ode_integrator)
-        solver = solver(fun_ode)
+        solver = solver(self.fun_ode)
         if self.ode_solver_options is not None:
             solver.set(**self.ode_solver_options)
-        solver.set_initial_condition(self._initial_conditions)
+        solver.set_initial_condition(self.initial_conditions)
         solver.set(f_args=args)
 
-        xdata = self.model._independent_values[self.independent]
+        xdata = self.independent
         model_output, xdata = solver.solve(xdata)
 
-        return model_output, xdata
+        return model_output
 
     def solve(self, procedure='odeint', **kwargs):
         """
@@ -216,11 +217,11 @@ class OdeSolver(_Solver):
             Contains all outputs from the ode equations in function of the
             independent values
         """
-        self._initial_conditions = [self.model.initial_conditions[var]
-                                    for var in self.model._ordered_var['ode']]
+        self.initial_conditions = [self.initial_conditions[var]
+                                   for var in self.model._ordered_var['ode']]
         self._check_ode_integrator_setting(procedure)
 
-        output, xdata = self._ode_procedure[procedure](self.model.fun_ode,
+        output, xdata = self._ode_procedure[procedure](self.fun_ode,
                                                        **kwargs)
 
         result = pd.DataFrame(output, index=xdata,
@@ -228,29 +229,29 @@ class OdeSolver(_Solver):
 
         return result
 
-    def _solve_direct_lsa(self, fun_ode_lsa, dxdtheta_start,
-                          procedure='odeint', **kwargs):
-        """
-        Calculate the ode equations using scipy integrate odeint solvers
-
-        Returns
-        -------
-        result : pd.DataFrame
-            Contains all outputs from the ode equations in function of the
-            independent values
-        """
-        self._initial_conditions = [self.model.initial_conditions[var]
-                                    for var in self.model._ordered_var['ode']]
-        self._initial_conditions += _flatten_list(dxdtheta_start.tolist())
-
-        self._check_ode_integrator_setting(procedure)
-
-        output, xdata = self._ode_procedure[procedure](fun_ode_lsa, **kwargs)
-
-        #result = pd.DataFrame(output, index=xdata,
-        #                      columns=self.model._ordered_var['ode'])
-
-        return output
+#    def _solve_direct_lsa(self, fun_ode_lsa, dxdtheta_start,
+#                          procedure='odeint', **kwargs):
+#        """
+#        Calculate the ode equations using scipy integrate odeint solvers
+#
+#        Returns
+#        -------
+#        result : pd.DataFrame
+#            Contains all outputs from the ode equations in function of the
+#            independent values
+#        """
+#        self._initial_conditions = [self.model.initial_conditions[var]
+#                                    for var in self.model._ordered_var['ode']]
+#        self._initial_conditions += _flatten_list(dxdtheta_start.tolist())
+#
+#        self._check_ode_integrator_setting(procedure)
+#
+#        output, xdata = self._ode_procedure[procedure](fun_ode_lsa, **kwargs)
+#
+#        #result = pd.DataFrame(output, index=xdata,
+#        #                      columns=self.model._ordered_var['ode'])
+#
+#        return output
 
 
 class AlgebraicSolver(_Solver):

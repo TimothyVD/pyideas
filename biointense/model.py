@@ -75,6 +75,19 @@ class _BiointenseModel(BaseModel):
 
         self._initial_up_to_date = True
 
+    def _args_ode_function(self, **kwargs):
+        """
+        """
+        externalfunctions = kwargs.get('externalfunctions')
+        args = (self.fun_ode, self.initial_conditions,
+                self._independent_values.values()[0])
+        if externalfunctions:
+            args = tuple(args, (self.model.parameters, externalfunctions,))
+        else:
+            args = tuple(args, (self.model.parameters,))
+
+        return args
+
     def run(self, procedure="odeint"):
         """
         Run the model for the given set of parameters, indepentent variable
@@ -84,11 +97,15 @@ class _BiointenseModel(BaseModel):
         if not self._initial_up_to_date:
             self.initialize_model()
 
+        args = self._args_ode_function()
+
         if self._ordered_var.get('ode'):
             if self._ordered_var.get('algebraic'):
-                solver = HybridSolver(self)
+                solver = HybridSolver(self.fun_ode,)
             else:
-                solver = OdeSolver(self)
+                args =
+                solver = OdeSolver(self.fun_ode, self.initial_conditions,
+                                   self._independent_values.values()[0], args)
             result = solver.solve(procedure=procedure)#,
                                   #externalfunctions=self.externalfunctions)
         elif self._ordered_var.get('algebraic'):
