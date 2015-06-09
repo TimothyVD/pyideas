@@ -12,7 +12,9 @@ import matplotlib.pyplot as plt
 from copy import deepcopy
 from biointense.model import _BiointenseModel
 import biointense.sensitivitydefinition as sensdef
-from biointense.solver import AlgebraicSolver
+from biointense.solver import OdeSolver, AlgebraicSolver
+
+from itertools import product
 
 
 class Sensitivity(object):
@@ -419,6 +421,7 @@ class DirectLocalSensitivity(LocalSensitivity):
         self.parameters = parameters or self.model.parameters.keys()
 
         self._dxdtheta_start = None
+        self._dxdtheta_len = 0
 
         self._fun_alg = None
         self._fun_ode = None
@@ -426,6 +429,12 @@ class DirectLocalSensitivity(LocalSensitivity):
         self._fun_ode_str = None
 
         self._generate_sensitivity()
+
+
+
+    @staticmethod
+    def _flatten_list(some_list):
+        return [item for sublist in some_list for item in sublist]
 
     def _generate_sensitivity(self):
         """
@@ -436,6 +445,7 @@ class DirectLocalSensitivity(LocalSensitivity):
         if ode:
             dfdtheta, dfdx, self._dxdtheta_start = sensdef.generate_ode_sens(
                 ode, alg, self.parameters)
+            self._dxdtheta_len = self._dxdtheta_start.size
             self._fun_ode_str = sensdef.generate_ode_derivative_definition(
                                     self.model, dfdtheta, dfdx)
             exec(self._fun_ode_str)
@@ -449,21 +459,82 @@ class DirectLocalSensitivity(LocalSensitivity):
             exec(self._fun_alg_str)
             self._fun_alg = fun_alg_lsa
 
-    def _get_ode_sensitivity(self):
+    def _args_ode_function(self, fun, **kwargs):
         """
         """
-        solver
+        externalfunctions = kwargs.get('externalfunctions')
+        initial_conditions = [self.model.initial_conditions[var]
+                              for var in self.model._ordered_var['ode']]
+        initial_conditions += self._flatten_list(self._dxdtheta_start.tolist())
+        args = (fun, initial_conditions,
+                self.model._independent_values)
+        if externalfunctions:
+            args += tuple(((self.model.parameters, externalfunctions,),))
+        else:
+            args += tuple(((self.model.parameters,),))
 
-    def _get_alg_sensitivity(self):
+        return args
+
+    def _get_ode_sensitivity(self, procedure='odeint'):
         """
         """
-        solver = AlgebraicSolver(self.model)
-        return solver._solve_algebraic_lsa(self._fun_alg, self.parameters)
+        solver = OdeSolver(*self._args_ode_function(self._fun_ode))
+        model_output = solver.solve(procedure=procedure)
+        ode_values = model_output[:,:-self._dxdtheta_len]
+        model_output = model_output[:,-self._dxdtheta_len:]
+
+        dxdtheta = np.reshape(model_output, [-1,
+                                             len(self.model.initial_conditions),
+                                             len(self.parameters)])
+
+        index = pd.MultiIndex.from_arrays(self.model._independent_values.values(),
+                                          names=self.model.independent)
+
+        columns = pd.MultiIndex.from_tuples(list(product(
+                        self.model._ordered_var['ode'],
+                        self.parameters)))
+                        #, sortorder=0)
+
+
+        indep_len = len(self.model._independent_values.values()[0])
+
+        result = pd.DataFrame(model_output.reshape(indep_len, -1),
+                              index=index, columns=columns)
+        return ode_values, dxdtheta, result
+
+    def _get_alg_sensitivity(self, ode_values=None, dxdtheta=None):
+        """
+        """
+        solver = AlgebraicSolver(*self.model._args_alg_function(self._fun_alg),
+                                 ode_values=ode_values, dxdtheta=dxdtheta)
+        model_output = solver._solve_algebraic()
+
+        index = pd.MultiIndex.from_arrays(self.model._independent_values.values(),
+                                          names=self.model.independent)
+
+        columns = pd.MultiIndex.from_tuples(list(product(
+                        self.model._ordered_var['algebraic'],
+                        self.parameters)))
+                        #, sortorder=0)
+
+        indep_len = len(self.model._independent_values.values()[0])
+
+        result = pd.DataFrame(model_output.reshape(indep_len, -1),
+                              index=index, columns=columns)
+        return result
 
     def get_sensitivity(self, method='CAS'):
         """
         """
-        direct_sens = self._get_alg_sensitivity()
+        ode_values = None
+        if self._fun_ode:
+            ode_values, dxdtheta, direct_ode_sens = self._get_ode_sensitivity()
+
+        if self._fun_alg:
+            direct_alg_sens = self._get_alg_sensitivity(ode_values=ode_values,
+                                                        dxdtheta=dxdtheta)
+
+        direct_sens = pd.concat([direct_ode_sens, direct_alg_sens], axis=1)
 
         direct_sens = self._rescale_sensitivity(direct_sens, method)
 

@@ -119,6 +119,7 @@ def generate_ode_derivative_definition(model, dfdtheta, dfdx):
 
     '''
     modelstr = 'def fun_ode_lsa(odes, t, parameters, *args, **kwargs):\n'
+    modelstr += '    kiekeboe = 0\n\n'
     # Get the parameter values
     modelstr = write_parameters(modelstr, model.parameters)
     modelstr = write_whiteline(modelstr)
@@ -127,7 +128,7 @@ def generate_ode_derivative_definition(model, dfdtheta, dfdx):
     modelstr = write_whiteline(modelstr)
     # Write down necessary algebraic equations (if none, nothing written)
     modelstr = write_algebraic_lines(modelstr,
-                                            model.systemfunctions['algebraic'])
+                                     model.systemfunctions['algebraic'])
     modelstr = write_whiteline(modelstr)
 
     # Write down external called functions - not yet provided!
@@ -147,15 +148,15 @@ def generate_ode_derivative_definition(model, dfdtheta, dfdx):
                  'len(parameters)))\n\n')
 
     # Write dfdtheta as symbolic array
-    modelstr += '    dfdtheta = '
+    modelstr += '    dfdtheta = np.'
     modelstr += pprint.pformat(dfdtheta)
     # Write dfdx as symbolic array
-    modelstr += '\n    dfdx = '
+    modelstr += '\n    dfdx = np.'
     modelstr += pprint.pformat(dfdx)
     # Calculate derivative in order to integrate this
     modelstr += '\n    dxdtheta = dfdtheta + np.dot(dfdx, dxdtheta)\n'
 
-    modelstr += write_derivative_return(modelstr, model._ordered_var['ode'])
+    modelstr = write_derivative_return(modelstr, model._ordered_var['ode'])
     modelstr += ' + list(dxdtheta.reshape(-1,))\n\n'
 
     return replace_numpy_fun(modelstr)
@@ -183,6 +184,8 @@ def generate_non_derivative_part_definition(model, dgdtheta, dgdx, parameters):
     if len(model._ordered_var.get('ode', [])):
         modelstr = write_array_extraction(modelstr, model._ordered_var['ode'])
         modelstr = write_whiteline(modelstr)
+
+        modelstr += "\n    dxdtheta = kwargs.get('dxdtheta')\n"
 
     # Write down external called functions - not yet provided!
     #write_external_call(defstr, varname, fname, argnames)

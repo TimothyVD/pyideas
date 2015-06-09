@@ -17,7 +17,8 @@ except:
     INSPYRED_IMPORT = False
 
 from parameterdistribution import *
-from biointense import Model
+from biointense.modelbase import BaseModel
+from biointense.model import Model
 from time import time
 from random import Random
 
@@ -382,8 +383,13 @@ class ParameterOptimisation(_BaseOptimisation):
             independent = self.measurements._independent
             independent_var = self.measurements._independent.keys()[0]
             independent_val = self.measurements._independent.values()[0]
+            # If ODE is not starting at 0, force it to be so!
             if independent_val[0] != 0.:
                 independent[independent_var] = np.insert(independent_val, 0., 0.)
+        elif isinstance(self.model, BaseModel):
+            independent = self.measurements._independent
+        else:
+            raise Exception('This model type is not supported!')
         self.model.set_independent(independent)
 
     def local_optimize(self, pardict=None, obj_crit='wsse',
@@ -483,7 +489,7 @@ class MultiParameterOptimisation(ParameterOptimisation):
             self.model.set_initial(init_cond)
 
             indep_val = np.array(self.measurements.Data.xs(init_vals,
-                                                           level=['IPA', 'BA', 'ACE', 'MPPA']).index)
+                                                           level=['IPA', 'BA', 'ACE', 'MPPA', 'E']).index)
             if indep_val[0] != 0.0:
                 output_start = 1
                 indep_val = np.concatenate([np.array([0.]), indep_val])

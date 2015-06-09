@@ -75,13 +75,13 @@ class _BiointenseModel(BaseModel):
 
         self._initial_up_to_date = True
 
-    def _args_ode_function(self, **kwargs):
+    def _args_ode_function(self, fun, **kwargs):
         """
         """
         externalfunctions = kwargs.get('externalfunctions')
         initial_conditions = [self.initial_conditions[var]
                               for var in self._ordered_var['ode']]
-        args = (self.fun_ode, initial_conditions,
+        args = (fun, initial_conditions,
                 self._independent_values)
         if externalfunctions:
             args += tuple(((self.parameters, externalfunctions,),))
@@ -90,11 +90,11 @@ class _BiointenseModel(BaseModel):
 
         return args
 
-    def _args_alg_function(self, **kwargs):
+    def _args_alg_function(self, fun, **kwargs):
         """
         """
         externalfunctions = kwargs.get('externalfunctions')
-        args = (self.fun_alg, self._independent_values)
+        args = (fun, self._independent_values)
         if externalfunctions:
             args += tuple(((self.parameters, externalfunctions,),))
         else:
@@ -136,13 +136,13 @@ class _BiointenseModel(BaseModel):
                 ode_alg_args = self._args_ode_alg_function()
                 solver = HybridSolver(*ode_alg_args)
             else:
-                ode_args = self._args_ode_function()
+                ode_args = self._args_ode_function(self.fun_ode)
                 solver = OdeSolver(*ode_args)
             result = solver.solve(procedure=procedure)#,
                                   #externalfunctions=self.externalfunctions)
         elif alg_var:
             var = [] + alg_var
-            alg_args = self._args_alg_function()
+            alg_args = self._args_alg_function(self.fun_alg)
             solver = AlgebraicSolver(*alg_args)
             #result = solver.solve(externalfunctions=self.externalfunctions)
             result = solver.solve()
@@ -150,10 +150,10 @@ class _BiointenseModel(BaseModel):
             raise Exception("In an initialized Model, there should always "
                             "be at least a fun_ode or fun_alg.")
 
-        result = pd.DataFrame(result,
-                              index=self._independent_values.values()[0],
-                              columns=var)
-        result.index.name = self.independent[0]
+        index = pd.MultiIndex.from_arrays(self._independent_values.values(),
+                                          names=self.independent)
+        result = pd.DataFrame(result, index=index, columns=var)
+
         return result
 
     @classmethod
