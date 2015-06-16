@@ -351,6 +351,9 @@ class AlgebraicModel(_BiointenseModel):
         independent = pd.DataFrame(independent,
                                    columns=independent_dict.keys())
 
+        self._independent_len = {}
+        self._independent_values = {}
+
         for key in independent_dict.keys():
             self._independent_len[key] = len(independent_dict[key])
             self._independent_values[key] = independent[key].values

@@ -527,6 +527,10 @@ class DirectLocalSensitivity(LocalSensitivity):
         """
         """
         ode_values = None
+        dxdtheta = None
+        direct_ode_sens = None
+        direct_alg_sens = None
+
         if self._fun_ode:
             ode_values, dxdtheta, direct_ode_sens = self._get_ode_sensitivity()
 
