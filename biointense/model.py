@@ -9,6 +9,7 @@ import pandas as pd
 import itertools
 import matplotlib.pyplot as plt
 from copy import deepcopy
+import warnings
 
 from modelbase import BaseModel
 from modeldefinition import (generate_ode_derivative_definition,
@@ -74,6 +75,48 @@ class _BiointenseModel(BaseModel):
 
         self._initial_up_to_date = True
 
+    def _args_ode_function(self, fun, **kwargs):
+        """
+        """
+        externalfunctions = kwargs.get('externalfunctions')
+        initial_conditions = [self.initial_conditions[var]
+                              for var in self._ordered_var['ode']]
+        args = (fun, initial_conditions,
+                self._independent_values)
+        if externalfunctions:
+            args += tuple(((self.parameters, externalfunctions,),))
+        else:
+            args += tuple(((self.parameters,),))
+
+        return args
+
+    def _args_alg_function(self, fun, **kwargs):
+        """
+        """
+        externalfunctions = kwargs.get('externalfunctions')
+        args = (fun, self._independent_values)
+        if externalfunctions:
+            args += tuple(((self.parameters, externalfunctions,),))
+        else:
+            args += tuple(((self.parameters,),))
+
+        return args
+
+    def _args_ode_alg_function(self, **kwargs):
+        """
+        """
+        externalfunctions = kwargs.get('externalfunctions')
+        initial_conditions = [self.initial_conditions[var]
+                              for var in self._ordered_var['ode']]
+        args = (self.fun_ode, self.fun_alg, initial_conditions,
+                self._independent_values)
+        if externalfunctions:
+            args += tuple(((self.parameters, externalfunctions,),))
+        else:
+            args += tuple(((self.parameters,),))
+
+        return args
+
     def run(self, procedure="odeint"):
         """
         Run the model for the given set of parameters, indepentent variable
@@ -83,18 +126,33 @@ class _BiointenseModel(BaseModel):
         if not self._initial_up_to_date:
             self.initialize_model()
 
-        if self._ordered_var.get('ode'):
-            if self._ordered_var.get('algebraic'):
-                solver = HybridSolver(self)
+        ode_var = self._ordered_var.get('ode')
+        alg_var = self._ordered_var.get('algebraic')
+
+        if ode_var:
+            var = [] + ode_var
+            if alg_var:
+                var += alg_var
+                ode_alg_args = self._args_ode_alg_function()
+                solver = HybridSolver(*ode_alg_args)
             else:
-                solver = OdeSolver(self)
-            result = solver.solve(procedure)
-        elif self._ordered_var.get('algebraic'):
-            solver = AlgebraicSolver(self)
+                ode_args = self._args_ode_function(self.fun_ode)
+                solver = OdeSolver(*ode_args)
+            result = solver.solve(procedure=procedure)#,
+                                  #externalfunctions=self.externalfunctions)
+        elif alg_var:
+            var = [] + alg_var
+            alg_args = self._args_alg_function(self.fun_alg)
+            solver = AlgebraicSolver(*alg_args)
+            #result = solver.solve(externalfunctions=self.externalfunctions)
             result = solver.solve()
         else:
             raise Exception("In an initialized Model, there should always "
                             "be at least a fun_ode or fun_alg.")
+
+        index = pd.MultiIndex.from_arrays(self._independent_values.values(),
+                                          names=self.independent)
+        result = pd.DataFrame(result, index=index, columns=var)
 
         return result
 
@@ -108,7 +166,7 @@ class _BiointenseModel(BaseModel):
 
         # Can also be deleted
 
-    def add_event(self, variable, ext_fun, tijdsbehandeling, idname):
+    def add_event(self, idname, variable, ext_fun, arguments):
         """
         Variable is defined by external influence. This can be either a
         measured value of input (e.g. rainfall) or a function that defines
@@ -125,27 +183,35 @@ class _BiointenseModel(BaseModel):
         contacate them.
         """
         self._initial_up_to_date = False
+        self._has_external = True
 
-        return NotImplementedError
+        self.externalfunctions[idname] = {'variable': variable,
+                                          'fun': ext_fun,
+                                          'arguments': arguments}
 
     def list_current_events(self):
         """
         """
-        return NotImplementedError
+        return self.externalfunctions
 
     def exclude_event(self, idname):
         """
         """
-        return NotImplementedError
+        del self.externalfunctions[idname]
+
+        if not bool(self.externalfunctions):
+            self._has_external = False
 
     def _collect_time_steps(self):
         """
         """
         return NotImplementedError
 
+
 class Model(_BiointenseModel):
 
-    def __init__(self, name, system, parameters, comment=None):
+    def __init__(self, name, system, parameters, ode_independent='t',
+                 comment=None):
         """
         uses the "biointense"-style model definition
         >>> sir = {'dS' : '-k*I*B/N',
@@ -164,7 +230,10 @@ class Model(_BiointenseModel):
 
         # solver communication
         self.systemfunctions = {'algebraic': {}, 'ode': {}}
+        self.externalfunctions = {}
         self.initial_conditions = {}
+
+        self._ode_independent = ode_independent
 
         # detect system equations
         self._system = system
@@ -174,6 +243,8 @@ class Model(_BiointenseModel):
 
         self.fun_alg = None
         self.fun_ode = None
+
+        self._has_external = False
 
     def __repr__(self):
         """
@@ -221,7 +292,7 @@ class AlgebraicModel(_BiointenseModel):
         >>> system = {'v' : 'Vf * SA * SB/(Kp * SA + Km * SB + SA * SB)'}
         >>> param = {'Vf': 1., 'Km': 1., 'Kp': 1.}
         >>> name = 'pingpongbibi'
-        >>> AlgebraicModel(name, system, param)
+        >>> AlgebraicModel(name, system,kernel param)
         """
         self._check_if_odes(system.keys())
 
@@ -232,6 +303,7 @@ class AlgebraicModel(_BiointenseModel):
 
         # solver communication
         self.systemfunctions = {'algebraic': {}}
+        self.externalfunctions = {}
 
         # Keep track of length of individiual independent
         self._independent_len = {}
@@ -267,7 +339,7 @@ class AlgebraicModel(_BiointenseModel):
         # check the data type of the input
         if not isinstance(independent_dict, dict) and \
             not isinstance(independent_dict, pd.core.frame.DataFrame):
-                raise TypeError("independent_dict should be dict!")
+                raise TypeError("independent_dict should be dict or pd.DF!")
 
         if method == "cartesian":
             independent = list(itertools.product(*independent_dict.values()))
@@ -278,6 +350,9 @@ class AlgebraicModel(_BiointenseModel):
 
         independent = pd.DataFrame(independent,
                                    columns=independent_dict.keys())
+
+        self._independent_len = {}
+        self._independent_values = {}
 
         for key in independent_dict.keys():
             self._independent_len[key] = len(independent_dict[key])

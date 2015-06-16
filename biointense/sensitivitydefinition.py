@@ -10,6 +10,8 @@ from sympy.abc import _clash
 
 from biointense.modeldefinition import *
 
+import pprint
+
 
 def generate_ode_sens(odefunctions, algebraicfunctions, parameters):
     '''Analytic derivation of the local sensitivities of ODEs
@@ -24,7 +26,7 @@ def generate_ode_sens(odefunctions, algebraicfunctions, parameters):
     # Set up symbolic matrix of variables
     states_matrix = sympy.Matrix(sympy.sympify(odefunctions.keys(), _clash))
     # Set up symbolic matrix of parameters
-    parameter_matrix = sympy.Matrix(sympy.sympify(parameters.keys(), _clash))
+    parameter_matrix = sympy.Matrix(sympy.sympify(parameters, _clash))
 
     # Replace algebraic stuff in system_matrix to perform LSA
     if bool(algebraicfunctions):
@@ -63,7 +65,7 @@ def generate_alg_sens(odefunctions, algebraicfunctions, parameters):
         states_matrix = sympy.Matrix(sympy.sympify(odefunctions.keys(),
                                                    _clash))
     # Set up symbolic matrix of parameters
-    parameter_matrix = sympy.Matrix(sympy.sympify(parameters.keys(), _clash))
+    parameter_matrix = sympy.Matrix(sympy.sympify(parameters, _clash))
 
     algebraic_matrix = _alg_swap(algebraicfunctions)
 
@@ -117,25 +119,24 @@ def generate_ode_derivative_definition(model, dfdtheta, dfdx):
 
     '''
     modelstr = 'def fun_ode_lsa(odes, t, parameters, *args, **kwargs):\n'
+    modelstr += '    kiekeboe = 0\n\n'
     # Get the parameter values
-    modelstr = moddef.write_parameters(modelstr, model.parameters)
-    modelstr = moddef.write_whiteline(modelstr)
+    modelstr = write_parameters(modelstr, model.parameters)
+    modelstr = write_whiteline(modelstr)
     # Get the current variable values from the solver
-    modelstr = moddef.write_ode_indices(modelstr, model._ordered_var['ode'])
-    modelstr = moddef.write_whiteline(modelstr)
+    modelstr = write_ode_indices(modelstr, model._ordered_var['ode'])
+    modelstr = write_whiteline(modelstr)
     # Write down necessary algebraic equations (if none, nothing written)
-    modelstr = moddef.write_algebraic_lines(modelstr,
-                                            model.systemfunctions['algebraic'])
-    modelstr = moddef.write_whiteline(modelstr)
+    modelstr = write_algebraic_lines(modelstr,
+                                     model.systemfunctions['algebraic'])
+    modelstr = write_whiteline(modelstr)
 
     # Write down external called functions - not yet provided!
     #write_external_call(defstr, varname, fname, argnames)
     #write_whiteline(modelstr)
 
     # Write down the current derivative values
-    modelstr = moddef.write_ode_lines(modelstr, model.systemfunctions['ode'])
-    modelstr = moddef.write_derivative_return(modelstr,
-                                              model._ordered_var['ode'])
+    modelstr = write_ode_lines(modelstr, model.systemfunctions['ode'])
 
     modelstr += '\n    #Sensitivities\n\n'
 
@@ -143,24 +144,24 @@ def generate_ode_derivative_definition(model, dfdtheta, dfdx):
     modelstr += '    state_len = len(odes)/(len(parameters)+1)\n'
     # Reshape ODES input to array with right dimensions in order to perform
     # matrix multiplication
-    modelstr += ('    dxdtheta = array(odes[state_len:].reshape(state_len, '
+    modelstr += ('    dxdtheta = np.array(odes[state_len:].reshape(state_len, '
                  'len(parameters)))\n\n')
 
     # Write dfdtheta as symbolic array
-    modelstr += '    dfdtheta = '
+    modelstr += '    dfdtheta = np.'
     modelstr += pprint.pformat(dfdtheta)
     # Write dfdx as symbolic array
-    modelstr += '\n    dfdx = '
+    modelstr += '\n    dfdx = np.'
     modelstr += pprint.pformat(dfdx)
     # Calculate derivative in order to integrate this
-    modelstr += '\n    dxdtheta = dfdtheta + dot(dfdx, dxdtheta)\n'
+    modelstr += '\n    dxdtheta = dfdtheta + np.dot(dfdx, dxdtheta)\n'
 
-    modelstr += ('    return ' + str(odefunctions).replace("'", "") + " "
-                 '+ list(dxdtheta.reshape(-1,))\n\n\n')
+    modelstr = write_derivative_return(modelstr, model._ordered_var['ode'])
+    modelstr += ' + list(dxdtheta.reshape(-1,))\n\n'
 
     return replace_numpy_fun(modelstr)
 
-def generate_non_derivative_part_definition(model, dgdtheta, dgdx):
+def generate_non_derivative_part_definition(model, dgdtheta, dgdx, parameters):
     '''Write derivative of model as definition in file
 
     Writes a file with a derivative definition to run the model and
@@ -184,6 +185,8 @@ def generate_non_derivative_part_definition(model, dgdtheta, dgdx):
         modelstr = write_array_extraction(modelstr, model._ordered_var['ode'])
         modelstr = write_whiteline(modelstr)
 
+        modelstr += "\n    dxdtheta = kwargs.get('dxdtheta')\n"
+
     # Write down external called functions - not yet provided!
     #write_external_call(defstr, varname, fname, argnames)
     #write_whiteline(modelstr)
@@ -201,9 +204,9 @@ def generate_non_derivative_part_definition(model, dgdtheta, dgdx):
     # Write dgdtheta as symbolic array
     modelstr += ('    dgdtheta = np.zeros([indep_len, '
                  '' + str(len(model.systemfunctions['algebraic'].keys())) + ', '
-                 '' + str(len(model.parameters.keys())) + '])\n')
+                 '' + str(len(parameters)) + '])\n')
     for i, alg in enumerate(model.systemfunctions['algebraic'].keys()):
-        for j, par in enumerate(model.parameters.keys()):
+        for j, par in enumerate(parameters):
             modelstr += ('    dgdtheta[:,' + str(i) + ',' + str(j) + '] = '
                          '' + str(dgdtheta[i, j]) + '\n')
 

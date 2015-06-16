@@ -1808,11 +1808,11 @@ class DAErunner(object):
         coeff_matrix, enzyme_forms, enzyme_equations = self._getCoefficients(enzyme)
 
         # Add row with ones to set the sum of all enzymes equal to En0
-        coeff_matrix = coeff_matrix.col_join(sympy.ones([1,len(enzyme_forms)]))
+        coeff_matrix = coeff_matrix.col_join(sympy.ones(1, c=len(enzyme_forms)))
 
         # Make row matrix with zeros (QSSA!), but replace last element with
         # En0 for fixing total som of enzymes
-        QSSA_matrix = sympy.zeros([coeff_matrix.shape[0],1])
+        QSSA_matrix = sympy.zeros(coeff_matrix.shape[0], c=1)
         QSSA_matrix[-1] = sympy.sympify('En0')
 
         # Add column with outputs to coeff_matrix

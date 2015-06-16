@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from biointense.optimisation import _BaseOptimisation
-#from sklearn.utils.extmath import cartesian
+
 
 def A_criterion(FIM):
     '''OED design A criterion
@@ -21,6 +21,7 @@ def A_criterion(FIM):
     '''
     return np.linalg.inv(FIM).trace()
 
+
 def modA_criterion(FIM):
     '''OED design modified A criterion
     With this criterion, the trace of the inverse of the FIM is minimized,
@@ -31,6 +32,7 @@ def modA_criterion(FIM):
     numerical problems will arise when the FIM is close to singular.
     '''
     return FIM.trace(axis1=-2, axis2=-1)
+
 
 def D_criterion(FIM):
     '''OED design D criterion
@@ -49,6 +51,7 @@ def D_criterion(FIM):
     '''
     return np.linalg.det(FIM)
 
+
 def E_criterion(FIM):
     '''OED design E criterion
     The E-optimal design criterion maximizes the smallest eigenvalue of
@@ -58,6 +61,7 @@ def E_criterion(FIM):
     distance from the singular, unidentifiable case.
     '''
     return np.min(np.linalg.eigvals(FIM), axis=-1)
+
 
 def modE_criterion(FIM):
     '''OED design modE criterion
@@ -77,42 +81,49 @@ OED_CRITERIA = {'A': A_criterion, 'modA': modA_criterion, 'D': D_criterion,
 OED_CRITERIA_MAXIMIZE = {'A': False, 'modA': True, 'D': True,
                          'E': True, 'modE': False}
 
+
 class BaseOED(_BaseOptimisation):
-    """
+    r"""
     """
 
-    def __init__(self, confidence, dof_list):
+    def __init__(self, confidence, dof_list, preFIM=None):
         super(BaseOED, self).__init__(confidence.model)
         self.confidence = confidence
         self.dof = dof_list
 
+        # Take into account information of experiments which are already
+        # performed
+        self.preFIM = preFIM
+
         self._criterion = 'D'
 
     def _run_confidence(self, dof_array=None):
-        '''
+        """
         ATTENTION: Zero-point also added, need to be excluded for optimization
-        '''
-        #run option
+        """
+        # run option
         if dof_array is not None:
             # Set new parameters values
             dof_dict = self._dof_array_to_dict(dof_array)
             self._dof_dict_to_model(dof_dict)
 
-        return self.confidence.FIM
+        FIM = self.confidence.FIM
+        if self.preFIM:
+            FIM += self.preFIM
+
+        return FIM
 
     def _obj_fun(self, obj_crit, dof_array=None):
         """
         """
-        # Run model
+        # Run model & get confidence
         FIM = self._run_confidence(dof_array=dof_array)
 
-        obj_val = OED_CRITERIA[obj_crit](FIM)
-
-        return obj_val
+        return OED_CRITERIA[obj_crit](FIM)
 
     def inspyred_optimize(self, criterion='D', prng=None, approach='PSO',
-                             initial_parset=None, pop_size=16, max_eval=256,
-                             **kwargs):
+                          initial_parset=None, pop_size=16, max_eval=256,
+                          **kwargs):
         """
         """
         self._criterion = criterion
@@ -120,20 +131,21 @@ class BaseOED(_BaseOptimisation):
         def inner_obj_fun(dof_array=None):
             return self._obj_fun(obj_crit, dof_array=dof_array)
 
-        final_pop, ea = self._bioinspyred_optimize(inner_obj_fun,
-                                                   prng=prng,
-                                                   approach=approach,
-                                                   initial_parset=initial_parset,
-                                                   pop_size=pop_size,
-                                                   maximize=OED_CRITERIA_MAXIMIZE[criterion],
-                                                   max_eval=max_eval, **kwargs)
+        final_pop, ea = self._bioinspyred_optimize(
+                               inner_obj_fun,
+                               prng=prng,
+                               approach=approach,
+                               initial_parset=initial_parset,
+                               pop_size=pop_size,
+                               maximize=OED_CRITERIA_MAXIMIZE[criterion],
+                               max_eval=max_eval, **kwargs)
 
         return final_pop, ea
 
     def select_optimal_individual(self, final_pop):
-        '''
-        '''
-        if type(final_pop)!= list:
+        """
+        """
+        if type(final_pop) != list:
             raise Exception('final_pop has to be a list!')
 
         if OED_CRITERIA_MAXIMIZE[self._criterion]:
@@ -181,16 +193,95 @@ class BaseOED(_BaseOptimisation):
             if not replacement:
                 FIM_evolution[optim_indep, :, :] = 1e-20
 
-        return pd.DataFrame(experiments, columns=self.model.independent), FIM_tot
+        return (pd.DataFrame(experiments, columns=self.model.independent),
+                FIM_tot)
 
 
 class RobustOED(object):
-    def __init__(self, confidence, independent_samples=None):
+    r"""
+    The aim of Robust Optimal Experimental Design (robust OED) is to reduce
+    the dependence of the (local) design on the chosen parameter values.
+    For nonlinear models, the parameter values can have a major effect on
+    the the OED.
+
+    Parameters
+    ----------
+    confidence : biointense.confidence
+        A biointense.confidene object contains information about both the
+        model and the model uncertainty.
+    independent_samples : int
+        The number of samples for which an experimental design need to
+        be set up.
+    preFIM : numpy.ndarray
+        Array containing information already available, if preFIM is None
+        no information is taken into account to design experiments.
+
+    Examples
+    ---------
+    >>> from biointense.model import AlgebraicModel
+    >>> from biointense.sensitivity import (NumericalLocalSensitivity,
+                                        DirectLocalSensitivity)
+    >>> from biointense.confidence import TheoreticalConfidence
+    >>> from biointense.uncertainty import Uncertainty
+    >>> from biointense.oed import BaseOED, RobustOED
+    >>> from biointense.parameterdistribution import ModPar
+
+    >>> import numpy as np
+    >>> import pandas as pd
+
+    >>> # ACE = PP
+    >>> # MPPA = PQ
+
+    >>> system = {'v': ('Vr*ACE*MPPA/(Kal*ACE + Kac*MPPA + ACE*MPPA'
+                        '+ Kal/Kacs*ACE**2 + Kac/Kas*MPPA**2)')}
+    >>> parameters = {'Vr': 5.18e-4, 'Kal': 1.07, 'Kac': 0.54, 'Kacs': 1.24,
+                  'Kas': 25.82}
+
+    >>> M1 = AlgebraicModel('biointense_backward', system, parameters)
+
+    >>> ACE = np.linspace(11., 100., 100)
+    >>> MPPA = np.linspace(1., 10., 100)
+    >>> M1.set_independent({'ACE': ACE, 'MPPA': MPPA}, method='cartesian')
+
+    >>> M1.initialize_model()
+
+    >>> M1sens = DirectLocalSensitivity(M1)
+
+    >>> M1uncertainty = Uncertainty({'v': '1**2'})
+
+    >>> M1conf = TheoreticalConfidence(M1sens, M1uncertainty)
+
+    >>> M1bruteoed = BaseOED(M1conf, ['ACE', 'MPPA'])
+    >>> M1bruteoed._independent_samples = 10
+    >>> M1bruteoed.set_dof_distributions(
+                        [ModPar('ACE', 1., 100.0, 'randomUniform'),
+                         ModPar('MPPA', 1., 10.0, 'randomUniform')])
+    >>> indep_out, FIM_end = M1bruteoed.brute_oed({'ACE': 20, 'MPPA': 20},
+                                              replacement=False, criterion='D')
+    >>> plt.plot(indep_out['ACE'], indep_out['MPPA'], 'o')
+
+    >>> M1oed = RobustOED(M1conf, 5)
+
+    >>> M1oed.set_parameter_distributions(
+                        [ModPar('Vr', 1e-7, 1e-1, 'randomUniform'),
+                         ModPar('Kal', 0.01, 10, 'randomUniform'),
+                         ModPar('Kac', 0.01, 10, 'randomUniform'),
+                         ModPar('Kacs', 0.05, 10, 'randomUniform'),
+                         ModPar('Kas', 5.0, 50., 'randomUniform')])
+
+    >>> M1oed.set_independent_distributions(
+                        [ModPar('ACE', 1., 100.0, 'randomUniform'),
+                         ModPar('MPPA', 1., 10.0, 'randomUniform')])
+
+    >>> opt_independent, par_sets = M1oed.maximin(K_max=5)
+    """
+    def __init__(self, confidence, independent_samples, preFIM=None):
         """
         """
         self.confidence = confidence
         self.model = confidence.model
         self.independent_samples = independent_samples
+        self._preFIM = None
 
         self._dof = {'par': {'dof_len': None,
                              'dof_ordered': None,
@@ -204,11 +295,15 @@ class RobustOED(object):
 
         self._criterion = 'D'
 
+        self.independent_dist = None
+
     def _set_dof_distributions(self, oed_type, modpar_list, samples):
         """
+
         """
         names = [dof.name for dof in modpar_list]
-        self._oed[oed_type] = BaseOED(self.confidence, names)
+        self._oed[oed_type] = BaseOED(self.confidence, names,
+                                      preFIM=self._preFIM)
         self._oed[oed_type]._independent_samples = samples
         self._oed[oed_type].set_dof_distributions(modpar_list)
         self._dof[oed_type]['dof'] = self._oed[oed_type].dof
@@ -223,19 +318,29 @@ class RobustOED(object):
     def set_independent_distributions(self, modpar_list):
         """
         """
-        self._set_dof_distributions('ind', modpar_list, self.independent_samples)
+        self._set_dof_distributions('ind', modpar_list,
+                                    self.independent_samples)
 
-    def _outer_obj_fun(self, independent_sample, parameter_sets):
+    def _outer_obj_fun_calc(self, independent_sample, parameter_sets):
         """
         """
         self._oed['ind']._dof_array_to_model(independent_sample)
         FIM_inner = []
         for parameter_sample in parameter_sets:
-            FIM_inner.append(self._inner_obj_fun(parameter_sets, 'ind'))
+            FIM_inner.append(self._inner_obj_fun(parameter_sample, 'ind',
+                                                 dist_checker=True))
+
+        return FIM_inner
+
+    def _outer_obj_fun(self, independent_sample, parameter_sets):
+        """
+        """
+        FIM_inner = self._outer_obj_fun_calc(independent_sample,
+                                             parameter_sets)
 
         return np.min(FIM_inner)
 
-    def _inner_obj_fun(self, parameter_sample, oed_type):
+    def _inner_obj_fun(self, parameter_sample, oed_type, dist_checker=False):
         """
         """
         par_dict = self._oed[oed_type]._dof_array_to_dict_generic(
@@ -245,7 +350,31 @@ class RobustOED(object):
 
         self._oed[oed_type]._dof_dict_to_model(par_dict)
 
-        return OED_CRITERIA['D'](self._oed[oed_type].confidence.FIM)
+        dist_check = 1.
+        if dist_checker and self.independent_dist is not None:
+            dist_check = self._distance_checker(par_dict['independent'])
+
+        return dist_check*OED_CRITERIA['D'](self._oed[oed_type].confidence.FIM)
+
+    def _distance_checker(self, ind_dict):
+        """
+        """
+        array_size = [self.independent_samples, self.independent_samples]
+        ones_array = np.ones(array_size)
+        dist_tracker = np.zeros(array_size)
+
+        for ind, val in ind_dict.items():
+            ind_array = ones_array * val
+            ind_array = np.abs(ind_array - ind_array.T)
+            np.fill_diagonal(ind_array, self.independent_dist[ind])
+
+            dist_tracker += ind_array >= self.independent_dist[ind]
+
+        if 0. in dist_tracker:
+            dist_check = 0.
+        else:
+            dist_check = 1.
+        return dist_check
 
     def my_constraint_function(self, candidate):
         """Return the number of constraints that candidate violates."""
@@ -280,7 +409,7 @@ class RobustOED(object):
         """
         """
         def temp_obj_fun(parray=None):
-            return self._inner_obj_fun(parray, 'par')
+            return self._inner_obj_fun(parray, 'par', dist_checker=False)
 
         final_pop, ea = self._oed['par']._inspyred_optimize(
                              obj_fun=temp_obj_fun,
@@ -288,7 +417,7 @@ class RobustOED(object):
                              approach='PSO',
                              initial_parset=None,
                              pop_size=16,
-                             maximize=False, #only valid for D
+                             maximize=False,  # only valid for D
                              max_eval=1000,
                              **kwargs)
 
@@ -307,8 +436,11 @@ class RobustOED(object):
 
         Returns
         -------
-        independent_sample :
-
+        independent_sample : numpy.ndarray
+            Contains robust set of independent samples
+        parameter_sets : list
+            Contains set of arrays with initial parameter set and the worst
+            performing parameter samples.
 
         References
         -----------
@@ -322,14 +454,16 @@ class RobustOED(object):
         parameter_sets = [self._oed['par']._dof_dict_to_array(
                                 self.model.parameters.copy())]
 
-        self.psi_parameter = 0
-        self.psi_independent = 1
+        self.psi_parameter = [0]
+        self.psi_independent = [1]
+        self.maximin_success = False
         K = 0
 
-        while self.psi_parameter < self.psi_independent and K <= K_max:
+        while self.psi_parameter[-1] < self.psi_independent[-1] and K <= K_max:
             # Try to optimize independents to maximize D criterion
-            independent_sample, self.psi_independent = \
+            independent_sample, psi_independent = \
                 self._optimize_for_independent(parameter_sets)
+            self.psi_independent.append(psi_independent)
 
             # Convert output of independent to dof_dict output
             ind_dict = self._oed['ind']._dof_array_to_dict(independent_sample)
@@ -338,8 +472,9 @@ class RobustOED(object):
             self._oed['par']._dof_dict_to_model(ind_dict)
 
             # Try to find worst performing parameter set (min D criterion)
-            parameter_sample, self.psi_parameter = \
+            parameter_sample, psi_parameter = \
                 self._optimize_for_parameters()
+            self.psi_parameter.append(psi_parameter)
 
             # If parameter sample is not yet in parameter samples: append it.
             if not (np.any([(parameter_sample == x).all() for x in
@@ -348,5 +483,11 @@ class RobustOED(object):
 
             # Increase K
             K += 1
+
+            if self.psi_independent[-1] == 0.:
+                self.psi_independent[-1] = 1000
+
+        if self.psi_parameter[-1] >= self.psi_independent[-1]:
+            self.maximin_success = True
 
         return independent_sample, parameter_sets

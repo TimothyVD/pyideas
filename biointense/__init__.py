@@ -9,6 +9,7 @@ E-mail: stvhoey.vanhoey@ugent.be
 
 from biointense.version import version as __version__
 
+# Old Stuff
 from ode_generator import DAErunner
 from ode_maker import odemaker
 from optimalexperimentaldesign import *
@@ -17,6 +18,13 @@ from ode_optimization import *
 from plotfunctions import *
 from measurements import *
 from parameterdistribution import *
+
+# New stuff
+from model import Model, AlgebraicModel
+from solver import HybridSolver, OdeSolver, AlgebraicSolver
+from sensitivity import NumericalLocalSensitivity, DirectLocalSensitivity
+from optimisation import ParameterOptimisation, MultiParameterOptimisation
+from uncertainty import Uncertainty
 
 from biointense import __path__ as biointense_path
 BASE_DIR = biointense_path[0]

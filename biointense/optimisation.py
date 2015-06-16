@@ -17,6 +17,8 @@ except:
     INSPYRED_IMPORT = False
 
 from parameterdistribution import *
+from biointense.modelbase import BaseModel
+from biointense.model import Model
 from time import time
 from random import Random
 
@@ -71,8 +73,8 @@ class _BaseOptimisation(object):
         """
         """
         try:
-            initial_list = self.model.initial
-        except AttributeError:
+            initial_list = self.model._ordered_var['ode']
+        except KeyError:
             initial_list = []
 
         _dof_list = self._flatten_list([self.model.parameters.keys(),
@@ -175,14 +177,16 @@ class _BaseOptimisation(object):
                                                dof_array)
 
     def _dof_dict_to_model(self, dof_dict):
+        """Helper function to pass dof to model
+        bool functions are necessary, especially for the independent to avoid
+        overwriting of current independent sets by empty dicts
         """
-        """
-        self.model.set_parameters(dof_dict['parameters'])
-        try:
+        if bool(dof_dict['parameters']):
+            self.model.set_parameters(dof_dict['parameters'])
+        if bool(dof_dict['initial']):
             self.model.set_initial(dof_dict['initial'])
-        except:
-            pass
-        self.model.set_independent(dof_dict['independent'])
+        if bool(dof_dict['independent']):
+            self.model.set_independent(dof_dict['independent'])
 
     def _dof_array_to_model(self, dof_array):
         """
@@ -352,8 +356,7 @@ class ParameterOptimisation(_BaseOptimisation):
     """
     """
 
-    def __init__(self, model, measurements, optim_par=None,
-                 overwrite_independent=False):
+    def __init__(self, model, measurements, optim_par=None):
         super(ParameterOptimisation, self).__init__(model)
 
         self.measurements = measurements
@@ -363,33 +366,31 @@ class ParameterOptimisation(_BaseOptimisation):
         else:
             self.dof = self.model.parameters.keys()
 
-        self._set_independent(overwrite_independent)
+        self._set_independent()
 
         self._minvalues = None
         self._maxvalues = None
 
-    def _set_independent(self, overwrite_independent):
+    def _set_independent(self):
         """
-        """
-        independent = self.measurements.Data.index.names
-        independent_val = self.measurements.Data.index
 
-        independent_dict = {}
-        for key in independent:
-            if overwrite_independent:
-                independent_dict[key] = \
-                    independent_val.get_level_values(key).values
-            else:
-                independent_dict[key] = \
-                    np.append(self.model._independent_values[key],
-                              independent_val.get_level_values(key).values)
-        # Check for duplicates and delete those
-        independent_pd = pd.DataFrame(independent_dict)
-        # Remove any duplicates
-        independent_pd = independent_pd.drop_duplicates()
-        # Make sure the values are ordered (important for ODEs)
-        independent_pd = independent_pd.sort(columns=independent)
-        self.model.set_independent(independent_pd)
+        """
+        # If model is of Model type, only 1 independent variable can be selected
+        # this means that for ODE models it is forced that the first timestep
+        # should occur at timestep 0 instead. This is verified and overruled
+        # if necessary
+        if isinstance(self.model, Model):
+            independent = self.measurements._independent
+            independent_var = self.measurements._independent.keys()[0]
+            independent_val = self.measurements._independent.values()[0]
+            # If ODE is not starting at 0, force it to be so!
+            if independent_val[0] != 0.:
+                independent[independent_var] = np.insert(independent_val, 0., 0.)
+        elif isinstance(self.model, BaseModel):
+            independent = self.measurements._independent
+        else:
+            raise Exception('This model type is not supported!')
+        self.model.set_independent(independent)
 
     def local_optimize(self, pardict=None, obj_crit='wsse',
                        method='Nelder-Mead', *args, **kwargs):
@@ -407,7 +408,7 @@ class ParameterOptimisation(_BaseOptimisation):
                                  self._dof_dict_to_array(pardict),
                                  method, *args, **kwargs)
 
-        self._set_modmeas(self.model.run(), self.measurements.Data)
+        self._set_modmeas(self._run_model(), self.measurements.Data)
 
         return optimize_info
 
@@ -415,10 +416,12 @@ class ParameterOptimisation(_BaseOptimisation):
         """
         """
         # Run model
-        modeloutput = self._run_model(dof_array=parray)
+        model_output = self._run_model(dof_array=parray)
+        #model_output.sort_index(inplace=True)
+        data_output = self.measurements.Data
+        #data_output.sort_index(inplace=True)
 
-        obj_val = OBJECTIVE_FUNCS[obj_crit](modeloutput,
-                                            self.measurements.Data,
+        obj_val = OBJECTIVE_FUNCS[obj_crit](model_output, data_output,
                                             1./self.measurements._Error_Covariance_Matrix_PD)
 
         return obj_val
@@ -440,6 +443,74 @@ class ParameterOptimisation(_BaseOptimisation):
                                                 maximize=False,
                                                 max_eval=max_eval, **kwargs)
 
-        self._set_modmeas(self.model.run(), self.measurements.Data)
+        self._set_modmeas(self._run_model(), self.measurements.Data)
 
         return final_pop, ea
+
+
+class MultiParameterOptimisation(ParameterOptimisation):
+    """
+    """
+    def __init__(self, model, measurements, optim_par=None,
+                 independent_var='t'):
+        super(ParameterOptimisation, self).__init__(model)
+
+        self.measurements = measurements
+        self._independent_var = independent_var
+
+        if optim_par is not None:
+            self.dof = optim_par
+        else:
+            self.dof = self.model.parameters.keys()
+
+        #
+        measurement_index = measurements.Data.index
+        drop_independent_level = measurement_index.droplevel(self._independent_var)
+        # Keep unique initial conditions
+        self.conditions = {}
+        self.conditions['values'] = drop_independent_level.unique()
+        # Save order of values
+        self.conditions['names'] = drop_independent_level.names
+
+    def _run_model(self, dof_array=None):
+        '''
+        ATTENTION: Zero-point also added, need to be excluded for optimization
+        '''
+        all_model_output = None
+        output_start = 0
+
+        if dof_array is not None:
+            # Set new parameters values
+            dof_dict = self._dof_array_to_dict(dof_array)
+            self._dof_dict_to_model(dof_dict)
+
+        for init_vals in self.conditions['values']:
+            init_cond = dict(zip(self.conditions['names'], init_vals))
+            self.model.set_initial(init_cond)
+
+            indep_val = np.array(self.measurements.Data.xs(init_vals,
+                                                           level=['IPA', 'BA', 'ACE', 'MPPA', 'E']).index)
+            if indep_val[0] != 0.0:
+                output_start = 1
+                indep_val = np.concatenate([np.array([0.]), indep_val])
+            self.model.set_independent({'t': indep_val})
+
+            model_output = self.model.run()
+
+            if all_model_output is None:
+                all_model_output = model_output.iloc[output_start:]
+            else:
+                all_model_output = pd.concat([all_model_output,
+                                              model_output.iloc[output_start:]],
+                                             axis=0)
+
+        all_model_output.index = self.measurements.Data.index
+        return all_model_output
+
+#    def _set_independent(self, independent_val):
+#        """
+#        """
+#        independent_dict = {}
+#        independent_dict[self._independent_var] = independent_val
+#        self.model.set_independent(independent_dict)
+
