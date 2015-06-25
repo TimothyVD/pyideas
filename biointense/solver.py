@@ -226,56 +226,6 @@ class AlgebraicSolver(_Solver):
 
         return model_output
 
-#    def _solve_algebraic_generic(self, alg_function, *args, **kwargs):
-#        """
-#        """
-#        model_output = alg_function(self.model._independent_values,
-#                                    self.model.parameters,
-#                                    *args, **kwargs)
-#
-#        return model_output
-#
-#    def _solve_algebraic(self, *args, **kwargs):
-#        """
-#        """
-#
-#        model_output = self._solve_algebraic_generic(self.model.fun_alg, *args,
-#                                                     **kwargs)
-#
-#        # TODO! Is dict for (Algebraic)model, but not for optim
-#        if isinstance(self.model._independent_values, dict):
-#            independent = self.model._independent_values.values()
-#        elif isinstance(self.model._independent_values, pd.DataFrame):
-#            independent = self.model._independent_values.values
-#        else:
-#            raise Exception('Independent needs to be dict of array(s)!')
-#        index = pd.MultiIndex.from_arrays(independent,
-#                                          names=self.model.independent)
-#        result = pd.DataFrame(model_output,
-#                              index=index,
-#                              columns=self.model._ordered_var['algebraic'])
-#        return result
-#
-#    def _solve_algebraic_lsa(self, alg_function, parameters, *args, **kwargs):
-#        """
-#        """
-#        model_output = self._solve_algebraic_generic(alg_function, *args,
-#                                                     **kwargs)
-#
-#        index = pd.MultiIndex.from_arrays(self.model._independent_values.values(),
-#                                          names=self.model.independent)
-#
-#        columns = pd.MultiIndex.from_tuples(list(product(
-#                        self.model._ordered_var['algebraic'], parameters)))
-#                        #, sortorder=0)
-#
-#        indep_len = len(self.model._independent_values.values()[0])
-#
-#        result = pd.DataFrame(model_output.reshape(indep_len, -1),
-#                              index=index, columns=columns)
-#
-#        return result
-
     def solve(self):
         """
         Calculate the algebraic equations in function of the independent values

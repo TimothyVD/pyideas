@@ -13,15 +13,15 @@ import nose
 from pandas.util.testing import assert_almost_equal
 import biointense
 
-def test_LSA():
-    output = {}
-    # set working directory on super folder
-    execfile(str(os.path.join(biointense.BASE_DIR, "..", "examples", "LSA_alg_ode.py")),
-	     output)
-    
-    dir_sens, num_sens = output['LSA_comparison']()
+execfile(str(os.path.join(biointense.BASE_DIR, "..", "examples", "LSA_alg_ode.py")))
 
-    assert_almost_equal(dir_sens, num_sens)
+def test_LSA():
+
+    dir_sens, num_sens = LSA_comparison()
+
+    assert (dir_sens - num_sens).abs().max().max() > 1e-7, ('Direct sens is '
+                                                            'not equal to '
+                                                            'numerical sens')
 
 if __name__ == '__main__':
     nose.runmodule(argv=[__file__, '-vvs', '-x', '--pdb', '--pdb-failure'],
