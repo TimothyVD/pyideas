@@ -436,26 +436,39 @@ class DirectLocalSensitivity(LocalSensitivity):
     def _flatten_list(some_list):
         return [item for sublist in some_list for item in sublist]
 
+    @staticmethod
+    def _get_ordered_values(var, functions):
+        return [functions.get(i) for i in var]
+
     def _generate_sensitivity(self):
         """
         """
-        ode = self.model.systemfunctions.get('ode', None)
-        alg = self.model.systemfunctions.get('algebraic', None)
+        odevar = self.model._ordered_var.get('ode', None)
+        odefun = self.model.systemfunctions.get('ode', None)
+        odefun_ord = self._get_ordered_values(odevar, odefun)
+        algvar = self.model._ordered_var.get('algebraic', None)
+        algfun = self.model.systemfunctions.get('algebraic', None)
+        algfun_ord = self._get_ordered_values(algvar, algfun)
 
-        if ode:
+        if odevar:
             dfdtheta, dfdx, self._dxdtheta_start = sensdef.generate_ode_sens(
-                ode, alg, self.parameters)
+                odevar, odefun_ord, algvar, algfun_ord, self.parameters)
+            self.dfdtheta = dfdtheta
+            self.dfdx = dfdx
             self._dxdtheta_len = self._dxdtheta_start.size
             self._fun_ode_str = sensdef.generate_ode_derivative_definition(
-                                    self.model, dfdtheta, dfdx)
+                                   self.model, dfdtheta, dfdx, self.parameters)
             exec(self._fun_ode_str)
             self._fun_ode = fun_ode_lsa
 
-        if alg:
-            dgdtheta, dgdx = sensdef.generate_alg_sens(ode, alg,
+        if algvar:
+            dgdtheta, dgdx = sensdef.generate_alg_sens(odevar, odefun_ord,
+                                                       algvar, algfun_ord,
                                                        self.parameters)
+            self.dgdtheta = dgdtheta
+            self.dgdx = dgdx
             self._fun_alg_str = sensdef.generate_non_derivative_part_definition(
-                                    self.model, dgdtheta, dgdx, self.parameters)
+                                   self.model, dgdtheta, dgdx, self.parameters)
             exec(self._fun_alg_str)
             self._fun_alg = fun_alg_lsa
 
