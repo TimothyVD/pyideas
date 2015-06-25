@@ -38,13 +38,13 @@ model._ordered_var = {'algebraic': ['W']}
 
 from biointense.solver import AlgebraicSolver
 
-solver = AlgebraicSolver(model)
+solver = AlgebraicSolver(model.fun_alg, model._independent_values,
+                         (model.parameters,))
 result = solver.solve()
-result.plot()
 
 
 def test_model():
-    assert result['W'].values[-1] == 9.4492688322077534
+    assert result[-1] == 9.4492688322077534
 
 
 if __name__ == "__main__":

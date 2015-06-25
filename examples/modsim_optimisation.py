@@ -62,8 +62,8 @@ def run_modsim_models_new():
 
     M1.run()
 
-    optim = ParameterOptimisation(M1 , measurements, ['W0', 'Wf', 'mu'],
-                                  overwrite_independent=True)
+    optim = ParameterOptimisation(M1 , measurements,
+                                  optim_par=['W0', 'Wf', 'mu'])
 
 #    optim.set_dof_distributions([ModPar('W0', 0.0, 20.0, 'randomUniform'),
 #                                 ModPar('Wf', 0.0, 20.0, 'randomUniform'),

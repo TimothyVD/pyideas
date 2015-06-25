@@ -10,6 +10,7 @@ import numpy as np
 from numpy.testing import assert_almost_equal
 
 from biointense.modelbase import BaseModel
+from biointense.solver import OdeSolver
 
 
 def ode_model_function(ODES, t, parameters):
@@ -31,7 +32,6 @@ def ode_model_function(ODES, t, parameters):
 
 model = BaseModel('test', {})
 
-#model.systemfunctions['ode'] = ode_model_function
 model.fun_ode = ode_model_function
 
 model.parameters = {'mu_max': 0.4, 'K_S': 0.015, 'Q_in': 2, 'Ys': 0.67,
@@ -42,20 +42,18 @@ model._independent_values = {'t': np.linspace(0, 100, 5000)}
 model._ordered_var = {'ode': ['S', 'X']}
 model.initial_conditions = {'S': 0.02, 'X': 5e-5}
 
-from biointense.solver import OdeSolver
+initial_val = [model.initial_conditions.get(var) for var in model._ordered_var['ode']]
 
-solver = OdeSolver(model)
+solver = OdeSolver(model.fun_ode, model.initial_conditions.values(),
+                   model._independent_values, (model.parameters,))
 
 result = solver.solve(procedure="ode")
-
-result['S'].plot()
-result['X'].plot()
 
 
 def test_model():
 
-    assert_almost_equal(result['S'].values[-1], 0.005000024265007, decimal=14)
-    assert_almost_equal(result['X'].values[-1], 0.010049986013158, decimal=14)
+    assert_almost_equal(result[-1, 0], 0.0049996401543859316, decimal=10)
+    assert_almost_equal(result[-1, 1], 0.010050542322437175, decimal=10)
 
 if __name__ == "__main__":
     test_model()

@@ -29,7 +29,7 @@ def test_alg_state():
 
     x = np.linspace(0, 10, 11)
     model.set_initial({'P': 50, 'S': 10})
-    model.set_independent('t', x)
+    model.set_independent({'t': x})
 
     result = model.run()
 
@@ -57,7 +57,7 @@ def test_alg_substitution():
     model = Model('simple_test', system, parameters)
     x = np.linspace(0, 10, 11)
     model.set_initial({'P': 50, 'S': 10})
-    model.set_independent('t', x)
+    model.set_independent({'t': x})
 
     result = model.run()
 

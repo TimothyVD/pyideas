@@ -55,7 +55,7 @@ class TestAlgebraicModel(unittest.TestCase):
                       'mu': 0.0659}
 
         model = Model('Modsim1', system, parameters)
-        model.set_independent('t', np.linspace(0, 72, 1000))
+        model.set_independent({'t': np.linspace(0, 72, 1000)})
         model.initialize_model()
 
         #str version check
@@ -101,14 +101,14 @@ class TestOdeModel(unittest.TestCase):
                       'S_in': 0.02, 'V': 20}
 
         model = Model('Fermentor', ODE, parameters)
-        model.set_independent('t', [0.02, 5e-5])
+        model.set_independent({'t': [0.02, 5e-5]})
         model.initialize_model()
 
         #str version check
-        algref = "def fun_alg(independent, parameters, *args, **kwargs):\n    t = independent['t']\n\n    K_S = parameters['K_S']\n    mu_max = parameters['mu_max']\n    Q_in = parameters['Q_in']\n    V = parameters['V']\n    Ys = parameters['Ys']\n    S_in = parameters['S_in']\n\n    solved_variables = args[0]\n    S = solved_variables[:, 0]\n    X = solved_variables[:, 1]\n\n    P = Q_in*t/X + np.zeros(len(t))\n\n    nonder = np.array([P]).T\n    return nonder"
+        algref = "def fun_alg(independent, parameters, *args, **kwargs):\n    t = independent['t']\n\n    K_S = parameters['K_S']\n    mu_max = parameters['mu_max']\n    Q_in = parameters['Q_in']\n    V = parameters['V']\n    Ys = parameters['Ys']\n    S_in = parameters['S_in']\n\n    solved_variables = kwargs.get('ode_values')\n    S = solved_variables[:, 0]\n    X = solved_variables[:, 1]\n\n    P = Q_in*t/X + np.zeros(len(t))\n\n    nonder = np.array([P]).T\n    return nonder"
         assert algref == model.fun_alg_str
 
-        oderef  = "def fun_ode(odes, t, parameters, *args, **kwargs):\n    K_S = parameters['K_S']\n    mu_max = parameters['mu_max']\n    Q_in = parameters['Q_in']\n    V = parameters['V']\n    Ys = parameters['Ys']\n    S_in = parameters['S_in']\n\n    S = odes[0]\n    X = odes[1]\n\n    P = Q_in*t/X\n\n    dX = -Q_in/V*X+mu_max*S/(S+K_S)*X\n    dS = Q_in/V*(S_in-S)-1/Ys*mu_max*S/(S+K_S)*X\n    return [dS, dX]\n\n"
+        oderef  = "def fun_ode(odes, t, parameters, *args, **kwargs):\n    K_S = parameters['K_S']\n    mu_max = parameters['mu_max']\n    Q_in = parameters['Q_in']\n    V = parameters['V']\n    Ys = parameters['Ys']\n    S_in = parameters['S_in']\n\n    S = odes[0]\n    X = odes[1]\n\n    P = Q_in*t/X\n\n    dX = -Q_in/V*X+mu_max*S/(S+K_S)*X\n    dS = Q_in/V*(S_in-S)-1/Ys*mu_max*S/(S+K_S)*X\n    return [dS, dX]"
         assert oderef == model.fun_ode_str
 
         result = model.fun_ode(model._independent_values['t'], np.nan, parameters)

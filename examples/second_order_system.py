@@ -55,7 +55,7 @@ def run_second_order_new():
 
     M1 = Model('second_order', system, parameters)
     M1.set_initial({'x1': 0, 'x2': 0})
-    M1.set_independent('t', np.linspace(0, 20, 10000))
+    M1.set_independent({'t': np.linspace(0, 20, 10000)})
     output = M1.run()
     output['x1'].plot(style='--', c='r', linewidth='2')
 
