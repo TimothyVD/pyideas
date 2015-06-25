@@ -453,8 +453,6 @@ class DirectLocalSensitivity(LocalSensitivity):
         if odevar:
             dfdtheta, dfdx, self._dxdtheta_start = sensdef.generate_ode_sens(
                 odevar, odefun_ord, algvar, algfun_ord, self.parameters)
-            self.dfdtheta = dfdtheta
-            self.dfdx = dfdx
             self._dxdtheta_len = self._dxdtheta_start.size
             self._fun_ode_str = sensdef.generate_ode_derivative_definition(
                                    self.model, dfdtheta, dfdx, self.parameters)
@@ -465,8 +463,6 @@ class DirectLocalSensitivity(LocalSensitivity):
             dgdtheta, dgdx = sensdef.generate_alg_sens(odevar, odefun_ord,
                                                        algvar, algfun_ord,
                                                        self.parameters)
-            self.dgdtheta = dgdtheta
-            self.dgdx = dgdx
             self._fun_alg_str = sensdef.generate_non_derivative_part_definition(
                                    self.model, dgdtheta, dgdx, self.parameters)
             exec(self._fun_alg_str)
