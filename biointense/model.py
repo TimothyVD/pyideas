@@ -209,6 +209,42 @@ class _BiointenseModel(BaseModel):
 
 
 class Model(_BiointenseModel):
+    """
+    The Model instance provides the ability to construct a model consisting of
+    algebraic equations, ordinary differential equations or a combination of
+    both.
+
+    Parameters
+    -----------
+    modelname : string
+        String name to define the model
+    system : dict
+        dict containing all equations (algebraic equations and ODEs). The keys
+        of the algebraic variables are just the algebriac variables itself. The
+        keys of the ODEs are 'd' plus the name of the state.
+    parameters : dict
+        dict with parameter names as keys, parameter values are the
+        values of the dictionary
+
+
+    Examples
+    ---------
+    >>> import numpy as np
+    >>> from biointense import Model
+    >>> parameters = {'Km': 150.,     # mM
+                      'Vmax': 0.768,  # mumol/(min*U)
+                      'E': 0.68}      # U/mL
+    >>> system = {'v': 'Vmax*S/(Km + S)',
+                  'dS': '-v*E',
+                  'dP': 'v*E'}
+
+    >>> M1 = Model('Michaelis-Menten', system, parameters)
+    >>> M1.set_initial({'S':500.,
+                        'P':0.})
+    >>> M1.set_independent({'t': np.linspace(0, 2500, 10000)})
+    >>> #run the model
+    >>> modeloutput = M1.run()
+    """
 
     def __init__(self, name, system, parameters, ode_independent='t',
                  comment=None):
@@ -285,6 +321,41 @@ class Model(_BiointenseModel):
 
 
 class AlgebraicModel(_BiointenseModel):
+    """
+    The AlgebraicModel instance provides the ability to construct a model
+    consisting of only algebraic equations, but with the ability to define
+    multiple independent variables at once.
+
+    Parameters
+    -----------
+    modelname : string
+        String name to define the model
+    system : dict
+        dict containing all algebraic equations. The keys
+        of the algebraic variables are just the algebriac variables itself
+    parameters : dict
+        dict with parameter names as keys, parameter values are the
+        values of the dictionary
+
+
+    Examples
+    ---------
+    >>> import numpy as np
+    >>> from biointense import AlgebraicModel
+    >>> parameters = {'Km': 150.,     # mM
+                      'Kp': 200.,
+                      'Vmax': 0.768,  # mumol/(min*U)
+                      'E': 0.68}      # U/mL
+    >>> system = {'v': 'Vmax*A*B/(Km*B + Kp*A + A*B)'}
+
+    >>> M1 = AlgebraicModel('Double-Michaelis-Menten', system, parameters)
+    >>> M1.set_independent({'A': np.linspace(0, 400, 25),
+                            'B': np.linspace(0, 400, 25)},
+                            method='cartesian')
+    >>> #run the model
+    >>> modeloutput = M1.run()
+    >>> M1.plot_contourf('A', 'B', modeloutput)
+    """
 
     def __init__(self, name, system, parameters, comment=None):
         """
@@ -335,6 +406,30 @@ class AlgebraicModel(_BiointenseModel):
 
     def set_independent(self, independent_dict, method='direct'):
         """
+        Method to set the independent values of the AlgebraicModel instance.
+        For the algebraic model it is possible to pass multiple independent
+        arrays.
+
+        Parameters
+        -----------
+        independent_dict: dict
+            dict containing one or multiple key(s), each key is related with a
+            numpy array.
+        method: 'direct'|'cartesian'
+            When passing multiple independents, these can be aligned in
+            different ways. The first option is 'direct', which means that all
+            arrays of the independent have the same length and the number of
+            calculations is equal to the length of one array. The second option
+            is 'cartesian' in which all possible combinations between the
+            different independent values are generated. In case of two
+            independents, one will have independent1*independent2 number of
+            calculations.
+
+        Example
+        --------
+        >>> M1.set_independent({'A': np.linspace(0, 400, 25),
+                                'B': np.linspace(0, 400, 25)},
+                               method='cartesian')
         """
         # check the data type of the input
         if not isinstance(independent_dict, dict) and \
@@ -362,6 +457,17 @@ class AlgebraicModel(_BiointenseModel):
     def plot_contourf(self, independent_x, independent_y, output, ax=None,
                       **kwargs):
         """
+        Parameters
+        -----------
+        independent_x: string
+            Independent of interest to be shown at the x-axis.
+        independent_y: string
+            Independent of interest to be shown at the y-axis.
+        output: pandas.Series
+            algebraic equation to be shown as a contourplot (in function of
+            independent_x and independent_y)
+        ax: matplotlib.ax
+            Pass ax to plot on.
         """
         shape = self._independent_len.values()
         x = np.reshape(self._independent_values[independent_x], shape)
