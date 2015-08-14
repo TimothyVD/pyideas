@@ -359,11 +359,6 @@ class AlgebraicModel(_BiointenseModel):
 
     def __init__(self, name, system, parameters, comment=None):
         """
-        uses the "biointense"-style model definition
-        >>> system = {'v' : 'Vf * SA * SB/(Kp * SA + Km * SB + SA * SB)'}
-        >>> param = {'Vf': 1., 'Km': 1., 'Kp': 1.}
-        >>> name = 'pingpongbibi'
-        >>> AlgebraicModel(name, system,kernel param)
         """
         self._check_if_odes(system.keys())
 

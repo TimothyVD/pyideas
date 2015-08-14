@@ -10,12 +10,11 @@ E-mail: stvhoey.vanhoey@ugent.be
 from biointense.version import version as __version__
 
 # Old Stuff
-from ode_generator import DAErunner
-from ode_maker import odemaker
-from optimalexperimentaldesign import *
-from ode_optimization import *
+#from ode_generator import DAErunner
+#from optimalexperimentaldesign import *
+#from ode_optimization import *
 
-from plotfunctions import *
+#from plotfunctions import *
 from measurements import *
 from parameterdistribution import *
 
