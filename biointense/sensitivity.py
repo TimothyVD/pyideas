@@ -495,7 +495,10 @@ class DirectLocalSensitivity(LocalSensitivity):
         """
         odevar = self.model._ordered_var.get('ode', None)
         odefun = self.model.systemfunctions.get('ode', None)
-        odefun_ord = self._get_ordered_values(odevar, odefun)
+        if odefun is not None:
+            odefun_ord = self._get_ordered_values(odevar, odefun)
+        else:
+            odefun_ord = None
         algvar = self.model._ordered_var.get('algebraic', None)
         algfun = self.model.systemfunctions.get('algebraic', None)
         algfun_ord = self._get_ordered_values(algvar, algfun)
@@ -546,8 +549,8 @@ class DirectLocalSensitivity(LocalSensitivity):
                                              len(self.model.initial_conditions),
                                              len(self.parameters)])
 
-        index = pd.MultiIndex.from_arrays(self.model._independent_values.values(),
-                                          names=self.model.independent)
+        #index = pd.MultiIndex.from_arrays(self.model._independent_values.values(),
+        #                                  names=self.model.independent)
 
         columns = pd.MultiIndex.from_tuples(list(product(
                         self.model._ordered_var['ode'],
@@ -557,8 +560,10 @@ class DirectLocalSensitivity(LocalSensitivity):
 
         indep_len = len(self.model._independent_values.values()[0])
 
+#        result = pd.DataFrame(model_output.reshape(indep_len, -1),
+#                              index=index, columns=columns)
         result = pd.DataFrame(model_output.reshape(indep_len, -1),
-                              index=index, columns=columns)
+                              columns=columns)
         return ode_values, dxdtheta, result
 
     def _get_alg_sensitivity(self, ode_values=None, dxdtheta=None):
@@ -568,8 +573,8 @@ class DirectLocalSensitivity(LocalSensitivity):
                                  ode_values=ode_values, dxdtheta=dxdtheta)
         model_output = solver._solve_algebraic()
 
-        index = pd.MultiIndex.from_arrays(self.model._independent_values.values(),
-                                          names=self.model.independent)
+        #index = pd.MultiIndex.from_arrays(self.model._independent_values.values(),
+        #                                  names=self.model.independent)
 
         columns = pd.MultiIndex.from_tuples(list(product(
                         self.model._ordered_var['algebraic'],
@@ -578,8 +583,10 @@ class DirectLocalSensitivity(LocalSensitivity):
 
         indep_len = len(self.model._independent_values.values()[0])
 
+        #result = pd.DataFrame(model_output.reshape(indep_len, -1),
+        #                      index=index, columns=columns)
         result = pd.DataFrame(model_output.reshape(indep_len, -1),
-                              index=index, columns=columns)
+                              columns=columns)
         return result
 
     def get_sensitivity(self, method='CAS'):

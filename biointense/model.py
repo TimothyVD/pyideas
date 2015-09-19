@@ -150,9 +150,10 @@ class _BiointenseModel(BaseModel):
             raise Exception("In an initialized Model, there should always "
                             "be at least a fun_ode or fun_alg.")
 
-        index = pd.MultiIndex.from_arrays(self._independent_values.values(),
-                                          names=self.independent)
-        result = pd.DataFrame(result, index=index, columns=var)
+        #index = pd.MultiIndex.from_arrays(self._independent_values.values(),
+        #                                  names=self.independent)
+        #result = pd.DataFrame(result, index=index, columns=var)
+        result = pd.DataFrame(result, columns=var)
 
         return result
 
@@ -427,9 +428,9 @@ class AlgebraicModel(_BiointenseModel):
                                method='cartesian')
         """
         # check the data type of the input
-        if not isinstance(independent_dict, dict) and \
-            not isinstance(independent_dict, pd.core.frame.DataFrame):
-                raise TypeError("independent_dict should be dict or pd.DF!")
+#        if not (isinstance(independent_dict, dict) or
+#                isinstance(independent_dict, pd.core.frame.DataFrame)):
+#            raise TypeError("independent_dict should be dict or pd.DF!")
 
         if method == "cartesian":
             independent = list(itertools.product(*independent_dict.values()))
