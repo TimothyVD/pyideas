@@ -208,6 +208,34 @@ def _order_algebraic(algebraic_right_side):
 
     return alg_key_list, alg_val_list
 
+def _write_algebraic_lines(defstr, algebraic_right_side, independent_var=None):
+    """
+    Based on the model equations of the algebraic-part model, the equations are
+    printed in the function
+
+    Parameters
+    -----------
+    defstr : str
+        str containing the definition to solve in model
+    algebraic_right_side : dict
+        dict of variables with their corresponding right hand side part of
+        the equation
+    independent_var : str
+        name of the independent variable, if None the length is not adapted to
+        that one of the independent_var
+    """
+    varnames, expressions = _order_algebraic(algebraic_right_side)
+    for i, varname in enumerate(varnames):
+        expression = replace_numpy_fun(expressions[i])
+
+        if independent_var is None:
+            defstr += '    {0} = {1}\n'.format(varname, str(expression))
+        else:
+            defstr += '    {0} = {1} + np.zeros(len({2}))\n'.format(varname,
+                                                                    str(expression),
+                                                                    independent_var)
+    return defstr
+
 def write_algebraic_lines(defstr, algebraic_right_side):
     """
     Based on the model equations of the algebraic-part model, the equations are
@@ -221,11 +249,7 @@ def write_algebraic_lines(defstr, algebraic_right_side):
         dict of variables with their corresponding right hand side part of
         the equation
     """
-    varnames, expressions = _order_algebraic(algebraic_right_side)
-    for i, varname in enumerate(varnames):
-        expression = replace_numpy_fun(expressions[i])
-        #defstr += '    ' + varname + ' = ' + str(expression) + '\n'
-        defstr += '    {0} = {1}\n'.format(varname, str(expression))
+    defstr = _write_algebraic_lines(defstr, algebraic_right_side)
     return defstr
 
 def write_algebraic_solve(defstr, algebraic_right_side, independent_var):
@@ -243,12 +267,8 @@ def write_algebraic_solve(defstr, algebraic_right_side, independent_var):
     independent_var : str
         name of the independent variable
     """
-    varnames, expressions = _order_algebraic(algebraic_right_side)
-    for i, varname in enumerate(varnames):
-        expression = replace_numpy_fun(expressions[i])
-        #defstr += '    ' + varname + ' = ' + str(expression) + '\n'
-        defstr += '    {0} = {1} + np.zeros(len('.format(varname, str(expression)) \
-                      + independent_var + '))\n'
+    defstr = _write_algebraic_lines(defstr, algebraic_right_side,
+                                    independent_var=independent_var)
     return defstr
 
 def write_ode_lines(defstr, ode_right_side):
