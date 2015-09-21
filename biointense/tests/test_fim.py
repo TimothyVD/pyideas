@@ -8,10 +8,14 @@ Created on Mon Mar 31 16:45:57 2014
 #general python imports
 from __future__ import division
 import pandas as pd
+import numpy as np
 from collections import OrderedDict
 
 #bio-intense custom developments
-from biointense import *
+from biointense.ode_generator import DAErunner
+from biointense.ode_optimization import ode_optimizer
+from biointense.measurements_old import ode_measurements
+from biointense.optimalexperimentaldesign import ode_FIM
 
 from numpy.testing import assert_allclose
 
@@ -38,7 +42,7 @@ class TestFIM(object):
 
         Alg = {'W':'W0*Wf/(W0+(Wf-W0)*exp(-mu*t))'}
 
-        M1 = DAErunner(Parameters = Parameters, Modelname ='Modsim1', Algebraic = Alg)
+        M1 = DAErunner(Parameters=Parameters, Modelname ='Modsim1', Algebraic=Alg)
 
         M1.set_xdata({'start':0,'end':72,'nsteps':1000})
         M1.set_measured_states(['W'])
@@ -76,7 +80,7 @@ class TestFIM(object):
 
         Alg = {'W':'W0*Wf/(W0+(Wf-W0)*exp(-mu*t))'}
 
-        M1 = DAErunner(Parameters = Parameters, Modelname ='Modsim1', Algebraic = Alg)
+        M1 = DAErunner(Parameters=Parameters, Modelname='Modsim1', Algebraic=Alg)
 
         M1.set_xdata({'start':0,'end':72,'nsteps':1000})
         M1.set_measured_states(['W'])

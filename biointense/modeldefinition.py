@@ -224,16 +224,17 @@ def _write_algebraic_lines(defstr, algebraic_right_side, independent_var=None):
         name of the independent variable, if None the length is not adapted to
         that one of the independent_var
     """
-    varnames, expressions = _order_algebraic(algebraic_right_side)
-    for i, varname in enumerate(varnames):
-        expression = replace_numpy_fun(expressions[i])
+    if algebraic_right_side:
+        varnames, expressions = _order_algebraic(algebraic_right_side)
+        for i, varname in enumerate(varnames):
+            expression = replace_numpy_fun(expressions[i])
 
-        if independent_var is None:
-            defstr += '    {0} = {1}\n'.format(varname, str(expression))
-        else:
-            defstr += '    {0} = {1} + np.zeros(len({2}))\n'.format(varname,
-                                                                    str(expression),
-                                                                    independent_var)
+            if independent_var is None:
+                defstr += '    {0} = {1}\n'.format(varname, str(expression))
+            else:
+                defstr += '    {0} = {1} + np.zeros(len({2}))\n'.format(varname,
+                                                                        str(expression),
+                                                                        independent_var)
     return defstr
 
 def write_algebraic_lines(defstr, algebraic_right_side):
