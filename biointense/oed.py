@@ -281,7 +281,7 @@ class RobustOED(object):
         self.confidence = confidence
         self.model = confidence.model
         self.independent_samples = independent_samples
-        self._preFIM = None
+        self._preFIM = preFIM
 
         self._dof = {'par': {'dof_len': None,
                              'dof_ordered': None,

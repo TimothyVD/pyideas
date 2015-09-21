@@ -9,9 +9,11 @@ import pandas as pd
 import os
 
 import biointense
-from biointense.model import AlgebraicModel
-from biointense.optimisation import ParameterOptimisation
-from biointense import ModPar
+from biointense import (AlgebraicModel, ParameterOptimisation, ModPar,
+                        ode_measurements)
+from biointense.ode_generator import DAErunner
+from biointense.ode_optimization import ode_optimizer
+from biointense.measurements_old import ode_measurements as ode_measurements_old
 
 
 def run_modsim_models_old():
@@ -19,7 +21,7 @@ def run_modsim_models_old():
     file_path = os.path.join(biointense.BASE_DIR, '..', 'examples', 'data',
                              'grasdata.csv')
     data = pd.read_csv(file_path, header=0, names=['time', 'W'])
-    measurements = biointense.ode_measurements(data)
+    measurements = ode_measurements_old(data)
 
     # Logistic
 
@@ -29,13 +31,13 @@ def run_modsim_models_old():
 
     Alg = {'W': 'W0*Wf/(W0+(Wf-W0)*exp(-mu*t))'}
 
-    M1 = biointense.DAErunner(Parameters=Parameters, Algebraic=Alg,
-                              Modelname='Modsim1', print_on=False)
+    M1 = DAErunner(Parameters=Parameters, Algebraic=Alg,
+                   Modelname='Modsim1', print_on=False)
 
     M1.set_xdata({'start': 0, 'end': 72, 'nsteps': 1000})
     M1.set_measured_states(['W'])
 
-    optim = biointense.ode_optimizer(M1, measurements, print_on=False)
+    optim = ode_optimizer(M1, measurements, print_on=False)
 
     return optim.local_parameter_optimize(add_plot=False).x
 
@@ -44,7 +46,8 @@ def run_modsim_models_new():
     file_path = os.path.join(biointense.BASE_DIR, '..', 'examples', 'data',
                              'grasdata.csv')
     data = pd.read_csv(file_path, header=0, names=['t', 'W'])
-    measurements = biointense.ode_measurements(data, xdata='t')
+    measurements = ode_measurements(data.set_index('t'))
+    measurements.add_measured_errors({'W': 1.}, method='absolute')
 
     parameters = {'W0': 20.0805,
                   'Wf': 0.97523,
@@ -62,8 +65,8 @@ def run_modsim_models_new():
 
     M1.run()
 
-    optim = ParameterOptimisation(M1 , measurements, ['W0', 'Wf', 'mu'],
-                                  overwrite_independent=True)
+    optim = ParameterOptimisation(M1 , measurements,
+                                  optim_par=['W0', 'Wf', 'mu'])
 
 #    optim.set_dof_distributions([ModPar('W0', 0.0, 20.0, 'randomUniform'),
 #                                 ModPar('Wf', 0.0, 20.0, 'randomUniform'),
@@ -78,6 +81,8 @@ def run_modsim_models_new():
 if __name__ == "__main__":
     optim_old = run_modsim_models_old()
     optim_new = run_modsim_models_new()
+
+    np.testing.assert_almost_equal(optim_old, optim_new)
 
 
 

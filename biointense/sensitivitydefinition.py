@@ -13,7 +13,7 @@ from biointense.modeldefinition import *
 import pprint
 
 
-def generate_ode_sens(odefunctions, algebraicfunctions, parameters):
+def generate_ode_sens(odevar, odefunctions, algvar, algfunctions, parameters):
     '''Analytic derivation of the local sensitivities of ODEs
 
     Sympy based implementation to get the analytic derivation of the
@@ -22,25 +22,24 @@ def generate_ode_sens(odefunctions, algebraicfunctions, parameters):
     '''
 
     # Set up symbolic matrix of system states
-    system_matrix = sympy.Matrix(sympy.sympify(odefunctions.values(), _clash))
+    system_matrix = sympy.Matrix(sympy.sympify(odefunctions, _clash))
     # Set up symbolic matrix of variables
-    states_matrix = sympy.Matrix(sympy.sympify(odefunctions.keys(), _clash))
+    states_matrix = sympy.Matrix(sympy.sympify(odevar, _clash))
     # Set up symbolic matrix of parameters
     parameter_matrix = sympy.Matrix(sympy.sympify(parameters, _clash))
 
     # Replace algebraic stuff in system_matrix to perform LSA
-    if bool(algebraicfunctions):
+    if bool(algfunctions):
         # Set up symbolic matrix of algebraic
-        algebraic_matrix = sympy.Matrix(sympy.sympify(
-            algebraicfunctions.keys(), _clash))
+        algebraic_matrix = sympy.Matrix(sympy.sympify(algvar, _clash))
         # Replace algebraic variables by its equations
         h = 0
         while (np.sum(np.abs(system_matrix.jacobian(algebraic_matrix))) != 0) and \
-            (h <= len(algebraicfunctions.keys())):
-            for i, alg in enumerate(algebraicfunctions.keys()):
+            (h <= len(algvar)):
+            for i, alg in enumerate(algvar):
                 system_matrix = system_matrix.replace(
                                     sympy.sympify(alg, _clash),
-                                    sympy.sympify(algebraicfunctions.values()[i],
+                                    sympy.sympify(algfunctions[i],
                                                   _clash))
             h += 1
 
@@ -57,17 +56,16 @@ def generate_ode_sens(odefunctions, algebraicfunctions, parameters):
 
     return dfdtheta, dfdx, dxdtheta
 
-def generate_alg_sens(odefunctions, algebraicfunctions, parameters):
+def generate_alg_sens(odevar, odefunctions, algvar, algfunctions, parameters):
     """
     """
     # Set up symbolic matrix of variables
     if odefunctions:
-        states_matrix = sympy.Matrix(sympy.sympify(odefunctions.keys(),
-                                                   _clash))
+        states_matrix = sympy.Matrix(sympy.sympify(odevar, _clash))
     # Set up symbolic matrix of parameters
     parameter_matrix = sympy.Matrix(sympy.sympify(parameters, _clash))
 
-    algebraic_matrix = _alg_swap(algebraicfunctions)
+    algebraic_matrix = _alg_swap(algvar, algfunctions)
 
     # Initialize and calculate matrices for analytic sensitivity calculation
     # dgdtheta
@@ -80,7 +78,7 @@ def generate_alg_sens(odefunctions, algebraicfunctions, parameters):
 
     return dgdtheta, dgdx
 
-def _alg_swap(algebraicfunctions):
+def _alg_swap(algvar, algfunctions):
     '''Algebraic swapping and replacing function
 
     This function is a helper function for _alg_LSA, the aim of this function
@@ -93,21 +91,28 @@ def _alg_swap(algebraicfunctions):
     '''
 
     h = 0
-    algebraic_matrix = sympy.Matrix(sympy.sympify(algebraicfunctions.values(),
-                                                  _clash))
-    algebraic_keys = sympy.Matrix(sympy.sympify(algebraicfunctions.keys(),
-                                                _clash))
-    while (np.sum(np.abs(algebraic_matrix.jacobian(algebraic_keys))) != 0) and (h <= len(algebraicfunctions.keys())):
+    algebraic_matrix = sympy.Matrix(sympy.sympify(algfunctions, _clash))
+    algebraic_keys = sympy.Matrix(sympy.sympify(algvar, _clash))
+
+    check_alg_der = np.sum(np.abs(algebraic_matrix.jacobian(algebraic_keys)))
+    max_der_len = len(algvar)
+    while (check_alg_der != 0) and (h <= max_der_len):
         for i, alg in enumerate(algebraic_keys):
-            algebraic_matrix = algebraic_matrix.replace(sympy.sympify(alg, _clash),
-                                                        sympy.sympify(algebraicfunctions.values()[i], _clash))
+            alg_sym = sympy.sympify(alg, _clash)
+            alg_fun_sym = sympy.sympify(algfunctions[i], _clash)
+            # Replace var by the corresponding function
+            algebraic_matrix = algebraic_matrix.replace(alg_sym, alg_fun_sym)
+
+        # Check whether any relation exist between different variables
+        check_alg_der = np.sum(np.abs(algebraic_matrix.jacobian(algebraic_keys)))
+        # Next round
         h += 1
 
     algebraic_swap = algebraic_matrix
 
     return algebraic_swap
 
-def generate_ode_derivative_definition(model, dfdtheta, dfdx):
+def generate_ode_derivative_definition(model, dfdtheta, dfdx, parameters):
     '''Write derivative of model as definition in file
 
     Writes a file with a derivative definition to run the model and
@@ -119,7 +124,6 @@ def generate_ode_derivative_definition(model, dfdtheta, dfdx):
 
     '''
     modelstr = 'def fun_ode_lsa(odes, t, parameters, *args, **kwargs):\n'
-    modelstr += '    kiekeboe = 0\n\n'
     # Get the parameter values
     modelstr = write_parameters(modelstr, model.parameters)
     modelstr = write_whiteline(modelstr)
@@ -141,11 +145,11 @@ def generate_ode_derivative_definition(model, dfdtheta, dfdx):
     modelstr += '\n    #Sensitivities\n\n'
 
     # Calculate number of states by using inputs
-    modelstr += '    state_len = len(odes)/(len(parameters)+1)\n'
+    modelstr += '    state_len = ' + str(len(model._ordered_var['ode'])) + '\n'
     # Reshape ODES input to array with right dimensions in order to perform
     # matrix multiplication
     modelstr += ('    dxdtheta = np.array(odes[state_len:].reshape(state_len, '
-                 'len(parameters)))\n\n')
+                 '' + str(len(parameters)) + '))\n\n')
 
     # Write dfdtheta as symbolic array
     modelstr += '    dfdtheta = np.'

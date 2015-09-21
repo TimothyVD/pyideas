@@ -6,6 +6,9 @@ Created on Sun Jan  4 12:02:32 2015
 """
 
 import re
+import numpy as np
+import sympy
+from sympy.abc import _clash
 
 KNOWN_NUMPY_FUN = ['exp', 'ln', 'log', 'log10', 'sqrt', 'sin', 'cos',
                    'cos', 'tan', 'abs','arcsin','arccos', 'arctan',
@@ -139,6 +142,101 @@ def replace_numpy_fun(m):
         m = re.sub('(?<!np\.)'+ funt, 'np.' + funt, m)
     return m
 
+def _check_order(val_array, par_array):
+    """
+    """
+    return np.max(par_array - val_array)
+
+def _get_order(val_array, par_array):
+    """
+    """
+    return np.argmax(par_array - val_array)
+
+def _switch_order(input_val_array, input_par_array):
+    """
+    Switch order for two variables
+    """
+    val_array = input_val_array.copy(True)
+    par_array = input_par_array.copy(True)
+    max_diff = _get_order(val_array, par_array)
+
+    dep_value = val_array[max_diff]
+    indep_value = par_array[max_diff]
+
+
+    val_array[val_array == dep_value] = -1
+    par_array[par_array == dep_value] = -1
+
+    val_array[val_array == indep_value] = dep_value
+    par_array[par_array == indep_value] = dep_value
+
+    val_array[val_array == -1] = indep_value
+    par_array[par_array == -1] = indep_value
+
+    return val_array, par_array, dep_value, indep_value
+
+def _order_algebraic(algebraic_right_side):
+    """
+    Order algebraic equation to avoid referencing before assignment
+    """
+    # Set up symbolic matrices
+    alg_key_list = algebraic_right_side.keys()
+    alg_keys_matrix = sympy.Matrix(sympy.sympify(alg_key_list, _clash))
+    alg_val_list = algebraic_right_side.values()
+    alg_val_matrix = sympy.Matrix(sympy.sympify(alg_val_list, _clash))
+
+    val_array, par_array = np.ma.nonzero(alg_val_matrix.jacobian(alg_keys_matrix))
+
+    if val_array.size:
+        ordered = -_check_order(val_array, par_array)
+        limit = 0
+        while ordered < 0 and limit < len(par_array):
+            val_array, par_array, dep_val, indep_val = _switch_order(val_array,
+                                                                     par_array)
+
+            alg_key_list[dep_val], alg_key_list[indep_val] = (alg_key_list[indep_val],
+                                                              alg_key_list[dep_val])
+
+            alg_val_list[dep_val], alg_val_list[indep_val] = (alg_val_list[indep_val],
+                                                              alg_val_list[dep_val])
+            ordered = -_check_order(val_array, par_array)
+
+            limit += 1
+
+        if ordered < 0:
+            raise Exception('Ordening algebraic equations failed!')
+
+    return alg_key_list, alg_val_list
+
+def _write_algebraic_lines(defstr, algebraic_right_side, independent_var=None):
+    """
+    Based on the model equations of the algebraic-part model, the equations are
+    printed in the function
+
+    Parameters
+    -----------
+    defstr : str
+        str containing the definition to solve in model
+    algebraic_right_side : dict
+        dict of variables with their corresponding right hand side part of
+        the equation
+    independent_var : str
+        name of the independent variable, if None the length is not adapted to
+        that one of the independent_var
+    """
+    if algebraic_right_side:
+        varnames, expressions = _order_algebraic(algebraic_right_side)
+        for i, varname in enumerate(varnames):
+            expression = replace_numpy_fun(expressions[i])
+
+            if independent_var is None:
+                defstr += '    {0} = {1}\n'.format(varname, str(expression))
+            else:
+                defstr += '    {0} = {1} + np.zeros(len({2}))\n'.format(varname,
+                                                                        str(expression),
+                                                                        independent_var)
+    return defstr
+
 def write_algebraic_lines(defstr, algebraic_right_side):
     """
     Based on the model equations of the algebraic-part model, the equations are
@@ -152,10 +250,7 @@ def write_algebraic_lines(defstr, algebraic_right_side):
         dict of variables with their corresponding right hand side part of
         the equation
     """
-    for varname, expression in algebraic_right_side.iteritems():
-        expression = replace_numpy_fun(expression)
-        #defstr += '    ' + varname + ' = ' + str(expression) + '\n'
-        defstr += '    {0} = {1}\n'.format(varname, str(expression))
+    defstr = _write_algebraic_lines(defstr, algebraic_right_side)
     return defstr
 
 def write_algebraic_solve(defstr, algebraic_right_side, independent_var):
@@ -173,11 +268,8 @@ def write_algebraic_solve(defstr, algebraic_right_side, independent_var):
     independent_var : str
         name of the independent variable
     """
-    for varname, expression in algebraic_right_side.iteritems():
-        expression = replace_numpy_fun(expression)
-        #defstr += '    ' + varname + ' = ' + str(expression) + '\n'
-        defstr += '    {0} = {1} + np.zeros(len('.format(varname, str(expression)) \
-                      + independent_var + '))\n'
+    defstr = _write_algebraic_lines(defstr, algebraic_right_side,
+                                    independent_var=independent_var)
     return defstr
 
 def write_ode_lines(defstr, ode_right_side):

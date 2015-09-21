@@ -8,6 +8,8 @@ from __future__ import division
 import numpy as np
 import pandas as pd
 
+import warnings
+
 import matplotlib.pyplot as plt
 from copy import deepcopy
 from biointense.model import _BiointenseModel
@@ -65,11 +67,21 @@ class LocalSensitivity(Sensitivity):
         par_values = np.array(par_values)*np.ones([sensitivity_len,
                                                    parameter_len])
 
-        if scaling == 'CPRS':
+        if scaling[0] == 'C':
+            warnings.warn(('The different method names have been changed, '
+                           'as a consequence CAS, CPRS and CTRS have been '
+                           'replace by AS, PRS and TRS respectively. This to '
+                           'show that a rescaling of the sensivity can also be'
+                           'done for the forward and backward sensitivity.'),
+                          DeprecationWarning)
+
+            scaling = scaling[1:]
+
+        if scaling == 'PRS':
             # CPRS = CAS*parameter
             for var in variables:
                 sensitivity_PD[var] = sensitivity_PD[var]*par_values
-        elif scaling == 'CTRS':
+        elif scaling == 'TRS':
             # CTRS
             if min(sensitivity_PD.mean()) == 0 or max(sensitivity_PD.mean()) == 0:
                 raise Exception(scaling + ': It is not possible to use the '
@@ -83,7 +95,7 @@ class LocalSensitivity(Sensitivity):
             else:
                 for var in variables:
                     sensitivity_PD[var] = sensitivity_PD[var]*par_values/np.tile(np.array(sensitivity_PD[var]),(len(par_values),1)).T
-        elif scaling != 'CAS':
+        elif scaling != 'AS':
             raise Exception('You have to choose one of the sensitivity '
                             'methods which are available: CAS, CPRS or CTRS')
 
@@ -92,6 +104,29 @@ class LocalSensitivity(Sensitivity):
 
 class NumericalLocalSensitivity(LocalSensitivity):
     """
+
+    Parameters
+    -----------
+    model : Model|AlgebraicModel
+
+
+    Examples
+    ---------
+    >>> import numpy as np
+    >>> from biointense import Model, NumericalLocalSensitivity
+    >>> parameters = {'Km': 150.,     # mM
+                      'Vmax': 0.768,  # mumol/(min*U)
+                      'E': 0.68}      # U/mL
+    >>> system = {'v': 'Vmax*S/(Km + S)',
+                  'dS': '-v*E',
+                  'dP': 'v*E'}
+
+    >>> M1 = Model('Michaelis-Menten', system, parameters)
+    >>> M1.set_initial({'S':500.,
+                        'P':0.})
+    >>> M1.set_independent({'t': np.linspace(0, 2500, 10000)})
+    >>> M1_numsens = NumericalLocalSensitivity(M1, parameters=['Km', 'Vmax'])
+    >>> numsens = M1_numsens.get_sensitivity(method='CPRS')
     """
     def __init__(self, model, parameters=None, perturbation=1e-6,
                  procedure="central"):
@@ -137,15 +172,21 @@ class NumericalLocalSensitivity(LocalSensitivity):
         """
         Select which procedure (central, forward, backward) should be used to
         calculate the numerical local sensitivity.
+
+        Parameters
+        -----------
+        procedure : string
+            Three different procedures are available, the central procedure
+            allows to evaluate the numerical accuracy of the sensitivity. This
+            is not the case for the forward and backward procedure.
         """
         if procedure == "central":
             self._initiate_forw_back_sens()
         elif procedure in ("forward", "backward"):
-            try:
+            if self._sens_forw:
                 del self._sens_forw
+            if self._sens_back:
                 del self._sens_back
-            except NameError:
-                pass
         else:
             raise Exception("Procedure is not known, please choose 'forward', "
                             "'backward' or 'central'.")
@@ -234,10 +275,14 @@ class NumericalLocalSensitivity(LocalSensitivity):
 
         return output
 
-    def get_sensitivity(self, method='CAS'):
+    def get_sensitivity(self, method='AS'):
         """
         Get numerical local sensitivity for the different parameters and
         variables of interest
+
+        Parameters
+        -----------
+        method : 'AS'|'PRS'|'TRS'
         """
         output_std = self.model.run()
         num_sens = {}
@@ -319,12 +364,17 @@ class NumericalLocalSensitivity(LocalSensitivity):
 
         Parameters
         -----------
-        criteria : SSE|SAE|MRE|SRE|RATIO
-            criterion name for evaluation of the sensitivity quality. One can
+        parameters : list
+            list containing the strings of the different parameters of interest
+        perturbation_factors : list|np.array
+            Contains the different perturbation factors for which the different
+            criteria need to be evaluated.
+        criteria : list
+            criteria for evaluation of the sensitivity quality. One can
             choose between the Sum of Squared Errors (SSE),
             Sum of Absolute Errors (SAE), Maximum Relative Error (MRE),
             Sum or Relative Errors (SRE) or the ratio between the forward and
-            backward sensitivity (RATIO). [1]_
+            backward sensitivity (RATIO) or a combination fo all of them. [1]_
 
         Returns
         --------
@@ -436,26 +486,38 @@ class DirectLocalSensitivity(LocalSensitivity):
     def _flatten_list(some_list):
         return [item for sublist in some_list for item in sublist]
 
+    @staticmethod
+    def _get_ordered_values(var, functions):
+        return [functions.get(i) for i in var]
+
     def _generate_sensitivity(self):
         """
         """
-        ode = self.model.systemfunctions.get('ode', None)
-        alg = self.model.systemfunctions.get('algebraic', None)
+        odevar = self.model._ordered_var.get('ode', None)
+        odefun = self.model.systemfunctions.get('ode', None)
+        if odefun is not None:
+            odefun_ord = self._get_ordered_values(odevar, odefun)
+        else:
+            odefun_ord = None
+        algvar = self.model._ordered_var.get('algebraic', None)
+        algfun = self.model.systemfunctions.get('algebraic', None)
+        algfun_ord = self._get_ordered_values(algvar, algfun)
 
-        if ode:
+        if odevar:
             dfdtheta, dfdx, self._dxdtheta_start = sensdef.generate_ode_sens(
-                ode, alg, self.parameters)
+                odevar, odefun_ord, algvar, algfun_ord, self.parameters)
             self._dxdtheta_len = self._dxdtheta_start.size
             self._fun_ode_str = sensdef.generate_ode_derivative_definition(
-                                    self.model, dfdtheta, dfdx)
+                                   self.model, dfdtheta, dfdx, self.parameters)
             exec(self._fun_ode_str)
             self._fun_ode = fun_ode_lsa
 
-        if alg:
-            dgdtheta, dgdx = sensdef.generate_alg_sens(ode, alg,
+        if algvar:
+            dgdtheta, dgdx = sensdef.generate_alg_sens(odevar, odefun_ord,
+                                                       algvar, algfun_ord,
                                                        self.parameters)
             self._fun_alg_str = sensdef.generate_non_derivative_part_definition(
-                                    self.model, dgdtheta, dgdx, self.parameters)
+                                   self.model, dgdtheta, dgdx, self.parameters)
             exec(self._fun_alg_str)
             self._fun_alg = fun_alg_lsa
 
@@ -487,8 +549,8 @@ class DirectLocalSensitivity(LocalSensitivity):
                                              len(self.model.initial_conditions),
                                              len(self.parameters)])
 
-        index = pd.MultiIndex.from_arrays(self.model._independent_values.values(),
-                                          names=self.model.independent)
+        #index = pd.MultiIndex.from_arrays(self.model._independent_values.values(),
+        #                                  names=self.model.independent)
 
         columns = pd.MultiIndex.from_tuples(list(product(
                         self.model._ordered_var['ode'],
@@ -498,8 +560,10 @@ class DirectLocalSensitivity(LocalSensitivity):
 
         indep_len = len(self.model._independent_values.values()[0])
 
+#        result = pd.DataFrame(model_output.reshape(indep_len, -1),
+#                              index=index, columns=columns)
         result = pd.DataFrame(model_output.reshape(indep_len, -1),
-                              index=index, columns=columns)
+                              columns=columns)
         return ode_values, dxdtheta, result
 
     def _get_alg_sensitivity(self, ode_values=None, dxdtheta=None):
@@ -509,8 +573,8 @@ class DirectLocalSensitivity(LocalSensitivity):
                                  ode_values=ode_values, dxdtheta=dxdtheta)
         model_output = solver._solve_algebraic()
 
-        index = pd.MultiIndex.from_arrays(self.model._independent_values.values(),
-                                          names=self.model.independent)
+        #index = pd.MultiIndex.from_arrays(self.model._independent_values.values(),
+        #                                  names=self.model.independent)
 
         columns = pd.MultiIndex.from_tuples(list(product(
                         self.model._ordered_var['algebraic'],
@@ -519,8 +583,10 @@ class DirectLocalSensitivity(LocalSensitivity):
 
         indep_len = len(self.model._independent_values.values()[0])
 
+        #result = pd.DataFrame(model_output.reshape(indep_len, -1),
+        #                      index=index, columns=columns)
         result = pd.DataFrame(model_output.reshape(indep_len, -1),
-                              index=index, columns=columns)
+                              columns=columns)
         return result
 
     def get_sensitivity(self, method='CAS'):

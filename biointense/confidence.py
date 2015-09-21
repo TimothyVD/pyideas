@@ -131,16 +131,22 @@ class BaseConfidence(object):
                                                    self.uncertainty_PD)
         return self.repeats_per_sample*self._FIM
 
+    def _calc_PEECM(self, FIM):
+        '''
+        '''
+        try:
+            PEECM = np.linalg.inv(FIM)
+        except:
+            raise Warning('Pseudo inverse was used!')
+            PEECM = np.linalg.pinv(FIM)
+        return PEECM
+
     @property
     def PEECM(self):
         '''
         '''
         #if self._PEECM is None:
-        try:
-            self._PEECM = np.linalg.inv(self.FIM)
-        except:
-            raise Warning('Pseudo inverse was used!')
-            self._PEECM = np.linalg.pinv(self.FIM)
+        self._PEECM = self._calc_PEECM(self.FIM)
         return self._PEECM
 
     @property
@@ -205,6 +211,36 @@ class BaseConfidence(object):
         FIM = np.sum(FIM_timestep, axis=0)
         return FIM, FIM_timestep
 
+    def _parameter_confidence(self, n_p, FIM, alpha):
+        '''
+        '''
+
+        PEECM = self._calc_PEECM(FIM)
+
+        CI = np.zeros([PEECM.shape[1], 8])
+
+        # Adapt order to the one used in confidence
+        CI[:, 0] = self.parameter_values[self.parameters]
+        for i, variance in enumerate(np.array(PEECM.diagonal())):
+            # TODO check whether sum or median or... should be used
+            # TODO Check of de absolute waarde hier gebruikt mag worden!!!!
+            CI[i, 1:3] = stats.t.interval(alpha, n_p,
+                                          loc=CI[i, 0],
+                                          scale=np.sqrt(abs(variance)))
+            CI[i, 3] = stats.t.interval(alpha, n_p,
+                                        scale=np.sqrt(abs(variance)))[1]
+        CI[:, 4] = abs(CI[:, 3]/CI[:, 0])*100
+        CI[:, 5] = CI[:, 0]/np.sqrt(abs(PEECM.diagonal()))
+        CI[:, 6] = stats.t.interval(alpha, n_p)[1]
+        CI[:, 7] = CI[:, 5] >= CI[i, 6]
+
+        CI = pd.DataFrame(CI, columns=['value', 'lower', 'upper', 'delta',
+                                       'percent', 't_value', 't_reference',
+                                       'significant'],
+                          index=self.parameters)
+
+        return CI
+
     def get_parameter_confidence(self, alpha=0.95):
         '''Calculate confidence intervals for all parameters
 
@@ -226,28 +262,9 @@ class BaseConfidence(object):
         '''
         n_p = self._data_len - self._par_len
 
-        CI = np.zeros([self.PEECM.shape[1], 8])
+        FIM = self.FIM
 
-        # Adapt order to the one used in confidence
-        CI[:, 0] = self.parameter_values[self.parameters]
-        for i, variance in enumerate(np.array(self.PEECM.diagonal())):
-            # TODO check whether sum or median or... should be used
-            # TODO Check of de absolute waarde hier gebruikt mag worden!!!!
-            CI[i, 1:3] = stats.t.interval(alpha, n_p,
-                                          loc=CI[i, 0],
-                                          scale=np.sqrt(abs(variance)))
-            CI[i, 3] = stats.t.interval(alpha, n_p,
-                                        scale=np.sqrt(abs(variance)))[1]
-        CI[:, 4] = abs(CI[:, 3]/CI[:, 0])*100
-        CI[:, 5] = CI[:, 0]/np.sqrt(abs(self.PEECM.diagonal()))
-        CI[:, 6] = stats.t.interval(alpha, n_p)[1]
-        CI[:, 7] = CI[:, 5] >= CI[i, 6]
-
-        CI = pd.DataFrame(CI, columns=['value', 'lower', 'upper', 'delta',
-                                       'percent', 't_value', 't_reference',
-                                       'significant'],
-                          index=self.parameters)
-
+        CI = self._parameter_confidence(n_p, FIM, alpha)
         return CI
 
     def get_parameter_correlation(self):
@@ -409,16 +426,17 @@ class CalibratedConfidence(BaseConfidence):
         """
         """
         super(CalibratedConfidence, self).__init__(DirectLocalSensitivity(calibrated.model,
-                                                                    calibrated.dof),
-                                             sens_method=sens_method)
-        self.uncertainty = calibrated.uncertainty
-        self.data = calibrated.data
+                                                                          calibrated.dof),
+                                                   sens_method=sens_method)
+        self.uncertainty = calibrated.measurements._uncertainty
+        self._measurements = calibrated.measurements
+        self.data = calibrated.measurements.Data
 
     @property
-    def uncertainty_PD():
+    def uncertainty_PD(self):
         """
         """
-        return self.uncertainty.get_uncertainty(self.data)
+        return self._measurements._Error_Covariance_Matrix_PD
 
 
 class TheoreticalConfidence(BaseConfidence):
@@ -431,6 +449,13 @@ class TheoreticalConfidence(BaseConfidence):
         super(TheoreticalConfidence, self).__init__(sens,
                                                     sens_method=sens_method)
         self.uncertainty = uncertainty
+
+    @classmethod
+    def from_calibrated(cls, calibrated_confidence):
+        temp = cls(calibrated_confidence.sens,
+                   calibrated_confidence.uncertainty,
+                   sens_method=calibrated_confidence.sens_method)
+        return temp
 
     @property
     def uncertainty_PD(self):

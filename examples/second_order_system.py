@@ -5,11 +5,11 @@ Created on Wed Jan 21 10:27:24 2015
 @author: timothy
 """
 import numpy as np
-from biointense import DAErunner
+from biointense.ode_generator import DAErunner
+import pandas as pd
 
 # new
-from biointense.model import Model
-from biointense.solver import OdeSolver
+from biointense import Model
 
 
 def run_second_order_old():
@@ -37,7 +37,7 @@ def run_second_order_old():
 
     M1.solve_ode(plotit=False)
 
-    return M1
+    return M1.ode_solved['x1'].values
 
 
 def run_second_order_new():
@@ -55,14 +55,14 @@ def run_second_order_new():
 
     M1 = Model('second_order', system, parameters)
     M1.set_initial({'x1': 0, 'x2': 0})
-    M1.set_independent('t', np.linspace(0, 20, 10000))
-    output = M1.run()
-    output['x1'].plot(style='--', c='r', linewidth='2')
+    M1.set_independent({'t': np.linspace(0, 20, 10000)})
+    M1.initialize_model()
 
-    return M1
+    return M1.run()['x1'].values
 
 if __name__ == "__main__":
-    M1 = run_second_order_old()
-    M1.ode_solved['x1'].plot()
+    M1_old = run_second_order_old()
 
     M1_new = run_second_order_new()
+
+    np.testing.assert_almost_equal(M1_old, M1_new)

@@ -12,8 +12,7 @@ import pandas as pd
 from numpy.testing import assert_almost_equal
 from pandas.util.testing import assert_frame_equal
 
-from biointense.model import Model
-from biointense.solver import OdeSolver
+from biointense import Model
 
 
 ## 1) simple algebraic state space variable of interest
@@ -29,7 +28,7 @@ def test_alg_state():
 
     x = np.linspace(0, 10, 11)
     model.set_initial({'P': 50, 'S': 10})
-    model.set_independent('t', x)
+    model.set_independent({'t': x})
 
     result = model.run()
 
@@ -38,7 +37,6 @@ def test_alg_state():
     P = 50 * np.exp(-0.2*x)
 
     expected = pd.DataFrame({'P': P, 'S': S}, index=x)
-    expected.index.name = 't'
     expected['A'] = expected['S'] + expected['P']
 
     assert_frame_equal(result, expected.reindex(columns=result.columns))
@@ -57,7 +55,7 @@ def test_alg_substitution():
     model = Model('simple_test', system, parameters)
     x = np.linspace(0, 10, 11)
     model.set_initial({'P': 50, 'S': 10})
-    model.set_independent('t', x)
+    model.set_independent({'t': x})
 
     result = model.run()
 
@@ -68,7 +66,6 @@ def test_alg_substitution():
         + 50 * np.exp((k1 + 1)*x)
 
     expected = pd.DataFrame({'S': S, 'P': P}, index=x)
-    expected.index.name = 't'
     expected['A'] = expected['S'] + expected['P']
 
     assert_frame_equal(result, expected.reindex(columns=result.columns))

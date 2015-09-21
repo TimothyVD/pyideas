@@ -203,7 +203,7 @@ class _BaseOptimisation(object):
             dof_dict = self._dof_array_to_dict(dof_array)
             self._dof_dict_to_model(dof_dict)
 
-        return self.model.run()
+        return self.model.run()#.reorder_levels(self.measurements._indep_order)
 
     def _obj_fun(self, obj_crit, parray):
         '''
@@ -464,7 +464,7 @@ class MultiParameterOptimisation(ParameterOptimisation):
             self.dof = self.model.parameters.keys()
 
         #
-        measurement_index = measurements.Data.index
+        measurement_index = measurements._data_index
         drop_independent_level = measurement_index.droplevel(self._independent_var)
         # Keep unique initial conditions
         self.conditions = {}
@@ -488,8 +488,9 @@ class MultiParameterOptimisation(ParameterOptimisation):
             init_cond = dict(zip(self.conditions['names'], init_vals))
             self.model.set_initial(init_cond)
 
-            indep_val = np.array(self.measurements.Data.xs(init_vals,
-                                                           level=['IPA', 'BA', 'ACE', 'MPPA', 'E']).index)
+            # Get independent values from pandas dataframe
+            indep_val = np.array(self.measurements._input_data.xs(init_vals,
+                                        level=self.conditions['names']).index)
             if indep_val[0] != 0.0:
                 output_start = 1
                 indep_val = np.concatenate([np.array([0.]), indep_val])
@@ -504,8 +505,7 @@ class MultiParameterOptimisation(ParameterOptimisation):
                                               model_output.iloc[output_start:]],
                                              axis=0)
 
-        all_model_output.index = self.measurements.Data.index
-        return all_model_output
+        return all_model_output.reset_index(drop=True)
 
 #    def _set_independent(self, independent_val):
 #        """

@@ -32,7 +32,7 @@ else:
 from plotfunctions import *
 from matplotlib.ticker import MaxNLocator
 from ode_generator import DAErunner
-from measurements import ode_measurements
+from measurements_old import ode_measurements
 from parameterdistribution import *
 from time import time
 from random import Random
