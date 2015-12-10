@@ -3,6 +3,8 @@ biointense
 
 Biointense FP7 WP9
 
+Will be completly refurbished during the christmas holidays! :-)
+
 Authors: Timothy Van Daele, Stijn Van Hoey, Daan Van Hauwermeiren, Joris Van den Bossche
 
 TO DO
