@@ -222,7 +222,7 @@ class NumericalLocalSensitivity(LocalSensitivity):
         orig_par_val = self.model.parameters[parameter]
         # Run model with parameter value plus perturbation
         self.model.set_parameter(parameter, orig_par_val*(1 + perturbation))
-        model_output = self.model.run()
+        model_output = self.model._run()
         # Reset parameter to original value
         self.model.set_parameter(parameter, orig_par_val)
 
@@ -284,7 +284,7 @@ class NumericalLocalSensitivity(LocalSensitivity):
         -----------
         method : 'AS'|'PRS'|'TRS'
         """
-        output_std = self.model.run()
+        output_std = self.model._run()
         num_sens = {}
 
         for par in self.parameters:

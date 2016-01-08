@@ -203,7 +203,7 @@ class _BaseOptimisation(object):
             dof_dict = self._dof_array_to_dict(dof_array)
             self._dof_dict_to_model(dof_dict)
 
-        return self.model.run()#.reorder_levels(self.measurements._indep_order)
+        return self.model._run()#.reorder_levels(self.measurements._indep_order)
 
     def _obj_fun(self, obj_crit, parray):
         '''
@@ -263,8 +263,9 @@ class _BaseOptimisation(object):
         self._set_dof_boundaries()
 
     def _set_dof_boundaries(self):
-        '''
-        '''
+        """
+        Define the minimum and maximum boundaries for the different dofs
+        """
         minsample = []
         maxsample = []
         for dof in self.dof:
@@ -450,6 +451,8 @@ class ParameterOptimisation(_BaseOptimisation):
 
 class MultiParameterOptimisation(ParameterOptimisation):
     """
+    UNDER CONSTRUCTION, ONLY USEFUL FOR LOTS OF DATA OF ODES (WITH DIFFERENT
+    INITIAL CONDITIONS)
     """
     def __init__(self, model, measurements, optim_par=None,
                  independent_var='t'):
@@ -494,9 +497,9 @@ class MultiParameterOptimisation(ParameterOptimisation):
             if indep_val[0] != 0.0:
                 output_start = 1
                 indep_val = np.concatenate([np.array([0.]), indep_val])
-            self.model.set_independent({'t': indep_val})
+            self.model.set_independent({self.model.independent[0]: indep_val})
 
-            model_output = self.model.run()
+            model_output = self.model._run()
 
             if all_model_output is None:
                 all_model_output = model_output.iloc[output_start:]

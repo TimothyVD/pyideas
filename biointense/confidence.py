@@ -24,7 +24,7 @@ class BaseConfidence(object):
         self.sens = sens
         # self.sens_PD = sens.get_sensitivity(method='CAS')
         self.model = sens.model
-        # self.model_output = self.model.run()
+        # self.model_output = self.model._run()
         self.independent = self.model.independent
         self.sens_method = sens_method
 
@@ -98,7 +98,7 @@ class BaseConfidence(object):
 
     @property
     def model_output(self):
-        return self.model.run()
+        return self.model._run()
 
     @property
     def parameter_values(self):

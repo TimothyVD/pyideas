@@ -116,15 +116,27 @@ class _BiointenseModel(BaseModel):
             args += tuple(((self.parameters,),))
 
         return args
+    
+#    @staticmethod
+#    def _check_len_independent(independent_values):
+#        """
+#        """
+#        ref_value = len(independent_values[0])
+#        for i in independent_values:
+#            if len(i) != ref_value:
+#                raise Exception('Length of independent are not equal!')
+        
 
-    def run(self, procedure="odeint"):
+    def _run(self, procedure="odeint"):
         """
-        Run the model for the given set of parameters, indepentent variable
+        Run the model for the given set of parameters, independent variable
         values and output a datagrame with the variables of interest.
 
         """
         if not self._initial_up_to_date:
             self.initialize_model()
+        
+#        self._check_len_independent(self._independent_values.values())
 
         ode_var = self._ordered_var.get('ode')
         alg_var = self._ordered_var.get('algebraic')
@@ -150,13 +162,24 @@ class _BiointenseModel(BaseModel):
             raise Exception("In an initialized Model, there should always "
                             "be at least a fun_ode or fun_alg.")
 
-        #index = pd.MultiIndex.from_arrays(self._independent_values.values(),
-        #                                  names=self.independent)
-        #result = pd.DataFrame(result, index=index, columns=var)
         result = pd.DataFrame(result, columns=var)
 
         return result
 
+    def run(self, procedure="odeint"):
+        """
+        Run the model for the given set of parameters, independent variable
+        values and output a datagrame with the variables of interest.
+        """
+        result = self._run(procedure=procedure)
+        
+        index = pd.MultiIndex.from_arrays(self._independent_values.values(),
+                                          names=self.independent)
+        result.index = index
+        
+        return result
+        
+        
     @classmethod
     def from_external(cls, ext_sys):
         """
@@ -247,7 +270,7 @@ class Model(_BiointenseModel):
     >>> modeloutput = M1.run()
     """
 
-    def __init__(self, name, system, parameters, ode_independent='t',
+    def __init__(self, name, system, parameters, independent='t',
                  comment=None):
         """
         uses the "biointense"-style model definition
@@ -266,11 +289,12 @@ class Model(_BiointenseModel):
                              'event': []}
 
         # solver communication
+        self.modeltype = "Model"
         self.systemfunctions = {'algebraic': {}, 'ode': {}}
         self.externalfunctions = {}
         self.initial_conditions = {}
 
-        self._ode_independent = ode_independent
+        self.independent = [independent]
 
         # detect system equations
         self._system = system
@@ -351,14 +375,14 @@ class AlgebraicModel(_BiointenseModel):
 
     >>> M1 = AlgebraicModel('Double-Michaelis-Menten', system, parameters)
     >>> M1.set_independent({'A': np.linspace(0, 400, 25),
-                            'B': np.linspace(0, 400, 25)},
+                            'B': np.linspace(0, 200, 25)},
                             method='cartesian')
     >>> #run the model
     >>> modeloutput = M1.run()
     >>> M1.plot_contourf('A', 'B', modeloutput)
     """
 
-    def __init__(self, name, system, parameters, comment=None):
+    def __init__(self, name, system, parameters, independent=None, comment=None):
         """
         """
         self._check_if_odes(system.keys())
@@ -369,8 +393,15 @@ class AlgebraicModel(_BiointenseModel):
                              'event': []}
 
         # solver communication
+        self.modeltype = "AlgebraicModel"
         self.systemfunctions = {'algebraic': {}}
         self.externalfunctions = {}
+        
+        # Container to store independent
+        if independent is None:
+            self.independent = []
+        else:
+            self.independent = independent
 
         # Keep track of length of individiual independent
         self._independent_len = {}
@@ -448,7 +479,7 @@ class AlgebraicModel(_BiointenseModel):
         for key in independent_dict.keys():
             self._independent_len[key] = len(independent_dict[key])
             self._independent_values[key] = independent[key].values
-        self.independent = self._independent_values.keys()
+        self.independent = independent.keys()
 
     def plot_contourf(self, independent_x, independent_y, output, ax=None,
                       **kwargs):
@@ -479,45 +510,3 @@ class AlgebraicModel(_BiointenseModel):
         plt.colorbar(cs)
 
         return ax
-
-
-class ReactionModel(BaseModel):
-
-    def __init__():
-        """
-        """
-
-    @classmethod
-    def from_diagram(cls):
-        """
-        Creates model based on the
-        """
-
-
-class EnzymaticModel(ReactionModel):
-
-    def __init__():
-        """
-        """
-
-    def _getCoefficients(self):
-        """
-        """
-
-    @classmethod
-    def make_quasi_steady_state(cls):
-        """
-        Converts the ODE system to the Quasi Steady State version
-
-        Combines the old versions make_QSSA and QSSAtoModel to create QSSA
-        model based on a defined ODE system.
-        """
-        return True
-
-def check_mass_balance():
-    """
-    Check the mass balance of the model.
-
-    This method calls the external utility _getCoefficients
-    """
-    return True
