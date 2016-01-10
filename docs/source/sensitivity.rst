@@ -18,11 +18,13 @@ Direct Local Sensitivity
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 .. autoclass:: biointense.DirectLocalSensitivity
    :members: 
+   :inherited-members:
 
 Numerical Local Sensitivity
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 .. autoclass:: biointense.NumericalLocalSensitivity
-   :members: 
+   :members:
+   :inherited-members:
   
 Global Sensitivity
 -------------------

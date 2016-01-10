@@ -11,12 +11,14 @@ Optimal Experimental Design,...
 Model
 ------
 .. autoclass:: biointense.Model
-   :members: 
+   :members:
+   :inherited-members:
 
 AlgebraicModel
 ---------------
 .. autoclass:: biointense.AlgebraicModel
    :members: 
+   :inherited-members:
   
 
    

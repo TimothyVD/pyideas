@@ -365,7 +365,7 @@ class NumericalLocalSensitivity(LocalSensitivity):
         -----------
         parameters : list
             list containing the strings of the different parameters of interest
-        perturbation_factors : list|np.array
+        perturbation_factors : float|list|np.array
             Contains the different perturbation factors for which the different
             criteria need to be evaluated.
         criteria : list
@@ -373,12 +373,12 @@ class NumericalLocalSensitivity(LocalSensitivity):
             choose between the Sum of Squared Errors (SSE),
             Sum of Absolute Errors (SAE), Maximum Relative Error (MRE),
             Sum or Relative Errors (SRE) or the ratio between the forward and
-            backward sensitivity (RATIO) or a combination fo all of them. [1]_
+            backward sensitivity (RATIO) or a combination of all of them. [1]_
 
         Returns
         --------
         res : pandas.DataFrame
-            The colums of the pandas DataFrame contain all the ODE variables,
+            The colums of the pandas DataFrame contain all the variables,
             with the different parameters as subcolumns. The index of the
             DataFrame contains the different perturbation factors.
 

@@ -7,5 +7,7 @@ the ode_optimizer is available.
 
 .. autoclass:: biointense.ParameterOptimisation
    :members:
+   :inherited-members:
 .. autoclass:: biointense.MultiParameterOptimisation
    :members:
+   :inherited-members:
