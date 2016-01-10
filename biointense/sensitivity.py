@@ -120,7 +120,6 @@ class NumericalLocalSensitivity(LocalSensitivity):
     >>> system = {'v': 'Vmax*S/(Km + S)',
                   'dS': '-v*E',
                   'dP': 'v*E'}
-
     >>> M1 = Model('Michaelis-Menten', system, parameters)
     >>> M1.set_initial({'S':500.,
                         'P':0.})

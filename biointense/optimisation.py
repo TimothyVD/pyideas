@@ -260,7 +260,7 @@ class _BaseOptimisation(object):
         else:
             raise Exception("Bad input type, give list of ModPar instances.")
 
-        self._set_dof_boundaries()
+        #self._set_dof_boundaries()
 
     def _set_dof_boundaries(self):
         """

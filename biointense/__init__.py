@@ -22,8 +22,10 @@ from parameterdistribution import *
 from model import Model, AlgebraicModel
 from solver import HybridSolver, OdeSolver, AlgebraicSolver
 from sensitivity import NumericalLocalSensitivity, DirectLocalSensitivity
+from confidence import TheoreticalConfidence, CalibratedConfidence
 from optimisation import ParameterOptimisation, MultiParameterOptimisation
 from uncertainty import Uncertainty
+from oed import BaseOED, RobustOED
 
 from biointense import __path__ as biointense_path
 BASE_DIR = biointense_path[0]

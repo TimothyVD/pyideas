@@ -19,13 +19,36 @@ def generate_model_from_diagram(string_list):
         list containing different sublist. Each sublist contains:
         conversion of substrates and products (irreversible or reversible),
         the forward reaction rate and backward reaction rate.
+        
+    Returns
+    --------
+    system: dict
+        Dictionary containing the set of ODEs which can directly fed to the
+        Model class.
+    
+    parameters: dict
+        Dictionary containing all the parameters. Each parameter is initialised
+        with a value of 1, so this should be changed to the appropriate value.
 
     Examples
     ---------
+    >>> from biointense.utilities import generate_model_from_diagram
     >>> string_list = [['S + E <=> ES', 'k1', 'k2'],
                        ['ES ==> E + P', 'kcat']]
-    >>> system, parameters, system_list = generate_model_from_diagram(string_list)
-
+    >>> system, parameters = generate_model_from_diagram(string_list)
+    >>> print(system)
+    {'dES': 'k1*S*E - k2*ES - kcat*ES',
+     'dE': '- k1*S*E + k2*ES + kcat*ES',
+     'dS': '- k1*S*E + k2*ES', 
+     'dP': 'kcat*ES'}
+    >>> print(parameters)
+    {'k2': 1,
+     'k1': 1,
+     'kcat': 1}
+     
+    See also
+    ---------
+    biointense.Model
     '''
     system = {}
     parameters = {}
@@ -129,11 +152,12 @@ def generate_model_from_diagram(string_list):
                 try:
                     parameters[j]
                     raise Exception(('The parameter {0} has been defined more'
-                                     'than once, please change the input!').format(j))
+                                     'than once, please change the input!')
+                                     .format(j))
                 except KeyError:
                     parameters[j] = 1
 
-    return system, parameters, system_list
+    return system, parameters#, system_list
 
 
 def _getCoefficients(system, variables, enzyme):
@@ -169,6 +193,7 @@ def _getCoefficients(system, variables, enzyme):
 
     enzyme_forms = []
 
+    # Filter all enzyme equations and add to list
     for var in variables:
         if var.startswith(enzyme):
             enzyme_forms.append(var)
@@ -180,8 +205,12 @@ def _getCoefficients(system, variables, enzyme):
     # Set up symbolic matrix of enzymes
     enzyme_forms = sympy.Matrix(sympy.sympify(enzyme_forms, _clash))
 
-    coeff_matrix = sympy.zeros(len(enzyme_equations), len(enzyme_forms))
+    # Construct square matrix 
+    square_len = len(enzyme_equations)
+    #coeff_matrix = sympy.zeros(len(enzyme_equations), len(enzyme_forms))
+    coeff_matrix = sympy.zeros(square_len, square_len)
 
+    # For each enzyme equation, write the coefficient
     for i, syst in enumerate(enzyme_equations):
         for j, state in enumerate(enzyme_forms):
             coeff_matrix[i, j] = syst.coeff(state)
@@ -190,8 +219,8 @@ def _getCoefficients(system, variables, enzyme):
 
 
 def makeQSSA(system, enzyme='E', variable='P'):
-    '''Calculate quasi steady-state equation out of ODE system
-
+    r'''Calculate quasi steady-state equation from set of ODEs
+    
     This function calculates the quasi steady-state equation for the
     variable of interest
 
@@ -226,11 +255,13 @@ def makeQSSA(system, enzyme='E', variable='P'):
 
     Examples
     ---------
+    >>> from biointense.utilities import makeQSSA
     >>> system = {'dE': '-k1*E*S + k2*ES + kcat*ES',
                   'dES': 'k1*E*S - k2*ES - kcat*ES',
                   'dS': '-k1*E*S + k2*ES',
                   'dP': 'kcat*ES'}
     >>> makeQSSA(system, enzyme='E', variable='P')
+    'En0*S*k1*kcat/(S*k1 + k2 + kcat)'
     '''
     # Make state var
     state_var = [i[1:] for i in system.keys() if i[0] == 'd']
@@ -292,18 +323,23 @@ def checkMassBalance(system, variables='E'):
 
     Examples
     ---------
+    >>> from biointense.utilities import checkMassBalance
     >>> system = {'dE': '-k1*E*S + k2*ES + kcat*ES',
                   'dES': 'k1*E*S - k2*ES - kcat*ES',
                   'dS': '-k1*E*S + k2*ES',
                   'dP': 'kcat*ES'}
+    >>> # Check mass balance for all variables starting with 'E'
     >>> checkMassBalance(system, variables='E')
-    >>> # Or one could also write
+    0
+    >>> # Which is the same as the combined mass balance of E and ES
     >>> checkMassBalance(system, variables='E + ES')
-    >>> #One could also make linear combination of mass balances, this is
-    especially useful for systems like NO, NO2 and N2. In which the mass
-    balance for N is equal to NO + NO2 + 2*N2 = 0. Next example is to
-    illustrate that mass balance is not closed for E + 2*ES.
+    '0'
+    >>> # One could also make linear combination of mass balances, this is
+    >>> # especially useful for systems like NO, NO2 and N2. In which the mass
+    >>> # balance for N is equal to NO + NO2 + 2*N2 = 0. Next example is to
+    >>> # illustrate that mass balance is not closed for E + 2*ES.
     >>> checkMassBalance(system, variables='E + 2*ES')
+    'E*S*k1 - ES*k2 - ES*kcat'
     """
 
     state_var = [i[1:] for i in system.keys() if i[0] == 'd']
@@ -333,13 +369,13 @@ def checkMassBalance(system, variables='E'):
             massBalance += var_sym.coeff(var)*system_matrix[i]
 
     else:
-        raise Exception("The argument 'variables' need to be provided!")
+        raise Exception("The argument 'variables' needs to be provided!")
 
     if massBalance == 0:
         print("The mass balance is closed!")
     else:
         print(("The mass balance is NOT closed for the all var starting with '"
-               "" + variables + "'! \n The following term(s) cannot be"
+               "" + variables + "'! \n The following term(s) cannot be "
                "striked out: " + str(massBalance) + ""))
 
     return massBalance

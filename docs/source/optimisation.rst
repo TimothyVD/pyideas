@@ -5,5 +5,7 @@ To estimate the parameter values for the developed models, based on the present 
 the ode_optimizer is available.
 
 
-.. autoclass:: biointense.ode_optimizer
+.. autoclass:: biointense.ParameterOptimisation
+   :members:
+.. autoclass:: biointense.MultiParameterOptimisation
    :members:

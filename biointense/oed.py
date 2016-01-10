@@ -87,7 +87,45 @@ class BaseOED(_BaseOptimisation):
     Base class for performing Model-based Optimal Experimental Design.
     
     The idea is to optimise the expected information of your future experiments
-    by altering the values of your independent variables. 
+    by altering the values of your independent variables.
+    
+    Examples
+    ---------
+    >>> import matplotlib.pyplot as plt
+    >>> import numpy as np
+    >>> import pandas as pd
+    
+    >>> from biointense import (AlgebraicModel, DirectLocalSensitivity,
+            TheoreticalConfidence, Uncertainty, BaseOED, ModPar)
+    
+    >>> system = {'v': ('Vr*ACE*MPPA/(Kal*ACE + Kac*MPPA + ACE*MPPA'
+                        '+ Kal/Kacs*ACE**2 + Kac/Kas*MPPA**2)')}
+    >>> parameters = {'Vr': 5.18e-4, 'Kal': 1.07, 'Kac': 0.54, 'Kacs': 1.24,
+                      'Kas': 25.82}
+
+    >>> M1 = AlgebraicModel('biointense_backward', system, parameters)
+
+    >>> ACE = np.linspace(11., 100., 250)
+    >>> MPPA = np.linspace(1., 10., 250)
+    >>> M1.set_independent({'ACE': ACE, 'MPPA': MPPA}, method='cartesian')
+
+    >>> M1.initialize_model()
+
+    >>> M1sens = DirectLocalSensitivity(M1)
+    >>> M1uncertainty = Uncertainty({'v': '1**2'})
+
+    >>> M1conf = TheoreticalConfidence(M1sens, M1uncertainty)
+
+    >>> M1oed = BaseOED(M1conf, ['ACE', 'MPPA'])
+    >>> #M1oed._independent_samples = 10
+    >>> M1oed.set_dof_distributions(
+                        [ModPar('ACE', 1., 100.0, 'randomUniform'),
+                         ModPar('MPPA', 1., 10.0, 'randomUniform')])
+    >>> indep_out, FIM_end = M1oed.brute_oed({'ACE': 20, 'MPPA': 20}, 20,
+                                             replacement=False, criterion='D')
+    >>> M1.plot_contourf('ACE', 'MPPA', M1.run())
+    >>> plt.hold(True)
+    >>> plt.plot(indep_out['ACE'], indep_out['MPPA'], 'o')
     """
 
     def __init__(self, confidence, dof_list, preFIM=None):
@@ -184,8 +222,8 @@ class BaseOED(_BaseOptimisation):
         """
         Brute force way of selecting the most optimal experiments. For each 
         
-        Parameters:
-        -----------
+        Parameters
+        ----------
         step_dict: dict
             For each of the independents, the step_dict contains a minimum
             value, a maximum value, and the numbers of steps. It will
@@ -206,8 +244,19 @@ class BaseOED(_BaseOptimisation):
             Do you want to be able to sample the same experiment more than 
             once?
         
+        Returns
+        -------
+        experiments: pd.DataFrame
+            Pandas dataframe containing the conditions and/or times at which
+            measurements should be performed.
+        FIM_tot: np.array
+            Numpy array containing the FIM, which is the sum of the self.preFIM
+            and the newly designed experiments.
+        
         """
         self._criterion = criterion
+        self._independent_samples = number_of_samples
+        self._set_dof_boundaries()
 
         # Create dict containing independent values
         independent_dict = {}
