@@ -28,7 +28,7 @@ class _BiointenseModel(BaseModel):
                 "Parameters: \n" + str(self.parameters) + "\n"
                 "Independent: \n" + str(self.independent) + "\n"
                 "Model initialised: " + str(self._initial_up_to_date) + "\n")
-
+                
     def _parse_system_string(self, system, parameters):
         """
         split the system in ODE & algebraic
@@ -190,46 +190,46 @@ class _BiointenseModel(BaseModel):
 
         # Can also be deleted
 
-    def add_event(self, idname, variable, ext_fun, arguments):
-        """
-        Variable is defined by external influence. This can be either a
-        measured value of input (e.g. rainfall) or a function that defines
-        a variable in function of time
-
-        See also:
-        ---------
-        functionMaker
-
-        plug to different files: step input ...
-        + add control to check whether external function addition is possible
-
-        + check if var exists in ODE/algebraic => make aggregation function to
-        contacate them.
-        """
-        self._initial_up_to_date = False
-        self._has_external = True
-
-        self.externalfunctions[idname] = {'variable': variable,
-                                          'fun': ext_fun,
-                                          'arguments': arguments}
-
-    def list_current_events(self):
-        """
-        """
-        return self.externalfunctions
-
-    def exclude_event(self, idname):
-        """
-        """
-        del self.externalfunctions[idname]
-
-        if not bool(self.externalfunctions):
-            self._has_external = False
-
-    def _collect_time_steps(self):
-        """
-        """
-        return NotImplementedError
+#    def add_event(self, idname, variable, ext_fun, arguments):
+#        """
+#        Variable is defined by external influence. This can be either a
+#        measured value of input (e.g. rainfall) or a function that defines
+#        a variable in function of time
+#
+#        See also:
+#        ---------
+#        functionMaker
+#
+#        plug to different files: step input ...
+#        + add control to check whether external function addition is possible
+#
+#        + check if var exists in ODE/algebraic => make aggregation function to
+#        contacate them.
+#        """
+#        self._initial_up_to_date = False
+#        self._has_external = True
+#
+#        self.externalfunctions[idname] = {'variable': variable,
+#                                          'fun': ext_fun,
+#                                          'arguments': arguments}
+#
+#    def list_current_events(self):
+#        """
+#        """
+#        return self.externalfunctions
+#
+#    def exclude_event(self, idname):
+#        """
+#        """
+#        del self.externalfunctions[idname]
+#
+#        if not bool(self.externalfunctions):
+#            self._has_external = False
+#
+#    def _collect_time_steps(self):
+#        """
+#        """
+#        return NotImplementedError
 
 
 class Model(_BiointenseModel):
@@ -261,7 +261,6 @@ class Model(_BiointenseModel):
     >>> system = {'v': 'Vmax*S/(Km + S)',
                   'dS': '-v*E',
                   'dP': 'v*E'}
-
     >>> M1 = Model('Michaelis-Menten', system, parameters)
     >>> M1.set_initial({'S':500.,
                         'P':0.})
@@ -306,18 +305,12 @@ class Model(_BiointenseModel):
         self.fun_ode = None
 
         self._has_external = False
-
+              
     def __repr__(self):
         """
         """
-        return("Model name: " + str(self.name) +
-               "\n Variables: \n" + str(self.variables) +
-               "\n Variables of interest: \n" + str(self.variables_of_interest) +
-               "\n Functions: \n" + str(self.systemfunctions) +
-               "\n Parameters: \n" + str(self.parameters) +
-               "\n Independent: \n" + str(self.independent) +
-               "\n Initial conditions: \n" + str(self.initial_conditions) +
-               "\n Model initialised: " + str(self._initial_up_to_date))
+        return ('biointense.Model' + "('" + self.name + "', " 
+                + str(self._system) + ", " + str(self.parameters) + ')')
 
     def set_initial(self, initialValues):
         """
@@ -376,7 +369,7 @@ class AlgebraicModel(_BiointenseModel):
     >>> M1 = AlgebraicModel('Double-Michaelis-Menten', system, parameters)
     >>> M1.set_independent({'A': np.linspace(0, 400, 25),
                             'B': np.linspace(0, 200, 25)},
-                            method='cartesian')
+                           method='cartesian')
     >>> #run the model
     >>> modeloutput = M1.run()
     >>> M1.plot_contourf('A', 'B', modeloutput)
@@ -423,13 +416,8 @@ class AlgebraicModel(_BiointenseModel):
     def __repr__(self):
         """
         """
-        print("Model name: " + str(self.name) +
-              "\n Variables: \n" + str(self.variables) +
-              "\n Variables of interest: \n" + str(self.variables_of_interest) +
-              "\n Functions: \n" + str(self.systemfunctions) +
-              "\n Parameters: \n" + str(self.parameters) +
-              "\n Independent: \n" + str(self.independent) +
-              "\n Model initialised: " + str(self._initial_up_to_date))
+        return ('biointense.AlgebraicModel' + "('" + self.name + "', " 
+                + str(self._system) + ", " + str(self.parameters) + ')')
 
     def set_independent(self, independent_dict, method='direct'):
         """
@@ -510,3 +498,16 @@ class AlgebraicModel(_BiointenseModel):
         plt.colorbar(cs)
 
         return ax
+    
+    @classmethod
+    def from_external(cls, name, fun_alg, parameters, output_var):
+        """
+        """
+        temp = cls(name, {}, parameters)
+        temp.fun_alg = fun_alg
+        temp._ordered_var['algebraic'] = output_var
+        
+        # Avoid that model tries to derive model from system
+        temp._initial_up_to_date = True
+        
+        return temp

@@ -49,6 +49,42 @@ class LocalSensitivity(Sensitivity):
     @property
     def parameter_values(self):
             return self.model.parameters
+            
+    def get_sensitivity(self, method='AS'):
+        r"""
+        Get numerical local sensitivity for the different parameters and
+        variables of interest
+        
+
+        Parameters
+        -----------
+        method : 'AS'|'PRS'|'TRS'
+            Three different ways of calculating the local senstivity are
+            available: the absolute senstivity (AS), the parameter relative
+            sensitivity and the total relative sensitivitiy (TRS).
+            
+            *Absolute Senstivity (AS)
+               
+                .. math:: \frac{\partial y_i(t)}{\partial \theta_j}
+
+        
+            *Parameter Relative Sensitivity (PRS)
+        
+                .. math:: \frac{\partial y_i(t)}{\partial \theta_j}\cdot\theta_j
+        
+            *Total Relative Senstivitity (TRS)
+        
+                .. math:: \frac{\partial y_i(t)}{\partial \theta_j}\cdot\frac{\partial \theta_j}{y_i}
+            
+
+        """
+        local_sens = self._get_sensitivity(method=method)
+        
+        index = pd.MultiIndex.from_arrays(self.model._independent_values.values(),
+                                          names=self.model.independent)
+        local_sens.index = index
+        
+        return local_sens
 
     def _rescale_sensitivity(self, sensitivity_PD, scaling):
         """
@@ -124,8 +160,8 @@ class NumericalLocalSensitivity(LocalSensitivity):
     >>> M1.set_initial({'S':500.,
                         'P':0.})
     >>> M1.set_independent({'t': np.linspace(0, 2500, 10000)})
-    >>> M1_numsens = NumericalLocalSensitivity(M1, parameters=['Km', 'Vmax'])
-    >>> numsens = M1_numsens.get_sensitivity(method='CPRS')
+    >>> M1sens_num = NumericalLocalSensitivity(M1, parameters=['Km', 'Vmax'])
+    >>> numsens = M1sens_num.get_sensitivity(method='CPRS')
     """
     def __init__(self, model, parameters=None, perturbation=1e-6,
                  procedure="central"):
@@ -168,16 +204,31 @@ class NumericalLocalSensitivity(LocalSensitivity):
             self._var_order[var] = i
 
     def set_procedure(self, procedure):
-        """
+        r"""
         Select which procedure (central, forward, backward) should be used to
         calculate the numerical local sensitivity.
 
         Parameters
         -----------
-        procedure : string
+        procedure : 'forward'|'central'|'backward'
             Three different procedures are available, the central procedure
             allows to evaluate the numerical accuracy of the sensitivity. This
-            is not the case for the forward and backward procedure.
+            is not the case for the forward and backward procedure. However, 
+            the additional information required for the central discretization
+            comes at an extra computational cost.
+            
+            *Forward discretisation
+            
+            .. math:: \frac{\partial y_i(t, \theta_j)}{\partial \theta_j} = \frac{y(t, \theta_j + \Delta\theta_j) - y(t, \theta_j)}{\Delta\theta_j}
+            
+            *Central discretisation
+            
+            .. math:: \frac{\partial y_i(t, \theta_j)}{\partial \theta_j} = \frac{y(t, \theta_j + \Delta\theta_j) - y(t, \theta_j- \Delta\theta_j)}{2\Delta\theta_j}
+                       
+            *Backward discretisation
+            
+            .. math:: \frac{\partial y_i(t, \theta_j)}{\partial \theta_j} = \frac{y(t, \theta_j) - y(t, \theta_j- \Delta\theta_j)}{\Delta\theta_j}
+                       
         """
         if procedure == "central":
             self._initiate_forw_back_sens()
@@ -193,7 +244,40 @@ class NumericalLocalSensitivity(LocalSensitivity):
 
     def set_perturbation(self, parameters, perturbation=1e-6):
         """
-        Ignore current perturbations
+        Function to set perturbation for each of the parameters:
+    
+        Parameters
+        -----------
+        parameters: list|dict
+            If parameters is a list, then the same perturbation factor is given
+            to each of the parameters. If parameters is a dict, then each 
+            parameter can be given a different perturbation factor.
+        
+        perturbation: float
+            If parameters is a list, this perturbation factor is used for all
+            the parameters
+            
+        Examples
+        ---------
+        >>> import numpy as np
+        >>> import matplotlib.pyplot as plt
+        >>> from biointense import AlgebraicModel, NumericalLocalSensitivity
+        >>> system = {'v': 'Vmax*S/(Km + S)'}
+        >>> parameters = {'Vmax': 1e-2, 'Km': 0.4}
+        >>> M1 = AlgebraicModel('Michaelis Menten', system, parameters)
+        >>> M1.set_independent({'S': np.linspace(0., 5., 100.)})
+        >>> # Select parameter for which a numerical sensitivity 
+        >>> M1sens = NumericalLocalSensitivity(M1, parameters=['Km'])
+        >>> # Change the perturbation factor for Km
+        >>> M1sens.set_perturbation(['Km'], perturbation=5e-1)
+        >>> high_pert = M1sens.get_sensitivity()
+        >>> # Decrease perturbation factor of Km by dictionary
+        >>> M1sens.set_perturbation({'Km': 1e-7})
+        >>> low_pert = M1sens.get_sensitivity()
+        >>> plt.plot(high_pert)
+        >>> plt.hold(True)
+        >>> plt.plot(low_pert)
+        >>> plt.legend(['Perturbation=5e-1', 'Perturbation=1e-7'])
         """
         self.parameters = []
 
@@ -236,7 +320,7 @@ class NumericalLocalSensitivity(LocalSensitivity):
 
         return num_sens
 
-    def _get_sensitivity(self, output_std, parameter, perturbation):
+    def _get_num_sensitivity(self, output_std, parameter, perturbation):
         """
         """
         par_value = self.model.parameters[parameter]
@@ -274,20 +358,39 @@ class NumericalLocalSensitivity(LocalSensitivity):
 
         return output
 
-    def get_sensitivity(self, method='AS'):
-        """
+    def _get_sensitivity(self, method='AS'):
+        r"""
         Get numerical local sensitivity for the different parameters and
         variables of interest
+        
 
         Parameters
         -----------
         method : 'AS'|'PRS'|'TRS'
+            Three different ways of calculating the local senstivity are
+            available: the absolute senstivity (AS), the parameter relative
+            sensitivity and the total relative sensitivitiy (TRS).
+            
+            *Absolute Senstivity (AS)
+               
+                .. math:: \frac{\partial y_i(t)}{\partial \theta_j}
+
+        
+            *Parameter Relative Sensitivity (PRS)
+        
+                .. math:: \frac{\partial y_i(t)}{\partial \theta_j}\cdot\theta_j
+        
+            *Total Relative Senstivitity (TRS)
+        
+                .. math:: \frac{\partial y_i(t)}{\partial \theta_j}\cdot\frac{\partial \theta_j}{y_i}
+            
+
         """
         output_std = self.model._run()
         num_sens = {}
 
         for par in self.parameters:
-            num_sens[par] = self._get_sensitivity(output_std, par,
+            num_sens[par] = self._get_num_sensitivity(output_std, par,
                                                   self._parameter_values[par])
 
         num_sens = pd.concat(num_sens, axis=1)
@@ -457,7 +560,28 @@ class NumericalLocalSensitivity(LocalSensitivity):
 
 
 class DirectLocalSensitivity(LocalSensitivity):
-    """
+    r"""
+    Parameters
+    -----------
+    model : Model|AlgebraicModel
+
+
+    Examples
+    ---------
+    >>> import numpy as np
+    >>> from biointense import Model, DirectLocalSensitivity
+    >>> parameters = {'Km': 150.,     # mM
+                      'Vmax': 0.768,  # mumol/(min*U)
+                      'E': 0.68}      # U/mL
+    >>> system = {'v': 'Vmax*S/(Km + S)',
+                  'dS': '-v*E',
+                  'dP': 'v*E'}
+    >>> M1 = Model('Michaelis-Menten', system, parameters)
+    >>> M1.set_initial({'S':500.,
+                        'P':0.})
+    >>> M1.set_independent({'t': np.linspace(0, 2500, 10000)})
+    >>> M1sens_direct = DirectLocalSensitivity(M1, parameters=['Km', 'Vmax'])
+    >>> directsens = M1sens_direct.get_sensitivity(method='PRS')
     """
     def __init__(self, model, parameters=None):
         """
@@ -588,7 +712,7 @@ class DirectLocalSensitivity(LocalSensitivity):
                               columns=columns)
         return result
 
-    def get_sensitivity(self, method='CAS'):
+    def _get_sensitivity(self, method='AS'):
         """
         """
         ode_values = None

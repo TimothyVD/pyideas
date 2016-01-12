@@ -94,28 +94,20 @@ class BaseOED(_BaseOptimisation):
     >>> import matplotlib.pyplot as plt
     >>> import numpy as np
     >>> import pandas as pd
-    
     >>> from biointense import (AlgebraicModel, DirectLocalSensitivity,
             TheoreticalConfidence, Uncertainty, BaseOED, ModPar)
-    
     >>> system = {'v': ('Vr*ACE*MPPA/(Kal*ACE + Kac*MPPA + ACE*MPPA'
                         '+ Kal/Kacs*ACE**2 + Kac/Kas*MPPA**2)')}
     >>> parameters = {'Vr': 5.18e-4, 'Kal': 1.07, 'Kac': 0.54, 'Kacs': 1.24,
                       'Kas': 25.82}
-
     >>> M1 = AlgebraicModel('biointense_backward', system, parameters)
-
     >>> ACE = np.linspace(11., 100., 250)
     >>> MPPA = np.linspace(1., 10., 250)
     >>> M1.set_independent({'ACE': ACE, 'MPPA': MPPA}, method='cartesian')
-
     >>> M1.initialize_model()
-
     >>> M1sens = DirectLocalSensitivity(M1)
     >>> M1uncertainty = Uncertainty({'v': '1**2'})
-
     >>> M1conf = TheoreticalConfidence(M1sens, M1uncertainty)
-
     >>> M1oed = BaseOED(M1conf, ['ACE', 'MPPA'])
     >>> #M1oed._independent_samples = 10
     >>> M1oed.set_dof_distributions(
@@ -126,6 +118,9 @@ class BaseOED(_BaseOptimisation):
     >>> M1.plot_contourf('ACE', 'MPPA', M1.run())
     >>> plt.hold(True)
     >>> plt.plot(indep_out['ACE'], indep_out['MPPA'], 'o')
+    >>> finalpop, ea = M1oed.inspyred_optimize()
+    >>> best = M1oed.select_optimal_individual(finalpop)
+    >>> M1oed._dof_array_to_dict(best.candidate)
     """
 
     def __init__(self, confidence, dof_list, preFIM=None):
@@ -172,10 +167,10 @@ class BaseOED(_BaseOptimisation):
 
         # Wrapper of the generic objective function to provide to
         # inspyred optimisation 
-        def inner_obj_fun(dof_array=None):
-            return self._obj_fun(obj_crit, dof_array=dof_array)
+        def inner_obj_fun(parray=None):
+            return self._obj_fun(criterion, dof_array=parray)
 
-        final_pop, ea = self._bioinspyred_optimize(
+        final_pop, ea = self._inspyred_optimize(
                                inner_obj_fun,
                                prng=prng,
                                approach=approach,
@@ -332,62 +327,36 @@ class RobustOED(object):
 
     Examples
     ---------
-    >>> from biointense.model import AlgebraicModel
-    >>> from biointense.sensitivity import (NumericalLocalSensitivity,
-                                        DirectLocalSensitivity)
-    >>> from biointense.confidence import TheoreticalConfidence
-    >>> from biointense.uncertainty import Uncertainty
-    >>> from biointense.oed import BaseOED, RobustOED
-    >>> from biointense.parameterdistribution import ModPar
-
     >>> import numpy as np
     >>> import pandas as pd
-
+    >>> from biointense import (AlgebraicModel, DirectLocalSensitivity,
+            TheoreticalConfidence, Uncertainty,RobustOED, ModPar)
     >>> # ACE = PP
     >>> # MPPA = PQ
-
     >>> system = {'v': ('Vr*ACE*MPPA/(Kal*ACE + Kac*MPPA + ACE*MPPA'
                         '+ Kal/Kacs*ACE**2 + Kac/Kas*MPPA**2)')}
     >>> parameters = {'Vr': 5.18e-4, 'Kal': 1.07, 'Kac': 0.54, 'Kacs': 1.24,
-                  'Kas': 25.82}
-
+                      'Kas': 25.82}
     >>> M1 = AlgebraicModel('biointense_backward', system, parameters)
-
-    >>> ACE = np.linspace(11., 100., 100)
-    >>> MPPA = np.linspace(1., 10., 100)
-    >>> M1.set_independent({'ACE': ACE, 'MPPA': MPPA}, method='cartesian')
-
+    >>> M1.set_independent({'ACE': np.linspace(11., 100., 100),
+                            'MPPA': np.linspace(1., 10., 100)},
+                           method='cartesian')
     >>> M1.initialize_model()
-
     >>> M1sens = DirectLocalSensitivity(M1)
-
     >>> M1uncertainty = Uncertainty({'v': '1**2'})
-
     >>> M1conf = TheoreticalConfidence(M1sens, M1uncertainty)
-
-    >>> M1bruteoed = BaseOED(M1conf, ['ACE', 'MPPA'])
-    >>> M1bruteoed._independent_samples = 10
-    >>> M1bruteoed.set_dof_distributions(
-                        [ModPar('ACE', 1., 100.0, 'randomUniform'),
-                         ModPar('MPPA', 1., 10.0, 'randomUniform')])
-    >>> indep_out, FIM_end = M1bruteoed.brute_oed({'ACE': 20, 'MPPA': 20},
-                                              replacement=False, criterion='D')
-    >>> plt.plot(indep_out['ACE'], indep_out['MPPA'], 'o')
-
     >>> M1oed = RobustOED(M1conf, 5)
-
     >>> M1oed.set_parameter_distributions(
                         [ModPar('Vr', 1e-7, 1e-1, 'randomUniform'),
                          ModPar('Kal', 0.01, 10, 'randomUniform'),
                          ModPar('Kac', 0.01, 10, 'randomUniform'),
                          ModPar('Kacs', 0.05, 10, 'randomUniform'),
                          ModPar('Kas', 5.0, 50., 'randomUniform')])
-
     >>> M1oed.set_independent_distributions(
                         [ModPar('ACE', 1., 100.0, 'randomUniform'),
                          ModPar('MPPA', 1., 10.0, 'randomUniform')])
-
     >>> opt_independent, par_sets = M1oed.maximin(K_max=5)
+    >>> M1oed._oed['ind']._dof_array_to_dict(opt_independent)
     """
     def __init__(self, confidence, independent_samples, preFIM=None):
         """
@@ -426,11 +395,44 @@ class RobustOED(object):
 
     def set_parameter_distributions(self, modpar_list):
         """
+        Set distributions for the variables you CANNOT change BUT would like
+        to calibrate/estimate more reliably, e.g. kinetic model parameters.
+        This is useful when a model calibration exercise is started but no
+        (accurate) parameter values are known only a rough estimation of the
+        range. By taking the entire range of possible parameters combinations
+        into account, the design will be less dependent on one specific
+        parameter set.
+        
+        Parameters
+        -----------
+        modpar_list: list
+            List containing ModPar instances, describing the ranges and
+            distributions from which should be sampled from.
+            
+        Examples
+        ---------
+        >>> M1oed.set_parameter_distributions(
+                        [ModPar('ACE', 1., 100.0, 'randomUniform'),
+                         ModPar('MPPA', 1., 10.0, 'randomUniform')])
         """
         self._set_dof_distributions('par', modpar_list, 0)
 
     def set_independent_distributions(self, modpar_list):
         """
+        Set distributions for the variables you CAN change, like the 
+        measurement times, concentrations, experimental conditions,...
+        
+        Parameters
+        -----------
+        modpar_list: list
+            List containing ModPar instances, describing the ranges and
+            distributions from which should be sampled from.
+            
+        Examples
+        ---------
+        >>> M1oed.set_independent_distributions(
+                        [ModPar('ACE', 1., 100.0, 'randomUniform'),
+                         ModPar('MPPA', 1., 10.0, 'randomUniform')])
         """
         self._set_dof_distributions('ind', modpar_list,
                                     self.independent_samples)
@@ -442,7 +444,7 @@ class RobustOED(object):
         FIM_inner = []
         for parameter_sample in parameter_sets:
             FIM_inner.append(self._inner_obj_fun(parameter_sample, 'ind',
-                                                 dist_checker=True))
+                                                 dist_checker=False))
 
         return FIM_inner
 
@@ -490,30 +492,26 @@ class RobustOED(object):
             dist_check = 1.
         return dist_check
 
-    def my_constraint_function(self, candidate):
-        """Return the number of constraints that candidate violates."""
-        # In this case, we'll just say that the point has to lie
-        # within a circle centered at (0, 0) of radius 1.
-        if self._oed['ind']._obj_fun('D', candidate) < self.psi_independent:
-            return 1
-        else:
-            return 0
+#    def my_constraint_function(self, candidate):
+#        """Return the number of constraints that candidate violates."""
+#        # In this case, we'll just say that the point has to lie
+#        # within a circle centered at (0, 0) of radius 1.
+#        if self._oed['ind']._obj_fun('D', candidate) < self.psi_independent:
+#            return 1
+#        else:
+#            return 0
 
     def _optimize_for_independent(self, parameter_sets, **kwargs):
         """
         """
         def temp_obj_fun(parray=None):
             return self._outer_obj_fun(parray, parameter_sets)
+            
+        kwargs = {'obj_fun': temp_obj_fun,
+                  'prng': None, 'approach':'PSO', 'initial_parset':None,
+                  'pop_size':16, 'maximize': True, 'max_eval':1000}
 
-        final_pop, ea = self._oed['ind']._inspyred_optimize(
-                                obj_fun=temp_obj_fun,
-                                prng=None,
-                                approach='PSO',
-                                initial_parset=None,
-                                pop_size=16,
-                                maximize=True,
-                                max_eval=1000,
-                                **kwargs)
+        final_pop, ea = self._oed['ind']._inspyred_optimize(**kwargs)
 
         best_individual = max(final_pop)
 
@@ -540,7 +538,30 @@ class RobustOED(object):
         return worst_individual.candidate, worst_individual.fitness
 
     def maximin(self, approach='PSO', K_max=100):
-        """
+        r"""
+        This algorithm is a implementation of the worst-case approach,
+        described in [2]_. The worst-case approach aims to determine experiment
+        designs that optimise the worst possible performance for *any* value of
+        :math:`\theta \in \Theta`
+        
+        .. math:: \phi_R = \arg\ \max_{\phi\in\Phi}\ \min_{\theta\in\Theta} \left\{M_I(\theta, \phi)\right\}
+        
+        Pseudocode
+            *Given: a nominal vector of parameter values, :math:`\theta \in \Theta`
+            
+            *Step 0: set K:=1
+            
+            *Step 1: solve :math:`\Psi^{[K]} = \max\ \Psi`
+                     s.t. :math:`\Psi \leq \det(M_I^\phi(\theta, \phi))|_{\theta^{[k]}}, k=1,\ldots,K` 
+            
+            *Step 2: solve :math:`\hat{\psi}^{[K]} = \min_{\theta}\ \det(M_I(\theta, \phi))` to obtain :math:`\theta^{[K+1]}`
+            
+            *Step 3: if :math:`\hat{\psi}^{[K]}<\psi^{[K]}`, then set K:=K+1 and repeat from Step 1
+            
+            *Step 4: stop: R-optimal experiment design is :math:`\phi^{[k]}`
+        
+        Einde
+        
         Parameters
         -----------
         approach : str
@@ -558,11 +579,10 @@ class RobustOED(object):
 
         References
         -----------
-        S.P. Asprey, S. Macchietto, Designing robust optimal dynamic
+        [2] S.P. Asprey, S. Macchietto, Designing robust optimal dynamic
         experiments, Journal of Process Control, Volume 12, Issue 4, June 2002,
         Pages 545-556, ISSN 0959-1524,
         http://dx.doi.org/10.1016/S0959-1524(01)00020-8.
-        (http://www.sciencedirect.com/science/article/pii/S0959152401000208)
         """
 
         parameter_sets = [self._oed['par']._dof_dict_to_array(
@@ -578,7 +598,7 @@ class RobustOED(object):
             independent_sample, psi_independent = \
                 self._optimize_for_independent(parameter_sets)
             self.psi_independent.append(psi_independent)
-
+            
             # Convert output of independent to dof_dict output
             ind_dict = self._oed['ind']._dof_array_to_dict(independent_sample)
 

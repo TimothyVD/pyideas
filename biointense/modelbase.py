@@ -5,6 +5,7 @@ from __future__ import division
 
 import warnings
 import pandas as pd
+import pickle
 
 class BaseModel(object):
 
@@ -133,17 +134,17 @@ class BaseModel(object):
 
         return self
 
-    def get_summary(self):
-        """
-        returns summary of the model
-            parameters
-            variables & type
-            events
-            time steps (init defined user, event, measurements)
-            initial conditions
-            ready to run!
-        """
-        return NotImplementedError
+#    def get_summary(self):
+#        """
+#        returns summary of the model
+#            parameters
+#            variables & type
+#            events
+#            time steps (init defined user, event, measurements)
+#            initial conditions
+#            ready to run!
+#        """
+#        return NotImplementedError
 
     def initialize_model(self):
         """
@@ -165,34 +166,52 @@ class BaseModel(object):
             self.initialize_model
         return NotImplementedError
 
-    def plot(self):
-        """
-        plot dataframe
-        """
-        return NotImplementedError
+#    def plot(self):
+#        """
+#        plot dataframe
+#        """
+#        return NotImplementedError
 
-    def save(self):
+    def save(self, filename):
         """
         Saves the object to a file, cfr. pickle
         """
-        return NotImplementedError
+        with open(filename + '.biointense', 'wb') as output:
+            pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
+        print('Object has been save as {0}.biointense'.format(filename))
 
     @classmethod
-    def load(cls):
+    def load(cls, filename):
         """
         Loads the object from a file, cfr. pickle
-        """
-        return cls(None)
-
-    def export_to(environment):
-        """
-        Converts the model to be used in other environment
-
+        
         Parameters
         -----------
-        environment : matlab, openModelica, libSBML
+        filename: str
+            String with the (relative/absolute) path to the file. If the
+            filename does not end with *.biointense*, this is automatically 
+            appended to the filename.
+            
+        Returns
+        --------
+        object: biointense.Model|biointense.AlgebraicModel
+            Model with containing all values and functions as it was saved.
         """
-        return NotImplementedError
+        if not filename.endswith('.biointense'):
+            filename += '.biointense'
+        with open(filename, 'rb') as input:
+            temp_object = pickle.load(input)
+        return temp_object
+
+#    def export_to(environment):
+#        """
+#        Converts the model to be used in other environment
+#
+#        Parameters
+#        -----------
+#        environment : matlab, openModelica, libSBML
+#        """
+#        return NotImplementedError
 
 
 

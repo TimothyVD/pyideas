@@ -283,6 +283,9 @@ class _BaseOptimisation(object):
     # Bioinspyred specific stuff
 
     def _inspyred_bounder(self, candidates, args):
+        if self._dof_lower_bnd is None or self._dof_upper_bnd is None:
+            raise Exception(('Something went wrong with setting '
+                             'self._dof_lower_bnd or self._dof_upper_bnd'))
         candidates = np.array(candidates)
 
         candidates = np.minimum(np.maximum(candidates, self._dof_lower_bnd),
@@ -322,6 +325,8 @@ class _BaseOptimisation(object):
         if not INSPYRED_IMPORT:
             raise Exception("Inspyred was not found, no global optimization "
                             "possible!")
+        
+        self._set_dof_boundaries()
 
         # OPTIMIZATION
         prng = kwargs.get('prng')

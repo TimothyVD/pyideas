@@ -11,10 +11,10 @@ from itertools import product
 
 # Check whether odespy is installed
 try:
-    _odespy = True
+    _ODESPY = True
     import odespy
 except:
-    _odespy = False
+    _ODESPY = False
     pass
 
 import numpy as np
@@ -22,7 +22,7 @@ import numpy as np
 # Define availabe integrators for each of all ode' approaches
 ODE_INTEGRATORS = {}
 ODE_INTEGRATORS['ode'] = ['vode', 'zvode', 'lsoda', 'dopri5', 'dop853']
-if _odespy:
+if _ODESPY:
     ODE_INTEGRATORS['odespy'] = odespy.list_available_solvers()
 
 # Standard setting for each ode approach
@@ -174,7 +174,7 @@ class OdeSolver(_Solver):
         .. [1] H. P. Langtangen and L. Wang. Odespy software package.
         URL: https://github.com/hplgit/odespy. 2014
         """
-        if not _odespy:
+        if not _ODESPY:
             raise Exception('Odespy is not installed!')
 
         self._check_ode_integrator_setting("ode")

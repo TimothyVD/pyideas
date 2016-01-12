@@ -52,7 +52,7 @@ class BaseConfidence(object):
 
     @property
     def sens_PD(self):
-        sens_PD = self.sens.get_sensitivity(method=self.sens_method)
+        sens_PD = self.sens._get_sensitivity(method=self.sens_method)
         # Temp fix!
         # Necessary because order is changing
         self.parameters = list(sens_PD.columns.get_level_values(1))

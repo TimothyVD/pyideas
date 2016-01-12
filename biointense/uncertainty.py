@@ -21,7 +21,7 @@ class Uncertainty(object):
     >>>
     >>> uncertainty_dict = {'y1': '0.05*y1',
                             'y2': '0.09*y2'}
-    >>>
+    >>> 
     """
 
     def __init__(self, uncertainty_dict):
