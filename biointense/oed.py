@@ -6,6 +6,8 @@ Created on Sat Feb  7 17:03:10 2015
 """
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+import itertools
 
 from biointense.optimisation import _BaseOptimisation
 
@@ -85,10 +87,10 @@ OED_CRITERIA_MAXIMIZE = {'A': False, 'modA': True, 'D': True,
 class BaseOED(_BaseOptimisation):
     r"""
     Base class for performing Model-based Optimal Experimental Design.
-    
+
     The idea is to optimise the expected information of your future experiments
     by altering the values of your independent variables.
-    
+
     Examples
     ---------
     >>> import matplotlib.pyplot as plt
@@ -166,20 +168,20 @@ class BaseOED(_BaseOptimisation):
         self._criterion = criterion
 
         # Wrapper of the generic objective function to provide to
-        # inspyred optimisation 
+        # inspyred optimisation
         def inner_obj_fun(parray=None):
             return self._obj_fun(criterion, dof_array=parray)
 
-        final_pop, ea = self._inspyred_optimize(
-                               inner_obj_fun,
-                               prng=prng,
-                               approach=approach,
-                               initial_parset=initial_parset,
-                               pop_size=pop_size,
-                               # Depending on criterion used, the objective
-                               # function has to be minimized or maximized
-                               maximize=OED_CRITERIA_MAXIMIZE[criterion],
-                               max_eval=max_eval, **kwargs)
+        final_pop, ea =\
+            self._inspyred_optimize(inner_obj_fun, prng=prng,
+                                    approach=approach,
+                                    initial_parset=initial_parset,
+                                    pop_size=pop_size,
+                                    # Depending on criterion used,
+                                    # the objective function has to
+                                    # be minimized or maximized
+                                    maximize=OED_CRITERIA_MAXIMIZE[criterion],
+                                    max_eval=max_eval, **kwargs)
 
         return final_pop, ea
 
@@ -189,20 +191,20 @@ class BaseOED(_BaseOptimisation):
         individual needs to be selected. Depending on the OED criterion used,
         the individual with the minimum or maximum objective value is selected
         automatically.
-        
+
         Parameters:
         ----------
         final_pop: list
             final_pop contains the population returned by inspyred_optimize,
             which (hopefully :-)) contains a more optimal design.
-            
+
         Returns:
         --------
         individual: instance
             Most optimal individual, containing both the independent values and
             the value of the objective function
         """
-        if type(final_pop) != list:
+        if not isinstance(final_pop, list):
             raise Exception('final_pop has to be a list!')
 
         if OED_CRITERIA_MAXIMIZE[self._criterion]:
@@ -212,11 +214,86 @@ class BaseOED(_BaseOptimisation):
             print('Individual with minimum fitness is selected!')
             return min(final_pop)
 
+    def _prepare_brute_approach(self, step_dict):
+        """
+        """
+        self._set_dof_boundaries()
+
+        # Create dict containing independent values
+        independent_dict = {}
+        independent_list = []
+        parameter_dict = {}
+        parameter_list = []
+        initial_dict = {}
+        initial_list = []
+        for changeable in step_dict.keys():
+            temp_dist = np.linspace(self._dof_distributions[changeable].min,
+                                    self._dof_distributions[changeable].max,
+                                    step_dict[changeable])
+            if changeable in self._dof_ordered['independent']:
+                independent_dict[changeable] = temp_dist
+                independent_list.append(changeable)
+            elif changeable in self._dof_ordered['initial']:
+                initial_dict[changeable] = temp_dist
+                initial_list.append(changeable)
+            elif changeable in self._dof_ordered['parameter']:
+                parameter_dict[changeable] = temp_dist
+                parameter_list.append(changeable)
+            else:
+                raise Exception('Only initial conditions, parameters and '
+                                'independent values can be altered in this '
+                                'function!')
+
+        # Write independent values to model
+        if self.model.modeltype is "Model":
+            self.model.set_independent(independent_dict)
+        elif self.model.modeltype is "AlgebraicModel":
+            self.model.set_independent(independent_dict, method='cartesian')
+
+        initial_cond = list(itertools.product(*initial_dict.values()))
+        parameters = list(itertools.product(*parameter_dict.values()))
+        temp = initial_dict.values() + parameter_dict.values() +\
+            independent_dict.values()
+        arrays = np.array(list(itertools.product(*temp)))
+
+        names = initial_list + parameter_list + independent_list
+        index = pd.MultiIndex.from_arrays(arrays.T, names=names)
+
+        return (initial_cond, initial_list, parameters, parameter_list, index,
+                names)
+
+    def brute_modeloutput(self, step_dict):
+        r"""
+        Examples
+        ---------
+        >>> output = M1oed.brute_modeloutput({'S': 100, 't': 100})
+
+        >>> M1oed.plot_contourf('S', 't', output['P'])
+        """
+        (initial_cond, initial_list, parameters, parameter_list, index, names) = \
+            self._prepare_brute_approach(step_dict)
+
+        # For each sample, calculate model
+        modeloutput_container = []
+        for initial_values in initial_cond:
+            initial = dict(zip(initial_list, initial_values))
+            self.model.set_initial(initial)
+            for parameter_values in parameters:
+                par = dict(zip(parameter_list, parameter_values))
+                self.model.set_parameters(par)
+                modeloutput_container.append(self.model._run())
+
+        output_var = self.model._ordered_var['ode'] +\
+            self.model._ordered_var['algebraic']
+        modeloutput = np.concatenate(modeloutput_container)
+
+        return pd.DataFrame(modeloutput, index=index, columns=output_var)
+
     def brute_oed(self, step_dict, number_of_samples, criterion='D',
                   replacement=True):
-        """
-        Brute force way of selecting the most optimal experiments. For each 
-        
+        r"""
+        Brute force way of selecting the most optimal experiments. For each
+
         Parameters
         ----------
         step_dict: dict
@@ -224,21 +301,21 @@ class BaseOED(_BaseOptimisation):
             value, a maximum value, and the numbers of steps. It will
             automatically, create a raster and calculate the FIM for each
             experiment.
-        
+
         number_of_samples: int
-            How many experiments do you want to design at once (using your 
+            How many experiments do you want to design at once (using your
             preliminary knowledge)? Keep in mind that only designing one
             experiment at a time can be quite timeconsuming, however every
             iteration the new experiment can already be used as additional
             information to design a new experiment.
-        
+
         criterion: 'A'|'modA'|'D'|'E'|'modE'
-            Select OED criterion do you want to use? Standard setting is 'D'.            
-        
+            Select OED criterion do you want to use? Standard setting is 'D'.
+
         replacement: True|False
-            Do you want to be able to sample the same experiment more than 
+            Do you want to be able to sample the same experiment more than
             once?
-        
+
         Returns
         -------
         experiments: pd.DataFrame
@@ -247,28 +324,49 @@ class BaseOED(_BaseOptimisation):
         FIM_tot: np.array
             Numpy array containing the FIM, which is the sum of the self.preFIM
             and the newly designed experiments.
-        
+
+        Examples
+        ---------
+        >>> import matplotlib.pyplot as plt
+        >>> import numpy as np
+        >>> import pandas as pd
+        >>> from biointense import (Model, DirectLocalSensitivity, Uncertainty,
+                                    TheoreticalConfidence, ModPar, BaseOED)
+        >>> system = {'v': 'Vmax*S/(Km + S)', 'dP': 'v', 'dS': '-v'}
+        >>> parameters = {'Vmax': 0.15, 'Km': 2.5}
+        >>> M1 = Model('biointense_backward', system, parameters)
+        >>> M1.set_independent({'t': np.linspace(0., 500., 50)})
+        >>> M1.set_initial({'S': 40.,'P': 0.})
+        >>> M1.initialize_model()
+        >>> M1.run()
+        >>> M1sens = DirectLocalSensitivity(M1)
+        >>> M1uncertainty = Uncertainty({'v': '10**2', 'S': '1**2',
+                                         'P': '1**2',})
+        >>> M1conf = TheoreticalConfidence(M1sens, M1uncertainty)
+        >>> M1conf.get_parameter_confidence()
+        >>> M1oed = BaseOED(M1conf, ['S', 't'])
+        >>> M1oed.set_dof_distributions([ModPar('S', 1., 20.0,
+                                                'randomUniform'),
+                                         ModPar('t', 0., 500.0,
+                                                'randomUniform')])
+        >>> indep_out, FIM_end = M1oed.brute_oed({'S': 20, 't': 20}, 20,
+                                                 replacement=False,
+                                                 criterion='D')
+        >>> output = M1oed.brute_modeloutput({'S': 100, 't': 100})
+        >>> M1oed.plot_contourf('S', 't', output['P'])
+        >>> plt.hold(True)
+        >>> plt.plot(indep_out['S'], indep_out['t'], 'o')
+
+        >>> M1oed._independent_samples = 5
+        >>> finalpop, ea = M1oed.inspyred_optimize()
+        >>> best = M1oed.select_optimal_individual(finalpop)
+        >>> M1oed._dof_array_to_dict(best.candidate)
         """
         self._criterion = criterion
         self._independent_samples = number_of_samples
-        self._set_dof_boundaries()
 
-        # Create dict containing independent values
-        independent_dict = {}
-        for independent in step_dict.keys():
-            independent_dict[independent] = \
-                np.linspace(self._dof_distributions[independent].min,
-                            self._dof_distributions[independent].max,
-                            step_dict[independent])
-
-        # Write independent values to model
-        if self.model.modeltype is "Model":
-            self.model.set_independen(independent_dict)
-        elif self.model.modeltype is "AlgebraicModel":
-            self.model.set_independent(independent_dict, method='cartesian')
-
-        index = pd.MultiIndex.from_arrays(self.model._independent_values.values(),
-                                          names=self.model.independent)
+        (initial_cond, initial_list, parameters, parameter_list, index, names) = \
+            self._prepare_brute_approach(step_dict)
 
         # Select whether objective function needs to be minimised or maximised
         # This depends on the OED criterion used
@@ -278,7 +376,16 @@ class BaseOED(_BaseOptimisation):
             selection_criterion = np.argmin
 
         # For each sample, calculate FIM
-        FIM_evolution = self.confidence.FIM_time
+        FIM_container = []
+        for initial_values in initial_cond:
+            initial = dict(zip(initial_list, initial_values))
+            self.model.set_initial(initial)
+            for parameter_values in parameters:
+                par = dict(zip(parameter_list, parameter_values))
+                self.model.set_parameters(par)
+                FIM_container.append(self.confidence.FIM_time)
+
+        FIM_evolution = np.concatenate(FIM_container)
 
         # Initialise the FIM
         FIM_tot = 0
@@ -294,7 +401,7 @@ class BaseOED(_BaseOptimisation):
 
             # Add FIM of that specific sample to the FIM_tot/FIM_evolution,
             # since we want to optimise the information content of all the
-            # samples. If we would not keep track of the current FIM, we would 
+            # samples. If we would not keep track of the current FIM, we would
             # always select the same individual
             FIM_tot += FIM_evolution[optim_indep, :, :]
             FIM_evolution = FIM_evolution + FIM_evolution[optim_indep, :, :]
@@ -302,8 +409,43 @@ class BaseOED(_BaseOptimisation):
             if not replacement:
                 FIM_evolution[optim_indep, :, :] = 1e-20
 
-        return (pd.DataFrame(experiments, columns=self.model.independent),
-                FIM_tot)
+        return (pd.DataFrame(experiments, columns=names), FIM_tot)
+
+    def plot_contourf(self, independent_x, independent_y, output, ax=None,
+                      **kwargs):
+        r"""
+        Parameters
+        -----------
+        independent_x: string
+            Independent of interest to be shown at the x-axis.
+        independent_y: string
+            Independent of interest to be shown at the y-axis.
+        output: pandas.Dataframe
+            algebraic equation to be shown as a contourplot (in function of
+            independent_x and independent_y)
+        ax: matplotlib.ax
+            Pass ax to plot on.
+
+        Examples
+        ---------
+        >>> M1oed.plot_contourf('S', 't', output['P'])
+        """
+        x_values = output.index.get_level_values(independent_x)
+        y_values = output.index.get_level_values(independent_y)
+        shape = [len(x_values.unique()), len(y_values.unique())]
+        x = np.reshape(x_values, shape)
+        y = np.reshape(y_values, shape)
+        z = np.reshape(output.values, shape)
+
+        if ax is None:
+            ax = plt.gca()
+
+        cs = ax.contourf(x, y, z, **kwargs)
+        ax.set_xlabel(independent_x)
+        ax.set_ylabel(independent_y)
+        plt.colorbar(cs)
+
+        return ax
 
 
 class RobustOED(object):
@@ -380,6 +522,10 @@ class RobustOED(object):
 
         self.independent_dist = None
 
+        self.psi_independent = None
+        self.psi_parameter = None
+        self.maximin_success = False
+
     def _set_dof_distributions(self, oed_type, modpar_list, samples):
         """
 
@@ -402,13 +548,13 @@ class RobustOED(object):
         range. By taking the entire range of possible parameters combinations
         into account, the design will be less dependent on one specific
         parameter set.
-        
+
         Parameters
         -----------
         modpar_list: list
             List containing ModPar instances, describing the ranges and
             distributions from which should be sampled from.
-            
+
         Examples
         ---------
         >>> M1oed.set_parameter_distributions(
@@ -419,15 +565,15 @@ class RobustOED(object):
 
     def set_independent_distributions(self, modpar_list):
         """
-        Set distributions for the variables you CAN change, like the 
+        Set distributions for the variables you CAN change, like the
         measurement times, concentrations, experimental conditions,...
-        
+
         Parameters
         -----------
         modpar_list: list
             List containing ModPar instances, describing the ranges and
             distributions from which should be sampled from.
-            
+
         Examples
         ---------
         >>> M1oed.set_independent_distributions(
@@ -460,9 +606,8 @@ class RobustOED(object):
         """
         """
         par_dict = self._oed[oed_type]._dof_array_to_dict_generic(
-                            self._dof['par']['dof_len'],
-                            self._dof['par']['dof_ordered'],
-                            np.array(parameter_sample))
+            self._dof['par']['dof_len'], self._dof['par']['dof_ordered'],
+            np.array(parameter_sample))
 
         self._oed[oed_type]._dof_dict_to_model(par_dict)
 
@@ -506,10 +651,10 @@ class RobustOED(object):
         """
         def temp_obj_fun(parray=None):
             return self._outer_obj_fun(parray, parameter_sets)
-            
-        kwargs = {'obj_fun': temp_obj_fun,
-                  'prng': None, 'approach':'PSO', 'initial_parset':None,
-                  'pop_size':16, 'maximize': True, 'max_eval':1000}
+
+        kwargs = {'obj_fun': temp_obj_fun, 'prng': None, 'approach': 'PSO',
+                  'initial_parset': None, 'pop_size': 16, 'maximize': True,
+                  'max_eval': 1000}
 
         final_pop, ea = self._oed['ind']._inspyred_optimize(**kwargs)
 
@@ -523,15 +668,14 @@ class RobustOED(object):
         def temp_obj_fun(parray=None):
             return self._inner_obj_fun(parray, 'par', dist_checker=False)
 
-        final_pop, ea = self._oed['par']._inspyred_optimize(
-                             obj_fun=temp_obj_fun,
-                             prng=None,
-                             approach='PSO',
-                             initial_parset=None,
-                             pop_size=16,
-                             maximize=False,  # only valid for D
-                             max_eval=1000,
-                             **kwargs)
+        internal_kwargs = {'obj_fun': temp_obj_fun, 'prng': None,
+                           'approach': 'PSO', 'initial_parset': None,
+                           'pop_size': 16, 'maximize': False,  # Only for D
+                           'max_eval': 1000}
+
+        internal_kwargs.update(kwargs)
+
+        final_pop, ea = self._oed['par']._inspyred_optimize(**internal_kwargs)
 
         worst_individual = min(final_pop)
 
@@ -543,25 +687,25 @@ class RobustOED(object):
         described in [2]_. The worst-case approach aims to determine experiment
         designs that optimise the worst possible performance for *any* value of
         :math:`\theta \in \Theta`
-        
+
         .. math:: \phi_R = \arg\ \max_{\phi\in\Phi}\ \min_{\theta\in\Theta} \left\{M_I(\theta, \phi)\right\}
-        
+
         Pseudocode
-            *Given: a nominal vector of parameter values, :math:`\theta \in \Theta`
-            
-            *Step 0: set K:=1
-            
-            *Step 1: solve :math:`\Psi^{[K]} = \max\ \Psi`
-                     s.t. :math:`\Psi \leq \det(M_I^\phi(\theta, \phi))|_{\theta^{[k]}}, k=1,\ldots,K` 
-            
-            *Step 2: solve :math:`\hat{\psi}^{[K]} = \min_{\theta}\ \det(M_I(\theta, \phi))` to obtain :math:`\theta^{[K+1]}`
-            
-            *Step 3: if :math:`\hat{\psi}^{[K]}<\psi^{[K]}`, then set K:=K+1 and repeat from Step 1
-            
-            *Step 4: stop: R-optimal experiment design is :math:`\phi^{[k]}`
-        
+        *Given: a nominal vector of parameter values, :math:`\theta \in \Theta`
+
+        *Step 0: set K:=1
+
+        *Step 1: solve :math:`\Psi^{[K]} = \max\ \Psi`
+            s.t. :math:`\Psi \leq \det(M_I^\phi(\theta, \phi))|_{\theta^{[k]}}, k=1,\ldots,K`
+
+        *Step 2: solve :math:`\hat{\psi}^{[K]} = \min_{\theta}\ \det(M_I(\theta, \phi))` to obtain :math:`\theta^{[K+1]}`
+
+        *Step 3: if :math:`\hat{\psi}^{[K]}<\psi^{[K]}`, then set K:=K+1 and repeat from Step 1
+
+        *Step 4: stop: R-optimal experiment design is :math:`\phi^{[k]}`
+
         Einde
-        
+
         Parameters
         -----------
         approach : str
@@ -586,7 +730,7 @@ class RobustOED(object):
         """
 
         parameter_sets = [self._oed['par']._dof_dict_to_array(
-                                self.model.parameters.copy())]
+            self.model.parameters.copy())]
 
         self.psi_parameter = [0]
         self.psi_independent = [1]
@@ -598,7 +742,7 @@ class RobustOED(object):
             independent_sample, psi_independent = \
                 self._optimize_for_independent(parameter_sets)
             self.psi_independent.append(psi_independent)
-            
+
             # Convert output of independent to dof_dict output
             ind_dict = self._oed['ind']._dof_array_to_dict(independent_sample)
 

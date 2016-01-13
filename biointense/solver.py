@@ -13,9 +13,8 @@ from itertools import product
 try:
     _ODESPY = True
     import odespy
-except:
+except ImportError:
     _ODESPY = False
-    pass
 
 import numpy as np
 
@@ -30,6 +29,9 @@ STD_ODE_INTEGRATOR = {'ode': 'lsoda', 'odespy': 'lsoda_scipy', 'odeint': ''}
 
 
 class _Solver(object):
+    r"""
+    Base solver class for OdeSolver, AlgebraicSolver and HybridSolver
+    """
 
     def __init__(self, fun, independent):
         """
@@ -53,7 +55,8 @@ class _Solver(object):
 
 
 class OdeSolver(_Solver):
-    """
+    r"""
+
     """
     def __init__(self, fun_ode, initial_conditions, independent, args,
                  ode_solver_options=None, ode_integrator=None):
@@ -70,7 +73,14 @@ class OdeSolver(_Solver):
                                'odespy': self._solve_odespy}
 
     def _check_ode_integrator_setting(self, procedure):
-        """
+        r"""
+        Check if ode procedure is available
+
+        Parameters
+        -----------
+        procedure: string
+            For each of the odesolvers (*odeint*, *ode* and *odespy*), the
+            available procedures are saved in *ODE_INTEGRATORS*.
         """
         if self.ode_integrator is None:
             self.ode_integrator = STD_ODE_INTEGRATOR[procedure]
@@ -81,7 +91,7 @@ class OdeSolver(_Solver):
                                 'please choose one from the ODE_INTEGRATORS '
                                 'list.')
 
-    def _solve_odeint(self, **kwargs):
+    def _solve_odeint(self):
         """
         Calculate the ode equations using scipy integrate odeint solvers
 
@@ -108,8 +118,8 @@ class OdeSolver(_Solver):
 
         return res
 
-    def _solve_ode(self, **kwargs):
-        """
+    def _solve_ode(self):
+        r"""
         Calculate the ode equations using scipy integrate ode solvers
 
         Returns
@@ -131,6 +141,9 @@ class OdeSolver(_Solver):
 
         # Make wrapper function to
         def wrapper(independent_values, initial_conditions, parameters):
+            r"""
+            Wrapper function to switch order of input
+            """
             return self.fun_ode(initial_conditions, independent_values,
                                 parameters)
 
@@ -155,7 +168,7 @@ class OdeSolver(_Solver):
 
         return np.array(model_output)
 
-    def _solve_odespy(self, **kwargs):
+    def _solve_odespy(self):
         """
         Calculate the ode equations using scipy integrate ode solvers
 
@@ -203,7 +216,9 @@ class OdeSolver(_Solver):
         """
         self._check_ode_integrator_setting(procedure)
 
-        output = self._ode_procedure[procedure](**kwargs)
+        self.ode_solver_options.update(kwargs)
+
+        output = self._ode_procedure[procedure]()
 
         return output
 
@@ -266,7 +281,8 @@ class HybridSolver(_Solver):
         odesolver = OdeSolver(self.fun_ode, self.initial_conditions,
                               self.independent, self.args)
         # Solving ODEs
-        ode_output = odesolver._ode_procedure[procedure](**kwargs)
+        odesolver.ode_solver_options.update(kwargs)
+        ode_output = odesolver._ode_procedure[procedure]()
 
         # Solving Algebraic equations
         algsolver = AlgebraicSolver(self.fun_alg, self.independent, self.args,

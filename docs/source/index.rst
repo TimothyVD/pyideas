@@ -24,7 +24,9 @@ Contents:
    model
    sensitivity
    measurements
+   uncertainty
    optimisation
+   confidence
    oed
    utilities
 
