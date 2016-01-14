@@ -18,7 +18,7 @@ class BaseConfidence(object):
     """
     """
 
-    def __init__(self, sens, sens_method='CAS'):
+    def __init__(self, sens, sens_method='AS'):
         """
         """
         self.sens = sens
@@ -32,7 +32,7 @@ class BaseConfidence(object):
         self._par_len = len(self.parameters)
         self.variables = list(self.sens_PD.columns.levels[0])
         self._var_len = len(self.variables)
-        
+
         self.repeats_per_sample = 1
         # self.parameter_values = pd.Series({par: self.model.parameters[par] for
         #                                   par in self.parameters})
@@ -421,7 +421,7 @@ class BaseConfidence(object):
 class CalibratedConfidence(BaseConfidence):
     """
     """
-    def __init__(self, calibrated, sens_method='CAS'):
+    def __init__(self, calibrated, sens_method='AS'):
         """
         """
         super(CalibratedConfidence, self).__init__(DirectLocalSensitivity(calibrated.model,
@@ -442,7 +442,7 @@ class TheoreticalConfidence(BaseConfidence):
     """
     """
 
-    def __init__(self, sens, uncertainty, sens_method='CAS'):
+    def __init__(self, sens, uncertainty, sens_method='AS'):
         """
         """
         super(TheoreticalConfidence, self).__init__(sens,

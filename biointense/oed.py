@@ -475,27 +475,23 @@ class RobustOED(object):
             TheoreticalConfidence, Uncertainty,RobustOED, ModPar)
     >>> # ACE = PP
     >>> # MPPA = PQ
-    >>> system = {'v': ('Vr*ACE*MPPA/(Kal*ACE + Kac*MPPA + ACE*MPPA'
-                        '+ Kal/Kacs*ACE**2 + Kac/Kas*MPPA**2)')}
-    >>> parameters = {'Vr': 5.18e-4, 'Kal': 1.07, 'Kac': 0.54, 'Kacs': 1.24,
-                      'Kas': 25.82}
+    >>> system = {'v': 'Vr*ACE*MPPA/(Kace*ACE + Kmppa*MPPA + ACE*MPPA)'}
+    >>> parameters = {'Vr': 1e-2, 'Kace': 10., 'Kmppa': 5.}
     >>> M1 = AlgebraicModel('biointense_backward', system, parameters)
-    >>> M1.set_independent({'ACE': np.linspace(11., 100., 100),
+    >>> M1.set_independent({'ACE': np.linspace(11., 250., 100),
                             'MPPA': np.linspace(1., 10., 100)},
                            method='cartesian')
     >>> M1.initialize_model()
     >>> M1sens = DirectLocalSensitivity(M1)
-    >>> M1uncertainty = Uncertainty({'v': '1**2'})
+    >>> M1uncertainty = Uncertainty({'v': '(v*0.10)**2'})
     >>> M1conf = TheoreticalConfidence(M1sens, M1uncertainty)
     >>> M1oed = RobustOED(M1conf, 5)
     >>> M1oed.set_parameter_distributions(
                         [ModPar('Vr', 1e-7, 1e-1, 'randomUniform'),
-                         ModPar('Kal', 0.01, 10, 'randomUniform'),
-                         ModPar('Kac', 0.01, 10, 'randomUniform'),
-                         ModPar('Kacs', 0.05, 10, 'randomUniform'),
-                         ModPar('Kas', 5.0, 50., 'randomUniform')])
+                         ModPar('Kace', 0.01, 50., 'randomUniform'),
+                         ModPar('Kmppa', 0.01, 10., 'randomUniform')])
     >>> M1oed.set_independent_distributions(
-                        [ModPar('ACE', 1., 100.0, 'randomUniform'),
+                        [ModPar('ACE', 1., 250.0, 'randomUniform'),
                          ModPar('MPPA', 1., 10.0, 'randomUniform')])
     >>> opt_independent, par_sets = M1oed.maximin(K_max=5)
     >>> M1oed._oed['ind']._dof_array_to_dict(opt_independent)
@@ -762,6 +758,9 @@ class RobustOED(object):
             # Increase K
             K += 1
 
+            # TODO Why do I do this? And why 1000?
+            # I think that this was added to avoid that the algoritm would stop
+            # at strange values. To be examined
             if self.psi_independent[-1] == 0.:
                 self.psi_independent[-1] = 1000
 

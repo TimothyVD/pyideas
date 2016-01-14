@@ -20,36 +20,6 @@ from biointense.solver import OdeSolver, AlgebraicSolver, HybridSolver
 class _BiointenseModel(BaseModel):
     r"""
     """
-
-    def __init__(self, name, system, parameters, comment=None):
-        r"""
-        """
-        super(_BiointenseModel, self).__init__(self, name, parameters,
-                                               comment=comment)
-
-        self._ordered_var = {'algebraic': [],
-                             'ode': [],
-                             'event': []}
-
-        # solver communication
-        self.modeltype = "Model"
-        self.systemfunctions = {'algebraic': {}, 'ode': {}}
-        self.externalfunctions = {}
-        self.initial_conditions = {}
-
-        # detect system equations
-        self._system = system
-        self._parse_system_string(self._system, self.parameters)
-        self.variables = list(itertools.chain(*self._ordered_var.values()))
-        self.variables_of_interest = deepcopy(self.variables)
-
-        self.fun_alg = None
-        self.fun_alg_str = None
-        self.fun_ode = None
-        self.fun_ode_str = None
-
-        self._has_external = False
-
     def __str__(self):
         """
         string representation
@@ -301,7 +271,7 @@ class Model(_BiointenseModel):
     >>> modeloutput = M1.run()
     """
 
-    def __init__(self, name, system, parameters, independent='t',
+    def __init__(self, name, parameters, independent='t',
                  comment=None):
         """
         uses the "biointense"-style model definition
@@ -313,7 +283,7 @@ class Model(_BiointenseModel):
         >>> name = 'SIR1'
         >>> Model(name, system, param)
         """
-        super(Model, self).__init__(name, parameters, comment=comment)
+        super(Model, self).__init__(name, system, parameters, comment=comment)
 
         self._ordered_var = {'algebraic': [],
                              'ode': [],
@@ -529,7 +499,8 @@ class AlgebraicModel(_BiointenseModel):
         """
         self._check_if_odes(system.keys())
 
-        super(AlgebraicModel, self).__init__(name, parameters, comment=comment)
+        super(AlgebraicModel, self).__init__(name, parameters,
+                                             comment=comment)
 
         self._ordered_var = {'algebraic': [],
                              'event': []}
