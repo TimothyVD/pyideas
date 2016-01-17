@@ -523,20 +523,40 @@ class RobustOED(object):
         self.maximin_success = False
 
     def _set_dof_distributions(self, oed_type, modpar_list, samples):
+        r"""
+        Parameters
+        -----------
+        oed_type: 'ind'|'par'
+            For which subpart does it apply: independents ('ind') or parameters
+            ('par'). The subpart 'ind' contains the independent/parameter
+            distributions which need to be optimised to increase the
+            information. The subpart 'par' contains the parameter distributions
+            from which will be sampled to make the design more robust.
+        
+        modpar_list: list
+            Contains distributions of all parameters/independents which can be
+            altered
+        
+        samples: int
+            Number of independent samples which will be taken, only useful
+            when optimising the independents ('ind')
         """
-
-        """
+        # Construct list containing all dof names
         names = [dof.name for dof in modpar_list]
+        # Construct BaseOED class object to perform optimisation
         self._oed[oed_type] = BaseOED(self.confidence, names,
                                       preFIM=self.preFIM)
-        self._oed[oed_type]._independent_samples = samples
+        self._oed[oed_type]._independent_samples = int(samples)
+        # Set distributions from which will be sampled
         self._oed[oed_type].set_dof_distributions(modpar_list)
+        # Set internal dof dependents to allow proper communication between
+        # optimisation and model
         self._dof[oed_type]['dof'] = self._oed[oed_type].dof
         self._dof[oed_type]['dof_len'] = self._oed[oed_type]._dof_len
         self._dof[oed_type]['dof_ordered'] = self._oed[oed_type]._dof_ordered
 
     def set_parameter_distributions(self, modpar_list):
-        """
+        r"""
         Set distributions for the variables you CANNOT change BUT would like
         to calibrate/estimate more reliably, e.g. kinetic model parameters.
         This is useful when a model calibration exercise is started but no
@@ -560,7 +580,7 @@ class RobustOED(object):
         self._set_dof_distributions('par', modpar_list, 0)
 
     def set_independent_distributions(self, modpar_list):
-        """
+        r"""
         Set distributions for the variables you CAN change, like the
         measurement times, concentrations, experimental conditions,...
 
@@ -579,102 +599,139 @@ class RobustOED(object):
         self._set_dof_distributions('ind', modpar_list,
                                     self.independent_samples)
 
-    def _outer_obj_fun_calc(self, independent_sample, parameter_sets):
-        """
-        """
-        self._oed['ind']._dof_array_to_model(independent_sample)
-        FIM_inner = []
-        for parameter_sample in parameter_sets:
-            FIM_inner.append(self._inner_obj_fun(parameter_sample, 'ind',
-                                                 dist_checker=False))
-
-        return FIM_inner
-
     def _outer_obj_fun(self, independent_sample, parameter_sets):
+        r"""
+        Objective function to optimise the independent samples to maximise the
+        information (max(det(FIM))) of the worst performing parameter sets.
+        
+        Parameters
+        -----------
+        independent_sample: numpy.array
+            Array containing a new random sample for the independents
+        
+        parameters_sets: list
+            List containing worst performing parameter sets
+        
+        Returns
+        --------
+        det_FIM: float
+            Value represent the det(FIM) of the worst performing parameter set
+            in the parameter_sets list
+        
+        See also
+        ---------
+        biointense.RobustOED._optimize_for_independent
         """
-        """
-        FIM_inner = self._outer_obj_fun_calc(independent_sample,
-                                             parameter_sets)
-
-        return np.min(FIM_inner)
-
-    def _inner_obj_fun(self, parameter_sample, oed_type, dist_checker=False):
-        """
-        """
-        par_dict = self._oed[oed_type]._dof_array_to_dict_generic(
-            self._dof['par']['dof_len'], self._dof['par']['dof_ordered'],
-            np.array(parameter_sample))
-
-        self._oed[oed_type]._dof_dict_to_model(par_dict)
-
-        dist_check = 1.
-        if dist_checker and self.independent_dist is not None:
-            dist_check = self._distance_checker(par_dict['independent'])
-
-        return dist_check*OED_CRITERIA['D'](self._oed[oed_type].confidence.FIM)
-
-    def _distance_checker(self, ind_dict):
-        """
-        """
-        array_size = [self.independent_samples, self.independent_samples]
-        ones_array = np.ones(array_size)
-        dist_tracker = np.zeros(array_size)
-
-        for ind, val in ind_dict.items():
-            ind_array = ones_array * val
-            ind_array = np.abs(ind_array - ind_array.T)
-            np.fill_diagonal(ind_array, self.independent_dist[ind])
-
-            dist_tracker += ind_array >= self.independent_dist[ind]
-
-        if 0. in dist_tracker:
-            dist_check = 0.
-        else:
-            dist_check = 1.
-        return dist_check
-
-#    def my_constraint_function(self, candidate):
-#        """Return the number of constraints that candidate violates."""
-#        # In this case, we'll just say that the point has to lie
-#        # within a circle centered at (0, 0) of radius 1.
-#        if self._oed['ind']._obj_fun('D', candidate) < self.psi_independent:
-#            return 1
-#        else:
-#            return 0
+        # Write random sampled independent values to model
+        self._oed['ind']._dof_array_to_model(independent_sample)
+        
+        # Construct empty list to store all det(FIM) for all parameter sets
+        det_FIM_inner = []
+        # For each of the parameter sets, evaluate the performance
+        for parameter_sample in parameter_sets:
+            det_FIM_inner.append(self._inner_obj_fun(parameter_sample, 'ind',
+                                                     dist_checker=False))
+        # Return det(FIM) of worst performing parameter_set
+        return np.min(det_FIM_inner)
 
     def _optimize_for_independent(self, parameter_sets, **kwargs):
+        r"""
+        The idea is to maximise the det(FIM) by altering sample locations/cond
+        for all the worst-performing parameter sets which have been found
+        already.
+        
+        Parameters
+        -----------
+        parameters_sets: list
+            List containing all parameter sets which perform badly.
+            
+        Returns
+        --------
+        candidate: list
+            List contains optimised sample locations/conditions.
+        
+        fitness: value
+            Actual FIM value for worst-performing parameter set at updated 
+            sample locations/conditions.
+        
+        See also
+        ---------
+        biointense.RobustOED.maximin
         """
-        """
+        # Make wrapper to allow passing of parameter sets
         def temp_obj_fun(parray=None):
             return self._outer_obj_fun(parray, parameter_sets)
 
+        # Arguments for global optimisation
         kwargs = {'obj_fun': temp_obj_fun, 'prng': None, 'approach': 'PSO',
                   'initial_parset': None, 'pop_size': 16, 'maximize': True,
                   'max_eval': 1000}
-
+        
+        # Perform global optimisation using inspyred
         final_pop, ea = self._oed['ind']._inspyred_optimize(**kwargs)
 
+        # Select sample locations/conditions which MAXIMISE the information
+        # of the WORST performing parameter set
         best_individual = max(final_pop)
 
+        # Return independent and FIM
         return best_individual.candidate, best_individual.fitness
+        
+    def _inner_obj_fun(self, parameter_sample, oed_type, dist_checker=False):
+        r"""
+        
+        """
+        # Write parameter sample to model
+        # We cannot use the _dof_array_to_model since this function is also
+        # used for the 'ind' type...
+        par_dict = self._oed[oed_type]._dof_array_to_dict_generic(
+            self._dof['par']['dof_len'], self._dof['par']['dof_ordered'],
+            np.array(parameter_sample))
+        self._oed[oed_type]._dof_dict_to_model(par_dict)
+        
+        # Write randomly generated parameter_sample to model
+        return OED_CRITERIA['D'](self._oed[oed_type].confidence.FIM)
 
     def _optimize_for_parameters(self, **kwargs):
+        r"""
+        The idea is to find the worst-performing parameter set, given the
+        updated independent values.
+        
+        .. math:: \min_{\theta\in\Theta}\left[\det(\mathrm{FIM(\theta,
+                  \phi)})\right]
+                   
+        Returns
+        --------
+        candidate: list
+            List contains "optimised" (=worst-performing) parameter set.
+        
+        fitness: value
+            Actual FIM value for the new worst-performing parameter set for the
+            independent values updated earlier in the maximin loop.
+        
+        See also
+        ---------
+        biointense.RobustOED.maximin
         """
-        """
+        # Construct wrapper around objective function
         def temp_obj_fun(parray=None):
             return self._inner_obj_fun(parray, 'par', dist_checker=False)
 
+        # kwargs
         internal_kwargs = {'obj_fun': temp_obj_fun, 'prng': None,
                            'approach': 'PSO', 'initial_parset': None,
                            'pop_size': 16, 'maximize': False,  # Only for D
                            'max_eval': 1000}
-
+        # Overwrite kwargs which have been defined by **kwargs
         internal_kwargs.update(kwargs)
 
+        # Find worst performing parameter set at fixed independent values
         final_pop, ea = self._oed['par']._inspyred_optimize(**internal_kwargs)
 
+        # Get worst performing parameter set
         worst_individual = min(final_pop)
 
+        # Return worst performing parameter set + corresponding det(FIM)
         return worst_individual.candidate, worst_individual.fitness
 
     def maximin(self, approach='PSO', K_max=100):
