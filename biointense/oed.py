@@ -270,7 +270,7 @@ class BaseOED(_BaseOptimisation):
 
         >>> M1oed.plot_contourf('S', 't', output['P'])
         """
-        (initial_cond, initial_list, parameters, parameter_list, index, names) = \
+        (initial_cond, initial_list, pars, par_list, index, names) = \
             self._prepare_brute_approach(step_dict)
 
         # For each sample, calculate model
@@ -278,8 +278,8 @@ class BaseOED(_BaseOptimisation):
         for initial_values in initial_cond:
             initial = dict(zip(initial_list, initial_values))
             self.model.set_initial(initial)
-            for parameter_values in parameters:
-                par = dict(zip(parameter_list, parameter_values))
+            for parameter_values in pars:
+                par = dict(zip(par_list, parameter_values))
                 self.model.set_parameters(par)
                 modeloutput_container.append(self.model._run())
 
@@ -365,7 +365,7 @@ class BaseOED(_BaseOptimisation):
         self._criterion = criterion
         self._independent_samples = number_of_samples
 
-        (initial_cond, initial_list, parameters, parameter_list, index, names) = \
+        (initial_cond, initial_list, pars, par_list, index, names) = \
             self._prepare_brute_approach(step_dict)
 
         # Select whether objective function needs to be minimised or maximised
@@ -380,8 +380,8 @@ class BaseOED(_BaseOptimisation):
         for initial_values in initial_cond:
             initial = dict(zip(initial_list, initial_values))
             self.model.set_initial(initial)
-            for parameter_values in parameters:
-                par = dict(zip(parameter_list, parameter_values))
+            for parameter_values in pars:
+                par = dict(zip(par_list, parameter_values))
                 self.model.set_parameters(par)
                 FIM_container.append(self.confidence.FIM_time)
 
@@ -499,26 +499,32 @@ class RobustOED(object):
     def __init__(self, confidence, independent_samples, preFIM=None):
         """
         """
+        # Confidence instance
         self.confidence = confidence
         self.model = confidence.model
+        # Number of independent samples to be designed
         self.independent_samples = independent_samples
+        # FIM before starting actual designing exercise
+        # In this way preliminary knowledge is taken into account
         self.preFIM = preFIM
 
+        # Container for dofs for the individual optimisations
         self._dof = {'par': {'dof_len': None,
                              'dof_ordered': None,
                              'dof': None},
                      'ind': {'dof_len': None,
                              'dof_ordered': None,
                              'dof': None}}
-
+        # Container for both BaseOED instances
         self._oed = {'par': None,
                      'ind': None}
 
+        # Only the D criterion is currently provided for the robust OED.
         self._criterion = 'D'
 
-        self.independent_dist = None
-
+        # Container for det(FIM) values when optimising independents
         self.psi_independent = None
+        # Container for det(FIM) values when optimising parameters
         self.psi_parameter = None
         self.maximin_success = False
 
@@ -532,11 +538,11 @@ class RobustOED(object):
             distributions which need to be optimised to increase the
             information. The subpart 'par' contains the parameter distributions
             from which will be sampled to make the design more robust.
-        
+
         modpar_list: list
             Contains distributions of all parameters/independents which can be
             altered
-        
+
         samples: int
             Number of independent samples which will be taken, only useful
             when optimising the independents ('ind')
@@ -603,34 +609,34 @@ class RobustOED(object):
         r"""
         Objective function to optimise the independent samples to maximise the
         information (max(det(FIM))) of the worst performing parameter sets.
-        
+
         Parameters
         -----------
         independent_sample: numpy.array
             Array containing a new random sample for the independents
-        
+
         parameters_sets: list
             List containing worst performing parameter sets
-        
+
         Returns
         --------
         det_FIM: float
             Value represent the det(FIM) of the worst performing parameter set
             in the parameter_sets list
-        
+
         See also
         ---------
-        biointense.RobustOED._optimize_for_independent
+        biointense.RobustOED._optimize_for_independent,
+        biointense.RobustOED._inner_obj_fun
         """
         # Write random sampled independent values to model
         self._oed['ind']._dof_array_to_model(independent_sample)
-        
+
         # Construct empty list to store all det(FIM) for all parameter sets
         det_FIM_inner = []
         # For each of the parameter sets, evaluate the performance
         for parameter_sample in parameter_sets:
-            det_FIM_inner.append(self._inner_obj_fun(parameter_sample, 'ind',
-                                                     dist_checker=False))
+            det_FIM_inner.append(self._inner_obj_fun(parameter_sample, 'ind'))
         # Return det(FIM) of worst performing parameter_set
         return np.min(det_FIM_inner)
 
@@ -639,21 +645,21 @@ class RobustOED(object):
         The idea is to maximise the det(FIM) by altering sample locations/cond
         for all the worst-performing parameter sets which have been found
         already.
-        
+
         Parameters
         -----------
         parameters_sets: list
             List containing all parameter sets which perform badly.
-            
+
         Returns
         --------
-        candidate: list
-            List contains optimised sample locations/conditions.
-        
+        candidate: numpy.array
+            Array contains optimised sample locations/conditions.
+
         fitness: value
-            Actual FIM value for worst-performing parameter set at updated 
+            Actual FIM value for worst-performing parameter set at updated
             sample locations/conditions.
-        
+
         See also
         ---------
         biointense.RobustOED.maximin
@@ -666,7 +672,7 @@ class RobustOED(object):
         kwargs = {'obj_fun': temp_obj_fun, 'prng': None, 'approach': 'PSO',
                   'initial_parset': None, 'pop_size': 16, 'maximize': True,
                   'max_eval': 1000}
-        
+
         # Perform global optimisation using inspyred
         final_pop, ea = self._oed['ind']._inspyred_optimize(**kwargs)
 
@@ -676,19 +682,38 @@ class RobustOED(object):
 
         # Return independent and FIM
         return best_individual.candidate, best_individual.fitness
-        
-    def _inner_obj_fun(self, parameter_sample, oed_type, dist_checker=False):
+
+    def _inner_obj_fun(self, parameter_sample, oed_type):
         r"""
-        
+        Objective function to calc the det(FIM) for the sampled parameter set.
+
+        Parameters
+        -----------
+        parameter_sample: numpy.array
+            Numpy array containing new sample for parameter values.
+
+        oed_type: 'ind'|'par'
+            Which subpart needs to be updated.
+
+        Returns
+        --------
+        det_FIM: float
+            Value represent the det(FIM) of the worst performing parameter set
+            in the parameter_sets list
+
+        See also
+        ---------
+        biointense.RobustOED._optimize_for_independent,
+        biointense.RobustOED._optimize_for_parameters
         """
         # Write parameter sample to model
         # We cannot use the _dof_array_to_model since this function is also
         # used for the 'ind' type...
         par_dict = self._oed[oed_type]._dof_array_to_dict_generic(
             self._dof['par']['dof_len'], self._dof['par']['dof_ordered'],
-            np.array(parameter_sample))
+            parameter_sample)
         self._oed[oed_type]._dof_dict_to_model(par_dict)
-        
+
         # Write randomly generated parameter_sample to model
         return OED_CRITERIA['D'](self._oed[oed_type].confidence.FIM)
 
@@ -696,26 +721,26 @@ class RobustOED(object):
         r"""
         The idea is to find the worst-performing parameter set, given the
         updated independent values.
-        
+
         .. math:: \min_{\theta\in\Theta}\left[\det(\mathrm{FIM(\theta,
                   \phi)})\right]
-                   
+
         Returns
         --------
-        candidate: list
-            List contains "optimised" (=worst-performing) parameter set.
-        
+        candidate: numpy.array
+            Array contains "optimised" (=worst-performing) parameter set.
+
         fitness: value
             Actual FIM value for the new worst-performing parameter set for the
             independent values updated earlier in the maximin loop.
-        
+
         See also
         ---------
         biointense.RobustOED.maximin
         """
         # Construct wrapper around objective function
         def temp_obj_fun(parray=None):
-            return self._inner_obj_fun(parray, 'par', dist_checker=False)
+            return self._inner_obj_fun(parray, 'par')
 
         # kwargs
         internal_kwargs = {'obj_fun': temp_obj_fun, 'prng': None,
@@ -741,7 +766,8 @@ class RobustOED(object):
         designs that optimise the worst possible performance for *any* value of
         :math:`\theta \in \Theta`
 
-        .. math:: \phi_R = \arg\ \max_{\phi\in\Phi}\ \min_{\theta\in\Theta} \left\{M_I(\theta, \phi)\right\}
+        .. math:: \phi_R = \arg\ \max_{\phi\in\Phi}\ \min_{\theta\in\Theta}
+            \left\{M_I(\theta, \phi)\right\}
 
         Pseudocode
         *Given: a nominal vector of parameter values, :math:`\theta \in \Theta`
@@ -749,11 +775,14 @@ class RobustOED(object):
         *Step 0: set K:=1
 
         *Step 1: solve :math:`\Psi^{[K]} = \max\ \Psi`
-            s.t. :math:`\Psi \leq \det(M_I^\phi(\theta, \phi))|_{\theta^{[k]}}, k=1,\ldots,K`
+            s.t. :math:`\Psi \leq \det(M_I^\phi(\theta, \phi))|_{\theta^{[k]}},
+                k=1,\ldots,K`
 
-        *Step 2: solve :math:`\hat{\psi}^{[K]} = \min_{\theta}\ \det(M_I(\theta, \phi))` to obtain :math:`\theta^{[K+1]}`
+        *Step 2: solve :math:`\hat{\psi}^{[K]} = \min_{\theta}\
+            \det(M_I(\theta, \phi))` to obtain :math:`\theta^{[K+1]}`
 
-        *Step 3: if :math:`\hat{\psi}^{[K]}<\psi^{[K]}`, then set K:=K+1 and repeat from Step 1
+        *Step 3: if :math:`\hat{\psi}^{[K]}<\psi^{[K]}`, then set K:=K+1 and
+            repeat from Step 1
 
         *Step 4: stop: R-optimal experiment design is :math:`\phi^{[k]}`
 
@@ -810,7 +839,7 @@ class RobustOED(object):
             # If parameter sample is not yet in parameter samples: append it.
             if not (np.any([(parameter_sample == x).all() for x in
                     parameter_sets])):
-                parameter_sets.append(parameter_sample)
+                    parameter_sets.append(parameter_sample)
 
             # Increase K
             K += 1
