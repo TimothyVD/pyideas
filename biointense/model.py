@@ -271,7 +271,7 @@ class Model(_BiointenseModel):
     >>> modeloutput = M1.run()
     """
 
-    def __init__(self, name, parameters, independent='t',
+    def __init__(self, name, system, parameters, independent='t',
                  comment=None):
         """
         uses the "biointense"-style model definition
@@ -283,7 +283,7 @@ class Model(_BiointenseModel):
         >>> name = 'SIR1'
         >>> Model(name, system, param)
         """
-        super(Model, self).__init__(name, system, parameters, comment=comment)
+        super(Model, self).__init__(name, parameters, comment=comment)
 
         self._ordered_var = {'algebraic': [],
                              'ode': [],
@@ -581,8 +581,8 @@ class AlgebraicModel(_BiointenseModel):
         independent = pd.DataFrame(independent,
                                    columns=independent_dict.keys())
 
-        self._independent_len = {}
-        self._independent_values = {}
+#        self._independent_len = {}
+#        self._independent_values = {}
 
         for key in independent_dict.keys():
             self._independent_len[key] = len(independent_dict[key])

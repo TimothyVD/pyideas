@@ -277,14 +277,18 @@ class BaseOED(_BaseOptimisation):
         modeloutput_container = []
         for initial_values in initial_cond:
             initial = dict(zip(initial_list, initial_values))
-            self.model.set_initial(initial)
+            # TODO Temp fix for algebraic models
+            try:
+                self.model.set_initial(initial)
+            except:
+                pass
             for parameter_values in pars:
                 par = dict(zip(par_list, parameter_values))
                 self.model.set_parameters(par)
                 modeloutput_container.append(self.model._run())
 
-        output_var = self.model._ordered_var['ode'] +\
-            self.model._ordered_var['algebraic']
+        output_var = self.model._ordered_var.get('ode', []) +\
+            self.model._ordered_var.get('algebraic', [])
         modeloutput = np.concatenate(modeloutput_container)
 
         return pd.DataFrame(modeloutput, index=index, columns=output_var)
@@ -379,7 +383,10 @@ class BaseOED(_BaseOptimisation):
         FIM_container = []
         for initial_values in initial_cond:
             initial = dict(zip(initial_list, initial_values))
-            self.model.set_initial(initial)
+            try:
+                self.model.set_initial(initial)
+            except:
+                pass
             for parameter_values in pars:
                 par = dict(zip(par_list, parameter_values))
                 self.model.set_parameters(par)
