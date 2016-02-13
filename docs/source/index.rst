@@ -21,11 +21,13 @@ Contents:
    :maxdepth: 2
    
    install
-   odemaker
-   odegenerator
+   model
+   sensitivity
    measurements
-   odeoptimization
-   optimalexperimentaldesign
+   uncertainty
+   optimisation
+   confidence
+   oed
    utilities
 
 Indices and tables

@@ -16,7 +16,7 @@ try:
 except:
     INSPYRED_IMPORT = False
 
-from parameterdistribution import *
+from parameterdistribution import ModPar
 from biointense.modelbase import BaseModel
 from biointense.model import Model
 from time import time
@@ -35,6 +35,7 @@ def wsse(*args):
     wsse = (residuals * weights * residuals).sum().sum()
 
     return wsse
+
 
 def sse(*args):
     """
@@ -203,7 +204,7 @@ class _BaseOptimisation(object):
             dof_dict = self._dof_array_to_dict(dof_array)
             self._dof_dict_to_model(dof_dict)
 
-        return self.model.run()#.reorder_levels(self.measurements._indep_order)
+        return self.model._run()
 
     def _obj_fun(self, obj_crit, parray):
         '''
@@ -256,15 +257,14 @@ class _BaseOptimisation(object):
                     self._dof_distributions[dof.name] = dof
                 else:
                     raise Exception('Parameter %s is not listed as fitting '
-                                    'parameter' % parameter.name)
+                                    'parameter' % dof.name)
         else:
             raise Exception("Bad input type, give list of ModPar instances.")
 
-        self._set_dof_boundaries()
-
     def _set_dof_boundaries(self):
-        '''
-        '''
+        """
+        Define the minimum and maximum boundaries for the different dofs
+        """
         minsample = []
         maxsample = []
         for dof in self.dof:
@@ -278,10 +278,11 @@ class _BaseOptimisation(object):
         self._dof_lower_bnd = np.array(self._flatten_list(minsample))
         self._dof_upper_bnd = np.array(self._flatten_list(maxsample))
 
-
     # Bioinspyred specific stuff
-
     def _inspyred_bounder(self, candidates, args):
+        if self._dof_lower_bnd is None or self._dof_upper_bnd is None:
+            raise Exception(('Something went wrong with setting '
+                             'self._dof_lower_bnd or self._dof_upper_bnd'))
         candidates = np.array(candidates)
 
         candidates = np.minimum(np.maximum(candidates, self._dof_lower_bnd),
@@ -321,6 +322,8 @@ class _BaseOptimisation(object):
         if not INSPYRED_IMPORT:
             raise Exception("Inspyred was not found, no global optimization "
                             "possible!")
+
+        self._set_dof_boundaries()
 
         # OPTIMIZATION
         prng = kwargs.get('prng')
@@ -375,7 +378,7 @@ class ParameterOptimisation(_BaseOptimisation):
         """
 
         """
-        # If model is of Model type, only 1 independent variable can be selected
+        # If model is type Model, only 1 independent variable can be selected
         # this means that for ODE models it is forced that the first timestep
         # should occur at timestep 0 instead. This is verified and overruled
         # if necessary
@@ -385,7 +388,8 @@ class ParameterOptimisation(_BaseOptimisation):
             independent_val = self.measurements._independent.values()[0]
             # If ODE is not starting at 0, force it to be so!
             if independent_val[0] != 0.:
-                independent[independent_var] = np.insert(independent_val, 0., 0.)
+                independent[independent_var] = np.insert(independent_val,
+                                                         0., 0.)
         elif isinstance(self.model, BaseModel):
             independent = self.measurements._independent
         else:
@@ -417,9 +421,9 @@ class ParameterOptimisation(_BaseOptimisation):
         """
         # Run model
         model_output = self._run_model(dof_array=parray)
-        #model_output.sort_index(inplace=True)
+        # model_output.sort_index(inplace=True)
         data_output = self.measurements.Data
-        #data_output.sort_index(inplace=True)
+        # data_output.sort_index(inplace=True)
 
         obj_val = OBJECTIVE_FUNCS[obj_crit](model_output, data_output,
                                             1./self.measurements._Error_Covariance_Matrix_PD)
@@ -427,8 +431,8 @@ class ParameterOptimisation(_BaseOptimisation):
         return obj_val
 
     def inspyred_optimize(self, obj_crit='wsse', prng=None, approach='PSO',
-                             initial_parset=None, add_plot=True,
-                             pop_size=16, max_eval=256, **kwargs):
+                          initial_parset=None, add_plot=True, pop_size=16,
+                          max_eval=256, **kwargs):
         """
         """
         def inner_obj_fun(parray=None):
@@ -450,6 +454,8 @@ class ParameterOptimisation(_BaseOptimisation):
 
 class MultiParameterOptimisation(ParameterOptimisation):
     """
+    UNDER CONSTRUCTION, ONLY USEFUL FOR LOTS OF DATA OF ODES (WITH DIFFERENT
+    INITIAL CONDITIONS)
     """
     def __init__(self, model, measurements, optim_par=None,
                  independent_var='t'):
@@ -465,7 +471,8 @@ class MultiParameterOptimisation(ParameterOptimisation):
 
         #
         measurement_index = measurements._data_index
-        drop_independent_level = measurement_index.droplevel(self._independent_var)
+        drop_independent_level = \
+            measurement_index.droplevel(self._independent_var)
         # Keep unique initial conditions
         self.conditions = {}
         self.conditions['values'] = drop_independent_level.unique()
@@ -490,13 +497,13 @@ class MultiParameterOptimisation(ParameterOptimisation):
 
             # Get independent values from pandas dataframe
             indep_val = np.array(self.measurements._input_data.xs(init_vals,
-                                        level=self.conditions['names']).index)
+                                                                  level=self.conditions['names']).index)
             if indep_val[0] != 0.0:
                 output_start = 1
                 indep_val = np.concatenate([np.array([0.]), indep_val])
-            self.model.set_independent({'t': indep_val})
+            self.model.set_independent({self.model.independent[0]: indep_val})
 
-            model_output = self.model.run()
+            model_output = self.model._run()
 
             if all_model_output is None:
                 all_model_output = model_output.iloc[output_start:]
@@ -513,4 +520,3 @@ class MultiParameterOptimisation(ParameterOptimisation):
 #        independent_dict = {}
 #        independent_dict[self._independent_var] = independent_val
 #        self.model.set_independent(independent_dict)
-

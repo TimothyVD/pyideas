@@ -18,27 +18,26 @@ class BaseConfidence(object):
     """
     """
 
-    def __init__(self, sens, sens_method='CAS'):
+    def __init__(self, sens, sens_method='AS'):
         """
         """
         self.sens = sens
         # self.sens_PD = sens.get_sensitivity(method='CAS')
         self.model = sens.model
-        # self.model_output = self.model.run()
+        # self.model_output = self.model._run()
         self.independent = self.model.independent
         self.sens_method = sens_method
 
-        self.variables = list(self.sens_PD.columns.levels[0])
         self.parameters = deepcopy(self.sens.parameters)
+        self._par_len = len(self.parameters)
+        self.variables = list(self.sens_PD.columns.levels[0])
+        self._var_len = len(self.variables)
 
         self.repeats_per_sample = 1
         # self.parameter_values = pd.Series({par: self.model.parameters[par] for
         #                                   par in self.parameters})
 
         self._sens_matrix = None
-
-        self._par_len = len(self.parameters)
-        self._var_len = len(self.variables)
 
         self.par_relations = None
 
@@ -52,10 +51,10 @@ class BaseConfidence(object):
 
     @property
     def sens_PD(self):
-        sens_PD = self.sens.get_sensitivity(method=self.sens_method)
+        sens_PD = self.sens._get_sensitivity(method=self.sens_method)
         # Temp fix!
         # Necessary because order is changing
-        self.parameters = list(sens_PD.columns.get_level_values(1))
+        self.parameters = list(sens_PD.columns.get_level_values(1))[:self._par_len]
 
         return sens_PD
 
@@ -98,7 +97,7 @@ class BaseConfidence(object):
 
     @property
     def model_output(self):
-        return self.model.run()
+        return self.model._run()
 
     @property
     def parameter_values(self):
@@ -422,7 +421,7 @@ class BaseConfidence(object):
 class CalibratedConfidence(BaseConfidence):
     """
     """
-    def __init__(self, calibrated, sens_method='CAS'):
+    def __init__(self, calibrated, sens_method='AS'):
         """
         """
         super(CalibratedConfidence, self).__init__(DirectLocalSensitivity(calibrated.model,
@@ -443,7 +442,7 @@ class TheoreticalConfidence(BaseConfidence):
     """
     """
 
-    def __init__(self, sens, uncertainty, sens_method='CAS'):
+    def __init__(self, sens, uncertainty, sens_method='AS'):
         """
         """
         super(TheoreticalConfidence, self).__init__(sens,
