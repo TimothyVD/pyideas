@@ -9,6 +9,8 @@ from scipy import stats
 import pandas as pd
 from copy import deepcopy
 
+import warnings
+
 from biointense.sensitivity import DirectLocalSensitivity
 
 #def get_error_pd( )
@@ -136,7 +138,7 @@ class BaseConfidence(object):
         try:
             PEECM = np.linalg.inv(FIM)
         except:
-            raise Warning('Pseudo inverse was used!')
+            warnings.warn('Pseudo inverse was used!')
             PEECM = np.linalg.pinv(FIM)
         return PEECM
 

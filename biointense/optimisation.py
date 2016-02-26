@@ -130,7 +130,8 @@ class _BaseOptimisation(object):
         dof_list = []
 
         for key in dof:
-            if isinstance(dof_dict[key], float):
+            if isinstance(dof_dict[key], float) or \
+               isinstance(dof_dict[key], int):
                 dof_list.append([dof_dict[key]])
             else:
                 dof_list.append(*list(dof_dict[key]))
