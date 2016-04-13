@@ -48,7 +48,7 @@ class ode_measurements(object):
         if isinstance(measdata, dict):
             raise Exception('Not yet implemented')
 #            #Different variables names in key-names
-#            if 'variables' in measdata: 
+#            if 'variables' in measdata:
 #                if not 'values' in measdata:
 #                    raise Exception('Values and variables needed as key-value')
 #                if not xdata in measdata:
@@ -111,8 +111,8 @@ class ode_measurements(object):
 #        self.add_measured_errors(unity_dict, method = 'absolute')
 
         self._independent, self._indep_order = self._index_to_dict(measdata.index, indep)
-        # Temp fix for MultiParameterOptimisation        
-        self._input_data = measdata        
+        # Temp fix for MultiParameterOptimisation
+        self._input_data = measdata
         self._data_index = measdata.index
 
 #    def _data2dictsystem(self):
@@ -139,7 +139,7 @@ class ode_measurements(object):
             index_names = index.names
         else:
             index_names = indep
-        
+
         for name in index_names:
             independent_dict[name] = np.array(index.get_level_values(name))
         return independent_dict, index_names
@@ -251,39 +251,39 @@ class ode_measurements(object):
         #We'll put each timestep in a separate item in a dictionary
         #self._Error_Covariance_Matrix = {}
         #self._Error_Covariance_Matrix_PD = self.Data.copy()
-        
+
         error_dict = {}
-        
+
         if method == 'absolute':
             for var in self.get_measured_outputs():
                 measerr = self.Meas_Errors[var]
-                error_dict[var] = str(measerr) + '**2'
-                
+                error_dict[var] = str(measerr) + '**2 + 1e-16'
+
         elif method == 'relative':
             for var in self.get_measured_outputs():
                 measerr = self.Meas_Errors[var]
-                error_dict[var] = '(' + str(measerr) + '*' + var  + ')**2'
-        
+                error_dict[var] = '(' + str(measerr) + '*' + var  + ')**2 + 1e-16'
+
         elif method == 'Ternbach': #NEEDS CHECKUP!!
             for var in self.get_measured_outputs():
                 measerr = self.Meas_Errors[var]
-                temp = ('(1.+ 1./((' + var + '/' + str(lower_accuracy_bound) + 
-                        ')**2 + (' + var + '/' + str(lower_accuracy_bound) + 
+                temp = ('(1.+ 1./((' + var + '/' + str(lower_accuracy_bound) +
+                        ')**2 + (' + var + '/' + str(lower_accuracy_bound) +
                         ')))*' + str(minimal_relative_error))
-                error_dict[var] = var + '*' + temp
-                
+                error_dict[var] = var + '*' + temp + ' + 1e-16'
+
         elif method == 'direct':
             for var in self.get_measured_outputs():
                 measerr = self.Meas_Errors[var]
-                error_dict[var] = measerr
-        
+                error_dict[var] = measerr + '+ 1e-16'
+
         else:
             raise Exception('Method not implemented!')
-        
+
         self._uncertainty = Uncertainty(error_dict)
-                   
-            
-        
+
+
+
 
 #        if method == 'absolute':
 #            for var in self.Data.columns:

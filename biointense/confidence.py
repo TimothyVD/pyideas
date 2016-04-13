@@ -32,7 +32,7 @@ class BaseConfidence(object):
 
         self.parameters = deepcopy(self.sens.parameters)
         self._par_len = len(self.parameters)
-        self.variables = list(self.sens_PD.columns.levels[0])
+        self.variables = sens.model.variables
         self._var_len = len(self.variables)
 
         self.repeats_per_sample = 1
@@ -53,7 +53,7 @@ class BaseConfidence(object):
 
     @property
     def sens_PD(self):
-        sens_PD = self.sens._get_sensitivity(method=self.sens_method)
+        sens_PD = self.sens._get_sensitivity(method=self.sens_method)[self.variables]
         # Temp fix!
         # Necessary because order is changing
         self.parameters = list(sens_PD.columns.get_level_values(1))[:self._par_len]
@@ -99,7 +99,7 @@ class BaseConfidence(object):
 
     @property
     def model_output(self):
-        return self.model._run()
+        return self.model._run()[self.variables]
 
     @property
     def parameter_values(self):
@@ -429,15 +429,18 @@ class CalibratedConfidence(BaseConfidence):
         super(CalibratedConfidence, self).__init__(DirectLocalSensitivity(calibrated.model,
                                                                           calibrated.dof),
                                                    sens_method=sens_method)
-        self.uncertainty = calibrated.measurements._uncertainty
+
         self._measurements = calibrated.measurements
         self.data = calibrated.measurements.Data
+        self.variables = calibrated.measurements._measured_outputs
+        self._var_len = len(self.variables)
+        self.uncertainty = calibrated.measurements._uncertainty
 
     @property
     def uncertainty_PD(self):
         """
         """
-        return self._measurements._Error_Covariance_Matrix_PD
+        return self._measurements._Error_Covariance_Matrix_PD[self.variables]
 
 
 class TheoreticalConfidence(BaseConfidence):
@@ -462,6 +465,6 @@ class TheoreticalConfidence(BaseConfidence):
     def uncertainty_PD(self):
         """
         """
-        return self.uncertainty.get_uncertainty(self.model_output)
+        return self.uncertainty.get_uncertainty(self.model_output)[self.variables]
 
 
