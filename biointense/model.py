@@ -10,6 +10,8 @@ import itertools
 import matplotlib.pyplot as plt
 from copy import deepcopy
 import warnings
+from collections import OrderedDict
+from sklearn.utils.extmath import cartesian
 
 from biointense.modelbase import BaseModel
 from biointense.modeldefinition import (generate_ode_derivative_definition,
@@ -45,18 +47,23 @@ class _BiointenseModel(BaseModel):
         if not isinstance(system, dict):
             raise TypeError("system is not a dict")
         # store the parameter
-        self.parameters = parameters
+        self.parameters = self._make_OrderedDict(parameters)
         # extract system information
+        ode_dict = {}
+        alg_dict = {}
         # loop over the dictionairy: system
         for key, value in system.iteritems():
             # if first letter == d, equation is ODE
             if key[0] == "d":
                 # get rid of the first letter, d
-                self.systemfunctions['ode'][key[1:]] = value
-                self._ordered_var['ode'].append(key[1:])
+                ode_dict[key[1:]] = value
             else:
-                self.systemfunctions['algebraic'][key] = value
-                self._ordered_var['algebraic'].append(key)
+                alg_dict[key] = value
+
+        self.systemfunctions['ode'] = self._make_OrderedDict(ode_dict)
+        self._ordered_var['ode'] = self.systemfunctions['ode'].keys()
+        self.systemfunctions['algebraic'] = self._make_OrderedDict(alg_dict)
+        self._ordered_var['algebraic'] = self.systemfunctions['algebraic'].keys()
 
     def initialize_model(self):
         """
@@ -121,15 +128,6 @@ class _BiointenseModel(BaseModel):
 
         return args
 
-#    @staticmethod
-#    def _check_len_independent(independent_values):
-#        """
-#        """
-#        ref_value = len(independent_values[0])
-#        for i in independent_values:
-#            if len(i) != ref_value:
-#                raise Exception('Length of independent are not equal!')
-
     def _run(self, procedure="odeint"):
         """
         Run the model for the given set of parameters, independent variable
@@ -189,50 +187,6 @@ class _BiointenseModel(BaseModel):
         integratei met andere paketten om het in een
         """
         return NotImplementedError
-
-        # Can also be deleted
-
-#    def add_event(self, idname, variable, ext_fun, arguments):
-#        """
-#        Variable is defined by external influence. This can be either a
-#        measured value of input (e.g. rainfall) or a function that defines
-#        a variable in function of time
-#
-#        See also:
-#        ---------
-#        functionMaker
-#
-#        plug to different files: step input ...
-#        + add control to check whether external function addition is possible
-#
-#        + check if var exists in ODE/algebraic => make aggregation function to
-#        contacate them.
-#        """
-#        self._initial_up_to_date = False
-#        self._has_external = True
-#
-#        self.externalfunctions[idname] = {'variable': variable,
-#                                          'fun': ext_fun,
-#                                          'arguments': arguments}
-#
-#    def list_current_events(self):
-#        """
-#        """
-#        return self.externalfunctions
-#
-#    def exclude_event(self, idname):
-#        """
-#        """
-#        del self.externalfunctions[idname]
-#
-#        if not bool(self.externalfunctions):
-#            self._has_external = False
-#
-#    def _collect_time_steps(self):
-#        """
-#        """
-#        return NotImplementedError
-
 
 class Model(_BiointenseModel):
     """
@@ -516,8 +470,11 @@ class AlgebraicModel(_BiointenseModel):
         else:
             self.independent = independent
 
-        # Keep track of length of individiual independent
+        # Keep track of length of individual independent
         self._independent_len = {}
+
+        # How are independents combined: direct or cartesian
+        self._independent_comb_type = None
 
         # detect system equations
         self._system = system
@@ -571,23 +528,23 @@ class AlgebraicModel(_BiointenseModel):
 #                isinstance(independent_dict, pd.core.frame.DataFrame)):
 #            raise TypeError("independent_dict should be dict or pd.DF!")
 
+        self._independent_comb_type = method
+        independent_dict = self._make_OrderedDict(independent_dict)
+        self.independent = independent_dict.keys()
+
         if method == "cartesian":
-            independent = list(itertools.product(*independent_dict.values()))
+            indep_vals = cartesian(independent_dict.values())
         elif method == "direct":
-            independent = independent_dict
+            indep_vals = np.array(independent_dict.values()).T
         else:
             raise Exception('Method is not available!')
 
-        independent = pd.DataFrame(independent,
-                                   columns=independent_dict.keys())
-
-#        self._independent_len = {}
-#        self._independent_values = {}
-
-        for key in independent_dict.keys():
+        for i, key in enumerate(self.independent):
+            # Save length of every independent seperately
+            # to allow simple plotting in 2D
             self._independent_len[key] = len(independent_dict[key])
-            self._independent_values[key] = independent[key].values
-        self.independent = independent.keys()
+            # Save the combined array as values
+            self._independent_values[key] = indep_vals[:, i]
 
     def plot_contourf(self, independent_x, independent_y, output, ax=None,
                       **kwargs):
@@ -604,6 +561,9 @@ class AlgebraicModel(_BiointenseModel):
         ax: matplotlib.ax
             Pass ax to plot on.
         """
+        if self._independent_comb_type != 'cartesian':
+            raise Exception('This function is only applicable for independents'
+                            ' which are combined in a cartesian way!')
         shape = self._independent_len.values()
         x = np.reshape(self._independent_values[independent_x], shape)
         y = np.reshape(self._independent_values[independent_y], shape)

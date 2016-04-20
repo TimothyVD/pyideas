@@ -49,12 +49,12 @@ class LocalSensitivity(Sensitivity):
     @property
     def parameter_values(self):
             return self.model.parameters
-            
+
     def get_sensitivity(self, method='AS'):
         r"""
         Get numerical local sensitivity for the different parameters and
         variables of interest
-        
+
 
         Parameters
         -----------
@@ -62,28 +62,28 @@ class LocalSensitivity(Sensitivity):
             Three different ways of calculating the local senstivity are
             available: the absolute senstivity (AS), the parameter relative
             sensitivity and the total relative sensitivitiy (TRS).
-            
+
             *Absolute Senstivity (AS)
-               
+
                 .. math:: \frac{\partial y_i(t)}{\partial \theta_j}
 
-        
+
             *Parameter Relative Sensitivity (PRS)
-        
+
                 .. math:: \frac{\partial y_i(t)}{\partial \theta_j}\cdot\theta_j
-        
+
             *Total Relative Senstivitity (TRS)
-        
+
                 .. math:: \frac{\partial y_i(t)}{\partial \theta_j}\cdot\frac{\partial \theta_j}{y_i}
-            
+
 
         """
         local_sens = self._get_sensitivity(method=method)
-        
+
         index = pd.MultiIndex.from_arrays(self.model._independent_values.values(),
                                           names=self.model.independent)
         local_sens.index = index
-        
+
         return local_sens
 
     def _rescale_sensitivity(self, sensitivity_PD, scaling):
@@ -121,7 +121,7 @@ class LocalSensitivity(Sensitivity):
             # CTRS
             if min(sensitivity_PD.mean()) == 0 or max(sensitivity_PD.mean()) == 0:
                 raise Exception(scaling + ': It is not possible to use the '
-                                'CTRS method for calculating sensitivity, '
+                                'TRS method for calculating sensitivity, '
                                 'because one or more variables are fixed at '
                                 'zero. Try to use another method or to change '
                                 'the independent/initial conditions!')
@@ -133,7 +133,7 @@ class LocalSensitivity(Sensitivity):
                     sensitivity_PD[var] = sensitivity_PD[var]*par_values/np.tile(np.array(sensitivity_PD[var]),(len(par_values),1)).T
         elif scaling != 'AS':
             raise Exception('You have to choose one of the sensitivity '
-                            'methods which are available: CAS, CPRS or CTRS')
+                            'methods which are available: AS, PRS or TRS')
 
         return sensitivity_PD
 
@@ -213,22 +213,22 @@ class NumericalLocalSensitivity(LocalSensitivity):
         procedure : 'forward'|'central'|'backward'
             Three different procedures are available, the central procedure
             allows to evaluate the numerical accuracy of the sensitivity. This
-            is not the case for the forward and backward procedure. However, 
+            is not the case for the forward and backward procedure. However,
             the additional information required for the central discretization
             comes at an extra computational cost.
-            
+
             *Forward discretisation
-            
+
             .. math:: \frac{\partial y_i(t, \theta_j)}{\partial \theta_j} = \frac{y(t, \theta_j + \Delta\theta_j) - y(t, \theta_j)}{\Delta\theta_j}
-            
+
             *Central discretisation
-            
+
             .. math:: \frac{\partial y_i(t, \theta_j)}{\partial \theta_j} = \frac{y(t, \theta_j + \Delta\theta_j) - y(t, \theta_j- \Delta\theta_j)}{2\Delta\theta_j}
-                       
+
             *Backward discretisation
-            
+
             .. math:: \frac{\partial y_i(t, \theta_j)}{\partial \theta_j} = \frac{y(t, \theta_j) - y(t, \theta_j- \Delta\theta_j)}{\Delta\theta_j}
-                       
+
         """
         if procedure == "central":
             self._initiate_forw_back_sens()
@@ -245,18 +245,18 @@ class NumericalLocalSensitivity(LocalSensitivity):
     def set_perturbation(self, parameters, perturbation=1e-6):
         """
         Function to set perturbation for each of the parameters:
-    
+
         Parameters
         -----------
         parameters: list|dict
             If parameters is a list, then the same perturbation factor is given
-            to each of the parameters. If parameters is a dict, then each 
+            to each of the parameters. If parameters is a dict, then each
             parameter can be given a different perturbation factor.
-        
+
         perturbation: float
             If parameters is a list, this perturbation factor is used for all
             the parameters
-            
+
         Examples
         ---------
         >>> import numpy as np
@@ -266,7 +266,7 @@ class NumericalLocalSensitivity(LocalSensitivity):
         >>> parameters = {'Vmax': 1e-2, 'Km': 0.4}
         >>> M1 = AlgebraicModel('Michaelis Menten', system, parameters)
         >>> M1.set_independent({'S': np.linspace(0., 5., 100.)})
-        >>> # Select parameter for which a numerical sensitivity 
+        >>> # Select parameter for which a numerical sensitivity
         >>> M1sens = NumericalLocalSensitivity(M1, parameters=['Km'])
         >>> # Change the perturbation factor for Km
         >>> M1sens.set_perturbation(['Km'], perturbation=5e-1)
@@ -362,7 +362,7 @@ class NumericalLocalSensitivity(LocalSensitivity):
         r"""
         Get numerical local sensitivity for the different parameters and
         variables of interest
-        
+
 
         Parameters
         -----------
@@ -370,20 +370,20 @@ class NumericalLocalSensitivity(LocalSensitivity):
             Three different ways of calculating the local senstivity are
             available: the absolute senstivity (AS), the parameter relative
             sensitivity and the total relative sensitivitiy (TRS).
-            
+
             *Absolute Senstivity (AS)
-               
+
                 .. math:: \frac{\partial y_i(t)}{\partial \theta_j}
 
-        
+
             *Parameter Relative Sensitivity (PRS)
-        
+
                 .. math:: \frac{\partial y_i(t)}{\partial \theta_j}\cdot\theta_j
-        
+
             *Total Relative Senstivitity (TRS)
-        
+
                 .. math:: \frac{\partial y_i(t)}{\partial \theta_j}\cdot\frac{\partial \theta_j}{y_i}
-            
+
 
         """
         output_std = self.model._run()

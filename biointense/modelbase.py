@@ -7,6 +7,8 @@ import warnings
 import pandas as pd
 import numpy as np
 import pickle
+from collections import OrderedDict
+
 
 FILE_EXTENSION = '.biointense'
 
@@ -114,6 +116,24 @@ class BaseModel(object):
         """
         """
         return NotImplementedError
+
+    def _make_OrderedDict(self, mydict):
+        r"""
+        Check if instance is orderedDict, otherwise make it orderedDict
+
+        Parameters
+        -----------
+        mydict: dict|orderedDict
+
+        Returns
+        --------
+        OrderedDict
+        """
+
+        if not isinstance(mydict, OrderedDict):
+            mydict = OrderedDict(sorted(mydict.items(), key=lambda t: t[0]))
+
+        return mydict
 
     def set_variables_of_interest(self, variables_of_interest):
         """

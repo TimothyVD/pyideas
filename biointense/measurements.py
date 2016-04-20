@@ -270,7 +270,7 @@ class ode_measurements(object):
                 temp = ('(1.+ 1./((' + var + '/' + str(lower_accuracy_bound) +
                         ')**2 + (' + var + '/' + str(lower_accuracy_bound) +
                         ')))*' + str(minimal_relative_error))
-                error_dict[var] = var + '*' + temp + ' + 1e-16'
+                error_dict[var] = '(' + var + '*' + temp + ')**2 + 1e-16'
 
         elif method == 'direct':
             for var in self.get_measured_outputs():
