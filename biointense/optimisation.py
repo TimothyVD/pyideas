@@ -225,6 +225,14 @@ class _BaseOptimisation(object):
 
         return optimize_info
 
+    def _basinhopping(self, obj_fun, dof_array, *args, **kwargs):
+        '''
+        Wrapper for scipy.optimize.basinhopping
+        '''
+        optimize_info = optimize.basinhopping(obj_fun, dof_array, **kwargs)
+
+        return optimize_info
+
     def _set_modmeas(self, modeloutput, measurements):
         self.modmeas = pd.concat((measurements, modeloutput), axis=1,
                                  keys=['Measured', 'Modelled'])
@@ -412,6 +420,25 @@ class ParameterOptimisation(_BaseOptimisation):
             self._local_optimize(inner_obj_fun,
                                  self._dof_dict_to_array(pardict),
                                  method, *args, **kwargs)
+
+        self._set_modmeas(self._run_model(), self.measurements.Data)
+
+        return optimize_info
+
+    def basinhopping(self, pardict=None, obj_crit='wsse', *args, **kwargs):
+        '''
+        Wrapper for scipy.optimize.minimize
+        '''
+        def inner_obj_fun(parray=None):
+            return self._obj_fun(obj_crit, parray=parray)
+
+        if pardict is None:
+            pardict = self.model.parameters.copy()
+
+        optimize_info = \
+            self._basinhopping(inner_obj_fun,
+                               self._dof_dict_to_array(pardict),
+                               *args, **kwargs)
 
         self._set_modmeas(self._run_model(), self.measurements.Data)
 
