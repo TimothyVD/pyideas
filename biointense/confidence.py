@@ -189,10 +189,10 @@ class BaseConfidence(object):
             for the different measured outputs
         '''
 
-#        if sens_PD.index[0] == 0.0:
-#            sens_start = 0
-#        else:
-#            sens_start = 1
+        if np.min(abs(sensmatrix[0,:,:]))==0.0 and self.model.independent[0]=='t':
+            sens_start = 1
+        else:
+            sens_start = 0
 
         # Perform FIM calculation
         # FIM = dy/dx*1/Q*[dy/dx]^T
@@ -200,13 +200,13 @@ class BaseConfidence(object):
         # Calculate inverse of ECM_PD
         # 1/Q
         MECM_inv = np.linalg.inv(np.eye(self._var_len) *
-                                 np.atleast_3d(uncertainty_PD))
+                                 np.atleast_3d(uncertainty_PD)[sens_start:,:,:])
         # Set all very low numbers to zero (just a precaution, so that
         # solutions would be the same as the old get_FIM method). This is
         # probably not necessary!
         MECM_inv[MECM_inv < 1e-20] = 0.
 
-        FIM_timestep = self._dotproduct(sensmatrix, MECM_inv)
+        FIM_timestep = self._dotproduct(sensmatrix[sens_start:,:,:], MECM_inv)
 
         # FIM = sum(FIM(t))
         FIM = np.sum(FIM_timestep, axis=0)
