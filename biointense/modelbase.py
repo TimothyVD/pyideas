@@ -1,20 +1,17 @@
-
-## License: LELIJKE DASHONDEN
-## All rights to us and none to the others!
 from __future__ import division
-
-import warnings
-import pandas as pd
 import numpy as np
 import pickle
 from collections import OrderedDict
 
+from biointense.solver import AlgebraicSolver
+
 
 FILE_EXTENSION = '.biointense'
 
+
 class BaseModel(object):
 
-    def __init__(self, name, parameters, comment=None):
+    def __init__(self, name, parameters, independent_names, variables, fun):
         """
 
         ODE equations are defined by the pre-defined d, whereas algebraic
@@ -28,174 +25,108 @@ class BaseModel(object):
         """
 
         self.name = name
-        self._check_name()
-        self.comment = comment
 
         # solver communicationkernel
         self.modeltype = "basemodel"
-        self.independent = []
+        self._independent_names = independent_names
         self._independent_values = {}
+        # Parameters
+        self._parameters = None
         self.parameters = parameters
-        self.variables = []
-        self.variables_of_interest = []
-        self._initial_up_to_date = False
+        # Model output
+        self._variables = variables
+        self._variables_of_interest = variables
+        self._variables_of_interest_index = range(len(variables))
+        # function
+        self.fun = fun
+        # Model initialised?
+        self._initialised = False
 
-    def __str__(self):
-        """
-        string representation
-        """
-        return "Model name: " + str(self.name) + \
-            "\n Variables of interest: \n" + str(self.variables_of_interest) +\
-            "\n Parameters: \n" + str(self.parameters) + \
-            "\n Independent: \n" + str(self.independent) + \
-            "\n Model initialised: " + str(self._initial_up_to_date)
-
-    def __repr__(self):
+    @staticmethod
+    def _get_index_from_lists(reflist, newlist):
         """
         """
-        print("Model name: " + str(self.name) +
-              "\n Variables of interest: \n" + str(self.variables_of_interest) +
-              "\n Parameters: \n" + str(self.parameters) +
-              "\n Independent: \n" + str(self.independent) +
-              "\n Model initialised: " + str(self._initial_up_to_date))
+        array = np.empty([len(newlist)], dtype=int)
+        for i, string in enumerate(newlist):
+            array[i] = reflist.index(string)
 
-    def _check_system(self):
-        """
-        check sys ...
-        define ODE, algebraic, pde vars seperately
-        if in sys && not in parameter:
-            WARNING: another var found
-        check if parameter of choice and independent vars are found in the
-        system/ variable list.
-        """
-        return NotImplementedError
+        return array
 
-    def _check_name(self):
-        """
-        check if model name is a string
-        """
-        if not isinstance(self.name, str):
-            raise TypeError("model name is not a string")
-
-    def _check_parameters(self):
-        """
-        check is type == dict
-        check for a match between system and parameters
-
-        see: _checkParinODEandAlg(self): in ode_generator.py
-        """
-        return NotImplementedError
-
-    def set_parameter(self, parameter, value):
+    @property
+    def parameters(self):
         """
         """
-        # check the data type of the input
-        if not isinstance(parameter, str):
-            raise TypeError("Parameter is not given as a string")
-        if not isinstance(value, tuple((float, int))):
-            raise TypeError("Value is not given as a float/int")
-        self.parameters[parameter] = float(value)
+        return self._parameters
 
-    def set_parameters(self, pardict):
-
-        for par, parvalue in pardict.items():
-            if par not in self.parameters:
-                raise KeyError("Parameter {} not in the model "
-                               "parameters".format(par))
-            self.parameters[par] = parvalue
-
-    def set_independent(self, independent_dict):
+    @parameters.setter
+    def parameters(self, pardict):
         """
         """
-        self.independent = independent_dict.keys()
-        self._independent_values = independent_dict
+        if self._parameters is None:
+            if isinstance(pardict, OrderedDict):
+                self._parameters = pardict
+            else:
+                self._parameters = OrderedDict(sorted(pardict.items(),
+                                                      key=lambda t: t[0]))
 
-        self._independent_values[self.independent[0]] = np.sort(independent_dict[self.independent[0]])
-
-    def _check_for_independent(self):
-        """
-        """
-        return NotImplementedError
-
-    def _make_OrderedDict(self, mydict):
-        r"""
-        Check if instance is orderedDict, otherwise make it orderedDict
-
-        Parameters
-        -----------
-        mydict: dict|orderedDict
-
-        Returns
-        --------
-        OrderedDict
-        """
-
-        if not isinstance(mydict, OrderedDict):
-            mydict = OrderedDict(sorted(mydict.items(), key=lambda t: t[0]))
-
-        return mydict
-
-    def set_variables_of_interest(self, variables_of_interest):
-        """
-        set the variables to be exported to the output
-        """
-        if self.variables_of_interest:
-            warnings.warn("Warning: variables of interest are already given. "
-                          "Overwriting original variables.")
-        # test if the input is a list
-        if isinstance(variables_of_interest, list):
-            for element in variables_of_interest:
-                # if the input is a list, check if all inputs are strings
-                if not isinstance(element, str):
-                    raise TypeError("Elements in list are not strings")
-            self.variables_of_interest = variables_of_interest
-        # test if the input is a string
-        elif isinstance(variables_of_interest, str):
-            self.variables_of_interest = [variables_of_interest]
-
-        # if the input is no string nor list of strings, raise error
+        # Check whether the parameters which have to be updated are available
+        # in the model
+        if set(pardict.keys()).issubset(self._parameters.keys()):
+            self._parameters.update(pardict)
         else:
-            raise TypeError("Input is not a string nor a list of strings")
+            raise KeyError("The defined parameters are not all available in "
+                           "the model. Check for typos or reinitialise the "
+                           "model.")
 
-        return self
-
-#    def get_summary(self):
-#        """
-#        returns summary of the model
-#            parameters
-#            variables & type
-#            events
-#            time steps (init defined user, event, measurements)
-#            initial conditions
-#            ready to run!
-#        """
-#        return NotImplementedError
-
-    def initialize_model(self):
+    @property
+    def variables(self):
         """
-        make string object of model (templating based would be preferred)
-        adjust variables to cope with events:
-            S & S_event ==> aggregation function
-        make Solver object
-        set verbose option
         """
-        return NotImplementedError
+        return self._variables
+
+    @property
+    def variables_of_interest(self):
+        """
+        """
+        return self._variables_of_interest
+
+    @variables_of_interest.setter
+    def variables_of_interest(self, varlist):
+        """
+        """
+        if set(varlist).issubset(self._variables):
+            self._variables_of_interest = varlist
+            self._variables_of_interest_index = \
+                self._get_index_from_lists(self._variables, varlist)
+        else:
+            raise KeyError("The defined variables are not all available in "
+                           "the model. Check for typos or reinitialise the "
+                           "model.")
+
+    @property
+    def independent(self):
+        """
+        """
+        return self._independent_values
+
+    @independent.setter
+    def independent(self, independent_dict):
+        """
+        """
+        self._independent_values = independent_dict
 
     def run(self):
         """
         Run the model for the given set of parameters, indepentent variable
-        values and output a datagrame with the variables of interest.
+        values and output a dataframe with the variables of interest.
 
         """
-        if not self._initial_up_to_date:
-            self.initialize_model
-        return NotImplementedError
+        solver = AlgebraicSolver(self.fun, self.independent,
+                                 (self.parameters,))
 
-#    def plot(self):
-#        """
-#        plot dataframe
-#        """
-#        return NotImplementedError
+        result = solver.solve()
+
+        return result[:, self._variables_of_interest_index]
 
     def save(self, filename):
         """
@@ -233,8 +164,8 @@ class BaseModel(object):
         """
         if not filename.endswith(FILE_EXTENSION):
             filename += FILE_EXTENSION
-        with open(filename, 'rb') as input:
-            temp_object = pickle.load(input)
+        with open(filename, 'rb') as inputfile:
+            temp_object = pickle.load(inputfile)
         return temp_object
 
 #    def export_to(environment):
@@ -246,6 +177,3 @@ class BaseModel(object):
 #        environment : matlab, openModelica, libSBML
 #        """
 #        return NotImplementedError
-
-
-
