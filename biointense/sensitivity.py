@@ -18,39 +18,99 @@ from biointense.solver import OdeSolver, AlgebraicSolver
 
 from itertools import product
 
-
-class Sensitivity(object):
+def _get_sse(sens_plus, sens_min):
     """
     """
+    sse = np.mean(((sens_plus - sens_min)**2))
+    return sse
 
-    def __init__(self, model):
-        """
-        """
-        self.model = model
+def _get_sae(sens_plus, sens_min):
+    """
+    """
+    mre = np.mean(np.abs(sens_plus - sens_min))
+    return mre
 
-    def get_sensitivity(self):
-        """perturbation
-        Solve model equations
+def _get_mre(sens_plus, sens_min):
+    """
+    """
+    mre = np.max(np.abs((sens_plus[1:] - sens_min[1:])/sens_plus[1:]))
+    return mre
 
-        return: For each independent value, returns state for all variables
-        """
-        return NotImplementedError
+def _get_sre(sens_plus, sens_min):
+    """
+    """
+    sre = np.mean(np.abs(1 - sens_min[1:]/sens_plus[1:]))
+    return sre
+
+def _get_ratio(sens_plus, sens_min):
+    """
+    """
+    ratio = np.max(np.abs(1 - sens_min[1:]/sens_plus[1:]))
+    return ratio
+
+SENS_QUALITY = {'SSE': _get_sse,
+                'SAE': _get_sae,
+                'MRE': _get_mre,
+                'SRE': _get_sre,
+                'RATIO': _get_ratio}
 
 
-class LocalSensitivity(Sensitivity):
+#==============================================================================
+# class Sensitivity(object):
+#     """
+#     """
+#
+#     def __init__(self, model):
+#         """
+#         """
+#         self.model = model
+#
+#     def get_sensitivity(self):
+#         """perturbation
+#         Solve model equations
+#
+#         return: For each independent value, returns state for all variables
+#         """
+#         return NotImplementedError
+#==============================================================================
+
+
+class LocalSensitivity(object):
     """
     """
     def __init__(self, model, parameters):
         """
         """
-        self.model = model
-        self.parameters = parameters
+        self._model = model
+        self._parameter_names = parameters
+        self._parameter_values = self._get_parvals(parameters,
+                                                   self._model.parameters)
+
+    @property
+    def model(self):
+        return self._model
+
+    @property
+    def parameter_names(self):
+        return self._parameter_names
 
     @property
     def parameter_values(self):
-            return self.model.parameters
+        return self._parameter_values
 
-    def get_sensitivity(self, method='AS'):
+    @staticmethod
+    def _get_parvals(parameter_list, parameter_dict):
+        parval_array = np.empty(len(parameter_list))
+        for i, par in enumerate(parameter_list):
+            parval_array[i] = parameter_dict[par]
+        return parval_array
+
+    def _get_sensitivity(self, method='AS'):
+        """
+        """
+        return NotImplemented
+
+    def get_sensitivity(self, method='AS', as_dataframe=True):
         r"""
         Get numerical local sensitivity for the different parameters and
         variables of interest
@@ -80,62 +140,52 @@ class LocalSensitivity(Sensitivity):
         """
         local_sens = self._get_sensitivity(method=method)
 
-        index = pd.MultiIndex.from_arrays(self.model._independent_values.values(),
-                                          names=self.model.independent)
-        local_sens.index = index
+        if as_dataframe:
+            local_sens = local_sens.reshape([self._model._independent_len, -1])
+
+            columns = pd.MultiIndex.from_tuples(list(product(self.model.variables_of_interest,
+                                                             self.parameter_names)))
+
+            local_sens = pd.DataFrame(local_sens, columns=columns)
+
+            index = pd.MultiIndex.from_arrays(self.model._independent_values.values(),
+                                              names=self.model._independent_names)
+            local_sens.index = index
 
         return local_sens
 
-    def _rescale_sensitivity(self, sensitivity_PD, scaling):
+    def _rescale_sensitivity(self, sens_array, scaling, cutoff=1e-16,
+                             cutoff_replacement=1e-16):
         """
         """
-        variables = list(sensitivity_PD.columns.levels[0])
-        parameters = list(sensitivity_PD.columns.levels[1])
-        perturb_par = pd.Series(self.parameter_values)[self.parameters]
-        sensitivity_len = len(sensitivity_PD.index)
-        parameter_len = len(parameters)
+        variables = self._model.variables_of_interest
+        parameter_len = len(self._parameter_names)
+        variable_len = len(self._model.variables_of_interest)
 
-        # Problem with keeping the same order!
-        par_values = []
-        for par in parameters:
-            par_values.append(self.model.parameters[par])
-        # Convert par_values to np.array with lenght = sensitivity
-        par_values = np.array(par_values)*np.ones([sensitivity_len,
-                                                   parameter_len])
+        if scaling not in ['AS', 'PRS', 'TRS']:
+            raise Exception('This type of scaling is not known/implemented. '
+                            'Please use AS, PRS or TRS scaling.')
 
-        if scaling[0] == 'C':
-            warnings.warn(('The different method names have been changed, '
-                           'as a consequence CAS, CPRS and CTRS have been '
-                           'replace by AS, PRS and TRS respectively. This to '
-                           'show that a rescaling of the sensivity can also be'
-                           'done for the forward and backward sensitivity.'),
-                          DeprecationWarning)
+        if scaling[1:] == 'RS':
+            # Convert par_values to np.array with lenght = sensitivity
+            par_values = np.ones([self._model._independent_len, 1,
+                                  parameter_len])*self.parameter_values
+            par_values = np.repeat(par_values, variable_len, axis=1)
 
-            scaling = scaling[1:]
+            # Parameter relative sensitivity
+            sens_array *= par_values
 
-        if scaling == 'PRS':
-            # CPRS = CAS*parameter
-            for var in variables:
-                sensitivity_PD[var] = sensitivity_PD[var]*par_values
-        elif scaling == 'TRS':
-            # CTRS
-            if min(sensitivity_PD.mean()) == 0 or max(sensitivity_PD.mean()) == 0:
-                raise Exception(scaling + ': It is not possible to use the '
-                                'TRS method for calculating sensitivity, '
-                                'because one or more variables are fixed at '
-                                'zero. Try to use another method or to change '
-                                'the independent/initial conditions!')
-            elif min(sensitivity_PD.min()) == 0 or min(sensitivity_PD.max()) == 0:
-                for var in variables:
-                    sensitivity_PD[var] = sensitivity_PD[var]*par_values/sensitivity_PD[var].mean()
-            else:
-                for var in variables:
-                    sensitivity_PD[var] = sensitivity_PD[var]*par_values/np.tile(np.array(sensitivity_PD[var]),(len(par_values),1)).T
-        elif scaling != 'AS':
-            raise Exception('You have to choose one of the sensitivity '
-                            'methods which are available: AS, PRS or TRS')
+            if scaling == 'TRS':
+                model_run = self._model._run().reshape([self._model._independent_len,
+                                                        -1, 1])
+                model_run = np.repeat(model_run, parameter_len, axis=-1)
 
-        return sensitivity_PD
+                model_run[model_run < cutoff] = cutoff_replacement
+
+                # Total relative sensitivity
+                sens_array /= model_run
+
+        return sens_array
 
 
 class NumericalLocalSensitivity(LocalSensitivity):
@@ -157,26 +207,24 @@ class NumericalLocalSensitivity(LocalSensitivity):
                   'dS': '-v*E',
                   'dP': 'v*E'}
     >>> M1 = Model('Michaelis-Menten', system, parameters)
-    >>> M1.set_initial({'S':500.,
-                        'P':0.})
-    >>> M1.set_independent({'t': np.linspace(0, 2500, 10000)})
+    >>> M1.initial_conditions = {'S':500., 'P':0.}
+    >>> M1.independent = {'t': np.linspace(0, 2500, 10000)}
     >>> M1sens_num = NumericalLocalSensitivity(M1, parameters=['Km', 'Vmax'])
-    >>> numsens = M1sens_num.get_sensitivity(method='CPRS')
+    >>> numsens = M1sens_num.get_sensitivity(method='AS')
     """
-    def __init__(self, model, parameters=None, perturbation=1e-6,
-                 procedure="central"):
+    def __init__(self, model, parameters=None, procedure="central"):
         """
         """
-        self.model = model
-        self.parameters = []
-        self._parameter_values = {}.fromkeys(self.model.parameters.keys())
+        self._model = model
         if parameters is None:
-            self.set_perturbation(list(model.parameters.keys()),
-                                  perturbation=perturbation)
-        else:
-            self.set_perturbation(parameters,
-                                  perturbation=perturbation)
-        self.set_procedure(procedure)
+            parameters = model.parameters.keys()
+        self._parameter_names = parameters
+        self._parameter_values = self._get_parvals(parameters,
+                                                   self._model.parameters)
+        self._parameter_perturb = self._parameter_values.copy()
+
+        self._procedure = None
+        self.procedure = procedure
         self._initiate_par()
         self._initiate_var()
 
@@ -203,7 +251,14 @@ class NumericalLocalSensitivity(LocalSensitivity):
         for i, var in enumerate(self.model.variables_of_interest):
             self._var_order[var] = i
 
-    def set_procedure(self, procedure):
+    @property
+    def procedure(self):
+        """
+        """
+        return self._procedure
+
+    @procedure.setter
+    def procedure(self, procedure):
         r"""
         Select which procedure (central, forward, backward) should be used to
         calculate the numerical local sensitivity.
@@ -240,9 +295,14 @@ class NumericalLocalSensitivity(LocalSensitivity):
         else:
             raise Exception("Procedure is not known, please choose 'forward', "
                             "'backward' or 'central'.")
-        self.procedure = procedure
+        self._procedure = procedure
 
-    def set_perturbation(self, parameters, perturbation=1e-6):
+    @property
+    def perturbation(self):
+        return self._parameter_perturb
+
+    @perturbation.setter
+    def perturbation(self, perturbation_values):
         """
         Function to set perturbation for each of the parameters:
 
@@ -253,8 +313,8 @@ class NumericalLocalSensitivity(LocalSensitivity):
             to each of the parameters. If parameters is a dict, then each
             parameter can be given a different perturbation factor.
 
-        perturbation: float
-            If parameters is a list, this perturbation factor is used for all
+        perturbation_values: float|dict
+            If perturbation_values is a float, all parameters are, this perturbation factor is used for all
             the parameters
 
         Examples
@@ -434,26 +494,10 @@ class NumericalLocalSensitivity(LocalSensitivity):
 
         for var in self.model.variables_of_interest:
             var_num = self._var_order[var]
-            if criterion == 'SSE':
-                acc_num_LSA[var] = self._get_sse(
-                    self._sens_forw[:, :, var_num],
-                    self._sens_back[:, :, var_num])
-            elif criterion == 'SAE':
-                acc_num_LSA[var] = self._get_sae(
-                    self._sens_forw[:, :, var_num],
-                    self._sens_back[:, :, var_num])
-            elif criterion == 'MRE':
-                acc_num_LSA[var] = self._get_mre(
-                    self._sens_forw[:, :, var_num],
-                    self._sens_back[:, :, var_num])
-            elif criterion == 'SRE':
-                acc_num_LSA[var] = self._get_sre(
-                    self._sens_forw[:, :, var_num],
-                    self._sens_back[:, :, var_num])
-            elif criterion == 'RATIO':
-                acc_num_LSA[var] = self._get_ratio(
-                    self._sens_forw[:, :, var_num],
-                    self._sens_back[:, :, var_num])
+            sens_input = (self._sens_forw[:, :, var_num],
+                          self._sens_back[:, :, var_num])
+            if criterion in SENS_QUALITY:
+                acc_num_LSA[var] = SENS_QUALITY[criterion](*sens_input)
             else:
                 raise Exception("Criterion '" + criterion + "' is not a valid "
                                 "criterion, please select one of following "
@@ -523,42 +567,6 @@ class NumericalLocalSensitivity(LocalSensitivity):
 
         return res
 
-    @staticmethod
-    def _get_sse(sens_plus, sens_min):
-        """
-        """
-        sse = np.mean(((sens_plus - sens_min)**2))
-        return sse
-
-    @staticmethod
-    def _get_sae(sens_plus, sens_min):
-        """
-        """
-        mre = np.mean(np.abs(sens_plus - sens_min))
-        return mre
-
-    @staticmethod
-    def _get_mre(sens_plus, sens_min):
-        """
-        """
-        mre = np.max(np.abs((sens_plus[1:] - sens_min[1:])/sens_plus[1:]))
-        return mre
-
-    @staticmethod
-    def _get_sre(sens_plus, sens_min):
-        """
-        """
-        sre = np.mean(np.abs(1 - sens_min[1:]/sens_plus[1:]))
-        return sre
-
-    @staticmethod
-    def _get_ratio(sens_plus, sens_min):
-        """
-        """
-        ratio = np.max(np.abs(1 - sens_min[1:]/sens_plus[1:]))
-        return ratio
-
-
 class DirectLocalSensitivity(LocalSensitivity):
     r"""
     Parameters
@@ -577,11 +585,10 @@ class DirectLocalSensitivity(LocalSensitivity):
                   'dS': '-v*E',
                   'dP': 'v*E'}
     >>> M1 = Model('Michaelis-Menten', system, parameters)
-    >>> M1.set_initial({'S':500.,
-                        'P':0.})
-    >>> M1.set_independent({'t': np.linspace(0, 2500, 10000)})
+    >>> M1.initial_conditions = {'S':500., 'P':0.}
+    >>> M1.independent = {'t': np.linspace(0, 2500, 10000)}
     >>> M1sens_direct = DirectLocalSensitivity(M1, parameters=['Km', 'Vmax'])
-    >>> directsens = M1sens_direct.get_sensitivity(method='PRS')
+    >>> sens_out = M1sens_direct.get_sensitivity(method='PRS')
     """
     def __init__(self, model, parameters=None):
         """
@@ -590,8 +597,16 @@ class DirectLocalSensitivity(LocalSensitivity):
             raise Exception("DirectLocalSensitivity can only be used for "
                             "(subclasses of the) _BiointenseModel class")
 
-        self.model = model
-        self.parameters = parameters or self.model.parameters.keys()
+        if parameters is None:
+            parameters = model.parameters.keys()
+
+#==============================================================================
+#         super(DirectLocalSensitivity, self).__init__(model, parameters)
+#==============================================================================
+        self._model = model
+        self._parameter_names = parameters
+        self._parameter_values = self._get_parvals(parameters,
+                                                   self._model.parameters)
 
         self._dxdtheta_start = None
         self._dxdtheta_len = 0
@@ -602,8 +617,6 @@ class DirectLocalSensitivity(LocalSensitivity):
         self._fun_ode_str = None
 
         self._generate_sensitivity()
-
-
 
     @staticmethod
     def _flatten_list(some_list):
@@ -628,35 +641,32 @@ class DirectLocalSensitivity(LocalSensitivity):
 
         if odevar:
             dfdtheta, dfdx, self._dxdtheta_start = sensdef.generate_ode_sens(
-                odevar, odefun_ord, algvar, algfun_ord, self.parameters)
+                odevar, odefun_ord, algvar, algfun_ord, self.parameter_names)
             self._dxdtheta_len = self._dxdtheta_start.size
-            self._fun_ode_str = sensdef.generate_ode_derivative_definition(
-                                   self.model, dfdtheta, dfdx, self.parameters)
+            self._fun_ode_str =\
+                sensdef.generate_ode_derivative_definition(
+                    self.model, dfdtheta, dfdx, self.parameter_names)
             exec(self._fun_ode_str)
             self._fun_ode = fun_ode_lsa
 
         if algvar:
             dgdtheta, dgdx = sensdef.generate_alg_sens(odevar, odefun_ord,
                                                        algvar, algfun_ord,
-                                                       self.parameters)
-            self._fun_alg_str = sensdef.generate_non_derivative_part_definition(
-                                   self.model, dgdtheta, dgdx, self.parameters)
+                                                       self.parameter_names)
+            self._fun_alg_str =\
+                sensdef.generate_non_derivative_part_definition(
+                    self.model, dgdtheta, dgdx, self.parameter_names)
             exec(self._fun_alg_str)
             self._fun_alg = fun_alg_lsa
 
     def _args_ode_function(self, fun, **kwargs):
         """
         """
-        externalfunctions = kwargs.get('externalfunctions')
         initial_conditions = [self.model.initial_conditions[var]
                               for var in self.model._ordered_var['ode']]
         initial_conditions += self._flatten_list(self._dxdtheta_start.tolist())
         args = (fun, initial_conditions,
-                self.model._independent_values)
-        if externalfunctions:
-            args += tuple(((self.model.parameters, externalfunctions,),))
-        else:
-            args += tuple(((self.model.parameters,),))
+                self.model._independent_values, (self.model.parameters,),)
 
         return args
 
@@ -670,24 +680,26 @@ class DirectLocalSensitivity(LocalSensitivity):
 
         dxdtheta = np.reshape(model_output, [-1,
                                              len(self.model.initial_conditions),
-                                             len(self.parameters)])
+                                             len(self.parameter_names)])
 
-        #index = pd.MultiIndex.from_arrays(self.model._independent_values.values(),
-        #                                  names=self.model.independent)
-
-        columns = pd.MultiIndex.from_tuples(list(product(
-                        self.model._ordered_var['ode'],
-                        self.parameters)))
-                        #, sortorder=0)
-
-
-        indep_len = len(self.model._independent_values.values()[0])
-
-#        result = pd.DataFrame(model_output.reshape(indep_len, -1),
-#                              index=index, columns=columns)
-        result = pd.DataFrame(model_output.reshape(indep_len, -1),
-                              columns=columns)
-        return ode_values, dxdtheta, result
+#==============================================================================
+#         #index = pd.MultiIndex.from_arrays(self.model._independent_values.values(),
+#         #                                  names=self.model.independent)
+#
+#         columns = pd.MultiIndex.from_tuples(list(product(
+#                         self.model._ordered_var['ode'],
+#                         self.parameter_names)))
+#                         #, sortorder=0)
+#
+#
+#         indep_len = len(self.model._independent_values.values()[0])
+#
+# #        result = pd.DataFrame(model_output.reshape(indep_len, -1),
+# #                              index=index, columns=columns)
+#         result = pd.DataFrame(model_output.reshape(indep_len, -1),
+#                               columns=columns)
+#==============================================================================
+        return ode_values, dxdtheta #model_output#result
 
     def _get_alg_sensitivity(self, ode_values=None, dxdtheta=None):
         """
@@ -696,46 +708,67 @@ class DirectLocalSensitivity(LocalSensitivity):
                                  ode_values=ode_values, dxdtheta=dxdtheta)
         model_output = solver._solve_algebraic()
 
-        #index = pd.MultiIndex.from_arrays(self.model._independent_values.values(),
-        #                                  names=self.model.independent)
-
-        columns = pd.MultiIndex.from_tuples(list(product(
-                        self.model._ordered_var['algebraic'],
-                        self.parameters)))
-                        #, sortorder=0)
-
-        indep_len = len(self.model._independent_values.values()[0])
-
-        #result = pd.DataFrame(model_output.reshape(indep_len, -1),
-        #                      index=index, columns=columns)
-        result = pd.DataFrame(model_output.reshape(indep_len, -1),
-                              columns=columns)
-        return result
+#==============================================================================
+#         #index = pd.MultiIndex.from_arrays(self.model._independent_values.values(),
+#         #                                  names=self.model.independent)
+#
+#         columns = pd.MultiIndex.from_tuples(list(product(
+#                         self.model._ordered_var['algebraic'],
+#                         self.parameter_names)))
+#                         #, sortorder=0)
+#
+#         indep_len = len(self.model._independent_values.values()[0])
+#
+#         #result = pd.DataFrame(model_output.reshape(indep_len, -1),
+#         #                      index=index, columns=columns)
+#         result = pd.DataFrame(model_output.reshape(indep_len, -1),
+#                               columns=columns)
+#==============================================================================
+        return model_output#result
 
     def _get_sensitivity(self, method='AS'):
         """
         """
         ode_values = None
         dxdtheta = None
-        direct_ode_sens = None
         direct_alg_sens = None
 
         if self._fun_ode:
-            ode_values, dxdtheta, direct_ode_sens = self._get_ode_sensitivity()
+            ode_values, dxdtheta = self._get_ode_sensitivity()
 
         if self._fun_alg:
             direct_alg_sens = self._get_alg_sensitivity(ode_values=ode_values,
                                                         dxdtheta=dxdtheta)
 
-        direct_sens = pd.concat([direct_ode_sens, direct_alg_sens], axis=1)
+        if ode_values is None:
+            direct_sens = direct_alg_sens
+        elif direct_alg_sens is None:
+            direct_sens = dxdtheta
+        else:
+            direct_sens = np.concatenate((direct_alg_sens, dxdtheta), axis=1)
 
-        direct_sens = self._rescale_sensitivity(direct_sens, method)
+        direct_sens = direct_sens[:, self.model._variables_of_interest_index,
+                                  :]
 
-        return direct_sens
+        return self._rescale_sensitivity(direct_sens, method)
 
-class GlobalSensitivity(Sensitivity):
-    """
-    """
-    def __init__(self, model):
-        """
-        """
+
+#==============================================================================
+#
+#         direct_sens = pd.concat([direct_ode_sens, direct_alg_sens], axis=1)
+#
+#         direct_sens = self._rescale_sensitivity(direct_sens, method)
+#==============================================================================
+
+#==============================================================================
+#         return direct_alg_sens, dxdtheta
+#==============================================================================
+
+#==============================================================================
+# class GlobalSensitivity(Sensitivity):
+#     """
+#     """
+#     def __init__(self, model):
+#         """
+#         """
+#==============================================================================

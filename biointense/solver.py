@@ -289,6 +289,6 @@ class HybridSolver(_Solver):
                                     ode_values=ode_output)
         alg_output = algsolver.solve()
 
-        result = np.concatenate((ode_output, alg_output), axis=1)
+        result = np.concatenate((alg_output, ode_output), axis=1)
 
         return result

@@ -1,5 +1,6 @@
 from __future__ import division
 import numpy as np
+import pandas as pd
 import pickle
 from collections import OrderedDict
 
@@ -11,7 +12,7 @@ FILE_EXTENSION = '.biointense'
 
 class BaseModel(object):
 
-    def __init__(self, name, parameters, independent_names, variables, fun):
+    def __init__(self, name, parameters, variables, indep_names, fun):
         """
 
         ODE equations are defined by the pre-defined d, whereas algebraic
@@ -28,8 +29,10 @@ class BaseModel(object):
 
         # solver communicationkernel
         self.modeltype = "basemodel"
-        self._independent_names = independent_names
-        self._independent_values = {}
+        self._independent_names = indep_names
+        self._independent_values = None
+        self._independent_len = None
+#        self._independent_len = None
         # Parameters
         self._parameters = None
         self.parameters = parameters
@@ -41,6 +44,23 @@ class BaseModel(object):
         self.fun = fun
         # Model initialised?
         self._initialised = False
+
+    @staticmethod
+    def _make_OrderedDict(mydict):
+        r"""
+        Check if instance is orderedDict, otherwise make it orderedDict
+        Parameters
+        -----------
+        mydict: dict|orderedDict
+        Returns
+        --------
+        OrderedDict
+        """
+
+        if not isinstance(mydict, OrderedDict):
+            mydict = OrderedDict(sorted(mydict.items(), key=lambda t: t[0]))
+
+        return mydict
 
     @staticmethod
     def _get_index_from_lists(reflist, newlist):
@@ -113,9 +133,18 @@ class BaseModel(object):
     def independent(self, independent_dict):
         """
         """
-        self._independent_values = independent_dict
+        sorted_indep = []
+        for indep in self._independent_names:
+            sorted_indep.append((indep, independent_dict[indep]))
+        self._independent_values = OrderedDict(sorted_indep)
+        self._independent_len = len(self._independent_values.values()[0])
+        #self._independent_names = self._independent_values.keys()
+#        self._independent_len = np.empty(len(self._independent_names),
+         #                                dtype=int)
+#        for i, indep in enumerate(self._independent_names):
+#            self._independent_len[i] = len(self._independent_values[indep])
 
-    def run(self):
+    def _run(self):
         """
         Run the model for the given set of parameters, indepentent variable
         values and output a dataframe with the variables of interest.
@@ -127,6 +156,22 @@ class BaseModel(object):
         result = solver.solve()
 
         return result[:, self._variables_of_interest_index]
+
+    def run(self, procedure=None):
+        """
+        Run the model for the given set of parameters, independent variable
+        values and output a datagrame with the variables of interest.
+        """
+        result = self._run()
+
+        result = pd.DataFrame(result, columns=self._variables_of_interest)
+
+        index = pd.MultiIndex.from_arrays(self._independent_values.values(),
+                                          names=self._independent_names)
+
+        result.index = index
+
+        return result
 
     def save(self, filename):
         """
