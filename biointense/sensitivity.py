@@ -7,6 +7,7 @@ Created on Mon Jan  5 11:21:40 2015
 from __future__ import division
 import numpy as np
 import pandas as pd
+from collections import OrderedDict
 
 import warnings
 
@@ -221,35 +222,15 @@ class NumericalLocalSensitivity(LocalSensitivity):
         self._parameter_names = parameters
         self._parameter_values = self._get_parvals(parameters,
                                                    self._model.parameters)
-        self._parameter_perturb = self._parameter_values.copy()
+        self._parameter_perturb = OrderedDict(zip(self._parameter_names,
+                                                  np.zeros(len(self._parameter_names)) + 1e-5))
 
         self._procedure = None
         self.procedure = procedure
-        self._initiate_par()
-        self._initiate_var()
-
-    def _initiate_forw_back_sens(self):
-        """
-        """
-        dummy_np = np.empty([len(self.model._independent_values.values()[0]),
-                             len(self.parameters),
-                             len(self.model.variables_of_interest)])
-        self._sens_forw = dummy_np.copy()
-        self._sens_back = dummy_np.copy()
-
-    def _initiate_par(self):
-        """
-        """
-        self._par_order = {}
-        for i, par in enumerate(self.parameters):
-            self._par_order[par] = i
-
-    def _initiate_var(self):
-        """
-        """
-        self._var_order = {}
-        for i, var in enumerate(self.model.variables_of_interest):
-            self._var_order[var] = i
+#==============================================================================
+#         self._initiate_par()
+#         self._initiate_var()
+#==============================================================================
 
     @property
     def procedure(self):
@@ -285,14 +266,7 @@ class NumericalLocalSensitivity(LocalSensitivity):
             .. math:: \frac{\partial y_i(t, \theta_j)}{\partial \theta_j} = \frac{y(t, \theta_j) - y(t, \theta_j- \Delta\theta_j)}{\Delta\theta_j}
 
         """
-        if procedure == "central":
-            self._initiate_forw_back_sens()
-        elif procedure in ("forward", "backward"):
-            if self._sens_forw:
-                del self._sens_forw
-            if self._sens_back:
-                del self._sens_back
-        else:
+        if procedure not in ["forward", "backward", "central"]:
             raise Exception("Procedure is not known, please choose 'forward', "
                             "'backward' or 'central'.")
         self._procedure = procedure
@@ -314,8 +288,8 @@ class NumericalLocalSensitivity(LocalSensitivity):
             parameter can be given a different perturbation factor.
 
         perturbation_values: float|dict
-            If perturbation_values is a float, all parameters are, this perturbation factor is used for all
-            the parameters
+            If perturbation_values is a float, all parameters are, this
+            perturbation factor is used for all the parameters
 
         Examples
         ---------
@@ -324,39 +298,33 @@ class NumericalLocalSensitivity(LocalSensitivity):
         >>> from biointense import AlgebraicModel, NumericalLocalSensitivity
         >>> system = {'v': 'Vmax*S/(Km + S)'}
         >>> parameters = {'Vmax': 1e-2, 'Km': 0.4}
-        >>> M1 = AlgebraicModel('Michaelis Menten', system, parameters)
-        >>> M1.set_independent({'S': np.linspace(0., 5., 100.)})
+        >>> M1 = AlgebraicModel('Michaelis Menten', system, parameters, ['S'])
+        >>> M1.independent = {'S': np.linspace(0., 5., 100.)}
         >>> # Select parameter for which a numerical sensitivity
         >>> M1sens = NumericalLocalSensitivity(M1, parameters=['Km'])
         >>> # Change the perturbation factor for Km
-        >>> M1sens.set_perturbation(['Km'], perturbation=5e-1)
+        >>> M1sens.perturbation = {'Km': 5e-1}
         >>> high_pert = M1sens.get_sensitivity()
         >>> # Decrease perturbation factor of Km by dictionary
-        >>> M1sens.set_perturbation({'Km': 1e-7})
+        >>> M1sens.perturbation = {'Km': 1e-7}
         >>> low_pert = M1sens.get_sensitivity()
         >>> plt.plot(high_pert)
         >>> plt.hold(True)
         >>> plt.plot(low_pert)
         >>> plt.legend(['Perturbation=5e-1', 'Perturbation=1e-7'])
         """
-        self.parameters = []
 
-        if isinstance(parameters, list):
-            for par in parameters:
-                self._parameter_values[par] = perturbation
-        elif isinstance(parameters, dict):
-            for par in parameters:
-                self._parameter_values[par] = parameters[par]
+        if isinstance(perturbation_values, float):
+            for par in self._parameter_names:
+                self._parameter_perturb[par] = perturbation_values
+        elif isinstance(perturbation_values, dict):
+            if set(perturbation_values.keys()).issubset(self._parameter_names):
+                self._parameter_perturb.update(perturbation_values)
         else:
-            raise Exception('Parameters should be a list or a dict which is '
-                            'valid for all parameters or a dict with for each '
-                            'parameter the corresponding perturbation factor')
-
-        for par, par_value in self._parameter_values.items():
-            if par_value is not None:
-                self.parameters.append(par)
-
-        self._initiate_par()
+            raise Exception('The perturbation factor should be a float which '
+                            'is valid for all parameters or a dict with for '
+                            'each parameter the corresponding perturbation '
+                            'factor.')
 
     def _model_output_pert(self, parameter, perturbation):
         """
@@ -364,10 +332,10 @@ class NumericalLocalSensitivity(LocalSensitivity):
         # Backup original parameter value
         orig_par_val = self.model.parameters[parameter]
         # Run model with parameter value plus perturbation
-        self.model.set_parameter(parameter, orig_par_val*(1 + perturbation))
+        self.model.parameters = {parameter: orig_par_val*(1 + perturbation)}
         model_output = self.model._run()
         # Reset parameter to original value
-        self.model.set_parameter(parameter, orig_par_val)
+        self.model.parameters = {parameter: orig_par_val}
 
         return model_output
 
@@ -385,18 +353,18 @@ class NumericalLocalSensitivity(LocalSensitivity):
         """
         par_value = self.model.parameters[parameter]
 
-        self._initiate_forw_back_sens()
-
         if self.procedure == "central":
             output_forw = self._model_output_pert(parameter, perturbation)
             output_back = self._model_output_pert(parameter, -perturbation)
-            par_number = self._par_order[parameter]
-            self._sens_forw[:, par_number, :] = \
-                self._calc_sens(output_forw, output_std, par_value,
-                                perturbation)
-            self._sens_back[:, par_number, :] = \
-                self._calc_sens(output_std, output_back, par_value,
-                                perturbation)
+#==============================================================================
+#             par_number = self._par_order[parameter]
+#             self._sens_forw[:, :, par_number] = \
+#                 self._calc_sens(output_forw, output_std, par_value,
+#                                 perturbation)
+#             self._sens_back[:, :, par_number] = \
+#                 self._calc_sens(output_std, output_back, par_value,
+#                                 perturbation)
+#==============================================================================
             cent_sens = self._calc_sens(output_forw, output_back,
                                         par_value, 2*perturbation)
             output = cent_sens
@@ -447,20 +415,19 @@ class NumericalLocalSensitivity(LocalSensitivity):
 
         """
         output_std = self.model._run()
-        num_sens = {}
+        num_sens = np.empty([len(self.model._independent_values.values()[0]),
+                             len(self.model.variables_of_interest),
+                             len(self._parameter_names)])
 
-        for par in self.parameters:
-            num_sens[par] = self._get_num_sensitivity(output_std, par,
-                                                  self._parameter_values[par])
-
-        num_sens = pd.concat(num_sens, axis=1)
-        num_sens = num_sens.reorder_levels([1, 0], axis=1).sort_index(axis=1)
+        for i, par in enumerate(self._parameter_names):
+            num_sens[:, :, i] = self._get_num_sensitivity(
+                                output_std, par, self._parameter_perturb[par])
 
         num_sens = self._rescale_sensitivity(num_sens, method)
 
         return num_sens
 
-    def get_sensitivity_accuracy(self, criterion="SSE"):
+    def get_sensitivity_accuracy(self, criterion="SSE", method="AS"):
         '''Quantify the sensitivity calculations quality
 
         Parameters
@@ -482,20 +449,24 @@ class NumericalLocalSensitivity(LocalSensitivity):
         .. [1] Dirk J.W. De Pauw and Peter A. Vanrolleghem, Practical Aspects
                of Sensitivity Analysis for Dynamic Models
         '''
-        if self.procedure != "central":
+        if self.procedure is not "central":
             raise Exception('The accuracy of the sensitivity function can only'
                             ' be estimated when using the central local'
                             ' sensitivity!')
 
-        dummy_np = np.empty((len(self.parameters),
+        dummy_np = np.empty((len(self.parameter_names),
                              len(self.model.variables_of_interest)))
-        acc_num_LSA = pd.DataFrame(dummy_np, index=self.parameters,
+        acc_num_LSA = pd.DataFrame(dummy_np, index=self.parameter_names,
                                    columns=self.model.variables_of_interest)
 
-        for var in self.model.variables_of_interest:
-            var_num = self._var_order[var]
-            sens_input = (self._sens_forw[:, :, var_num],
-                          self._sens_back[:, :, var_num])
+        self.procedure = "forward"
+        sens_forw = self._get_sensitivity(method=method)
+        self.procedure = "backward"
+        sens_back = self._get_sensitivity(method=method)
+        self.procedure = "central"
+
+        for i, var in enumerate(self.model.variables_of_interest):
+            sens_input = (sens_forw[:, i, :], sens_back[:, i, :])
             if criterion in SENS_QUALITY:
                 acc_num_LSA[var] = SENS_QUALITY[criterion](*sens_input)
             else:
@@ -504,14 +475,13 @@ class NumericalLocalSensitivity(LocalSensitivity):
                                 "criteria: SSE, SAE, MRE, SRE, RATIO")
         return acc_num_LSA
 
-    def calc_quality_num_lsa(self, parameters, perturbation_factors,
-                             criteria=['SSE', 'SAE', 'MRE', 'SRE', 'RATIO']):
+    def calc_quality_num_lsa(self, perturbation_factors,
+                             criteria=['SSE', 'SAE', 'MRE', 'SRE', 'RATIO'],
+                             method="AS"):
         '''Quantify the sensitivity calculations quality
 
         Parameters
         -----------
-        parameters : list
-            list containing the strings of the different parameters of interest
         perturbation_factors : float|list|np.array
             Contains the different perturbation factors for which the different
             criteria need to be evaluated.
@@ -549,10 +519,10 @@ class NumericalLocalSensitivity(LocalSensitivity):
 
         res = {crit: {} for (crit) in criteria}
         for pert in perturbation_factors:
-            self.set_perturbation(parameters, pert)
-            num_sens = self.get_sensitivity()
+            self.perturbation = pert
             for crit in criteria:
-                acc = self.get_sensitivity_accuracy(criterion=crit)
+                acc = self.get_sensitivity_accuracy(criterion=crit,
+                                                    method=method)
                 res[crit][pert] = acc.transpose().stack()
 
         for crit in criteria:
