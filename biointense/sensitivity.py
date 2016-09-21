@@ -570,13 +570,7 @@ class DirectLocalSensitivity(LocalSensitivity):
         if parameters is None:
             parameters = model.parameters.keys()
 
-#==============================================================================
-#         super(DirectLocalSensitivity, self).__init__(model, parameters)
-#==============================================================================
-        self._model = model
-        self._parameter_names = parameters
-        self._parameter_values = self._get_parvals(parameters,
-                                                   self._model.parameters)
+        super(self.__class__, self).__init__(model, parameters)
 
         self._dxdtheta_start = None
         self._dxdtheta_len = 0

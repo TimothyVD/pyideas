@@ -5,6 +5,8 @@ Created on Sat Feb  7 16:59:56 2015
 @author: timothy
 """
 import sympy
+from sympy.abc import _clash
+import pandas as pd
 
 
 class Uncertainty(object):
@@ -48,9 +50,25 @@ class Uncertainty(object):
     def __init__(self, uncertainty_dict):
         """
         """
-        self.uncertainty_dict = uncertainty_dict
+        self._uncertainty_dict = uncertainty_dict
 
-    def get_uncertainty(self, output):
+        self._uncertainty_fun = {}
+        self._generate_functions(uncertainty_dict)
+
+    def _generate_functions(self, uncertainty_dict):
+        """
+        """
+        for var, value in uncertainty_dict.items():
+            if isinstance(value, str):
+                sympy_uncertainty = sympy.sympify(value, _clash)
+                fun = sympy.lambdify(var, sympy_uncertainty)
+                self._uncertainty_fun[var] = fun
+            elif hasattr(value, '__call__'):
+                self._uncertainty_fun[var] = value
+            else:
+                raise Exception('Only strings and functions can be passed!')
+
+    def _get_uncertainty(self, output, order):
         r"""
         Function to calculate the uncertainty given the generated model output.
 
@@ -70,22 +88,49 @@ class Uncertainty(object):
         >>> from biointense import AlgebraicModel, Uncertainty
         >>> system = {'y': 'a*x+b'}
         >>> parameters = {'a': 0.1, 'b': 2.}
-        >>> M1 = AlgebraicModel('linear model', system, parameters)
-        >>> M1.set_independent({'x': np.linspace(-10.,10.,1000)})
+        >>> M1 = AlgebraicModel('linear model', system, parameters, ['x'])
+        >>> M1.independent = {'x': np.linspace(-10.,10.,1000)}
+        >>> output = M1._run()
+        >>> M1uncertainty = Uncertainty({'y': '(0.1*y)**2'})
+        >>> output_uncertainty = M1uncertainty._get_uncertainty(output, ['y'])
+        """
+        uncertainty = output.copy()
+        for i, var in enumerate(order):
+            uncertainty[:, i] = self._uncertainty_fun[var](output[:, i])
+
+        return uncertainty
+
+    def get_uncertainty(self, output_pd):
+        r"""
+        Function to calculate the uncertainty given the generated model output.
+
+        Parameters
+        -----------
+        output_pd: pandas.DataFrame
+            pandas.DataFrame containing the output of the model run
+
+        See also
+        ---------
+        biointense.ParameterOptimisation, biointense.confidence,
+        biointense.BaseOED
+
+        Examples
+        ---------
+        >>> import numpy as np
+        >>> from biointense import AlgebraicModel, Uncertainty
+        >>> system = {'y': 'a*x+b'}
+        >>> parameters = {'a': 0.1, 'b': 2.}
+        >>> M1 = AlgebraicModel('linear model', system, parameters, ['x'])
+        >>> M1.independent = {'x': np.linspace(-10.,10.,1000)}
         >>> output = M1.run()
         >>> M1uncertainty = Uncertainty({'y': '(0.1*y)**2'})
         >>> output_uncertainty = M1uncertainty.get_uncertainty(output)
         >>> output_uncertainty.plot()
         """
-        uncertainty = output.copy()
-        for var, value in self.uncertainty_dict.items():
-            if isinstance(value, str):
-                sympy_uncertainty = sympy.sympify(value)
-                fun = sympy.lambdify(var, sympy_uncertainty)
-                uncertainty[var] = fun(output[var])
-            elif hasattr(value, '__call__'):
-                uncertainty[var] = value(output[var])
-            else:
-                raise Exception('Only strings and functions can be passed!')
+        uncertainty = self._get_uncertainty(output_pd.values,
+                                            output_pd.columns)
 
-        return uncertainty
+        uncertainty_pd = pd.DataFrame(uncertainty, columns=output_pd.columns,
+                                      index=output_pd.index)
+
+        return uncertainty_pd

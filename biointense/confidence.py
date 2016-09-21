@@ -7,179 +7,70 @@ Created on Sat Feb  7 16:59:56 2015
 import numpy as np
 from scipy import stats
 import pandas as pd
-from copy import deepcopy
 
 import warnings
 
 from biointense.sensitivity import DirectLocalSensitivity
-
-#def get_error_pd( )
 
 
 class BaseConfidence(object):
     """
     """
 
-    def __init__(self, sens, sens_method='AS'):
+    def __init__(self, sens, sens_method='AS', cutoff=1e-16,
+                 cutoff_replacement=1e-16):
         """
         """
-        self.sens = sens
-        # self.sens_PD = sens.get_sensitivity(method='CAS')
-        self.model = sens.model
-        # self.model_output = self.model._run()
-        self.independent = self.model.independent
-        self.sens_method = sens_method
+        self.cutoff = cutoff
+        self.cutoff_replacement = cutoff_replacement
 
-        self.parameters = deepcopy(self.sens.parameters)
-        self._par_len = len(self.parameters)
-        self.variables = sens.model.variables
-        self._var_len = len(self.variables)
+        self._sens = sens
+        self._model = sens.model
 
-        self.repeats_per_sample = 1
-        # self.parameter_values = pd.Series({par: self.model.parameters[par] for
-        #                                   par in self.parameters})
-
-        self._sens_matrix = None
+        self._independent = self._model.independent
+        self._sens_method = sens_method
 
         self.par_relations = None
-
-        self._FIM = None
-        # Measurement Error Covariance Matrix
-        self._MECM = None
-        # Parameter Estimation Error Covariance Matrix
-        self._PEECM = None
-        # Model Prediction Error Covariance Matrix
-        self._MPECM = None
+        self.uncertainty = None
 
     @property
-    def sens_PD(self):
-        sens_PD = self.sens._get_sensitivity(method=self.sens_method)[self.variables]
-        # Temp fix!
-        # Necessary because order is changing
-        self.parameters = list(sens_PD.columns.get_level_values(1))[:self._par_len]
-
-        return sens_PD
+    def variables(self):
+        return self._model.variables_of_interest
 
     @property
-    def _data_len(self):
-        return len(self.sens_PD.index)*self.repeats_per_sample
-
-    @property
-    def _mask_parameters(self):
-        """
-        """
-        if self.par_relations is None:
-            return 1.
-        else:
-            temp_all = np.concatenate(self.par_relations.values())
-            unique_all = np.unique(temp_all)
-
-            mask_dict = {}
-            for par, exp in self.par_relations.items():
-                mask_dict[par] = unique_all.copy()
-                i = 0
-                for val in mask_dict[par]:
-                    if val in self.par_relations[par]:
-                        mask_dict[par][i] = 1
-                    else:
-                        mask_dict[par][i] = 0
-                    i += 1
-
-            mask_array = None
-            for par in self.parameters:
-                if mask_array is None:
-                    mask_array = np.atleast_2d(mask_dict[par])
-                else:
-                    mask_array = np.concatenate([mask_array,
-                                                 np.atleast_2d(mask_dict[par])],
-                                                axis=0)
-            #combined = np.einsum('ij, kj-> jik', mask_array, mask_array)
-            combined = np.atleast_3d(mask_array.T)
-        return combined
-
-    @property
-    def model_output(self):
-        return self.model._run()[self.variables]
+    def parameter_names(self):
+        return self._sens.parameter_names
 
     @property
     def parameter_values(self):
-        return pd.Series({par: self.model.parameters[par] for par in self.parameters})
+        return self._sens.parameter_values
 
-    def _sens_PD_2_matrix(self, sens_PD):
+    def _get_sensmatrix(self):
         """
         """
-        len_index = len(sens_PD.index)
+        sensmatrix = self._sens._get_sensitivity()
 
-        return sens_PD.values.reshape([len_index, self._par_len,
-                                       self._var_len])
+        return sensmatrix
 
-    @property
-    def sensmatrix(self):
+    def _get_uncertainty(self):
         """
         """
-        #if self._sens_matrix is None:
-        sens_matrix = self._sens_PD_2_matrix(self.sens_PD)
-        self._sens_matrix = self._mask_parameters*sens_matrix
-
-        return self._sens_matrix
-
-    @property
-    def FIM(self):
-        '''
-        '''
-        #if self._FIM is None:
-        self._FIM, self._FIM_time = self._calc_FIM(self.sensmatrix,
-                                                   self.uncertainty_PD)
-        return self.repeats_per_sample*self._FIM
-
-    def _calc_PEECM(self, FIM):
-        '''
-        '''
-        try:
-            PEECM = np.linalg.inv(FIM)
-        except:
-            warnings.warn('Pseudo inverse was used!')
-            PEECM = np.linalg.pinv(FIM)
-        return PEECM
-
-    @property
-    def PEECM(self):
-        '''
-        '''
-        #if self._PEECM is None:
-        self._PEECM = self._calc_PEECM(self.FIM)
-        return self._PEECM
-
-    @property
-    def FIM_time(self):
-        '''
-        '''
-        #if self._FIM_time is None:
-        self._FIM, self._FIM_time = self._calc_FIM(self.sensmatrix,
-                                                   self.uncertainty_PD)
-        return self.repeats_per_sample*self._FIM_time
-
-    @FIM.deleter
-    def FIM(self):
-        self._FIM = None
-        self._PEECM = None
-        self._FIM_time = None
+        return self.uncertainty._get_uncertainty(self._model._run(),
+                                                 self.variables)
 
     @staticmethod
     def _dotproduct(sensmatrix, weight):
         """
         """
         # dy/dp*weight
-        dydx_weigth = np.einsum('ijk,ikl->ijl', sensmatrix, weight)
-        # [dy/dp]^T
-        sensmatrix_t = np.rollaxis(sensmatrix, 2, 1)
+        dydx_weigth = np.einsum('ijk,ijl->ikl', sensmatrix, weight)
         # dy/dp*weigth*[dy/dp]^T
-        dydx_weight_dydx = np.einsum('ijk,ikl->ijl', dydx_weigth, sensmatrix_t)
+        dydx_weight_dydx = np.einsum('ijk,ikl->ijl', dydx_weigth, sensmatrix)
 
         return dydx_weight_dydx
 
-    def _calc_FIM(self, sensmatrix, uncertainty_PD):
-        '''
+    def _calc_FIM_time(self, sensmatrix, uncertainty):
+        """
         Help function for get_FIM
 
         Parameters
@@ -187,41 +78,66 @@ class BaseConfidence(object):
         ECM_PD: pandas DataFrame
             The pandas DataFrame needs to contain the error covariance matrix
             for the different measured outputs
-        '''
-
-        if np.min(abs(sensmatrix[0,:,:]))==0.0 and self.model.independent[0]=='t':
-            sens_start = 1
-        else:
-            sens_start = 0
+        """
 
         # Perform FIM calculation
         # FIM = dy/dx*1/Q*[dy/dx]^T
 
+        # Avoid division by zero
+        uncertainty[uncertainty <= self.cutoff] = self.cutoff_replacement
         # Calculate inverse of ECM_PD
         # 1/Q
-        MECM_inv = np.linalg.inv(np.eye(self._var_len) *
-                                 np.atleast_3d(uncertainty_PD)[sens_start:,:,:])
+        MECM_inv = np.linalg.inv(np.eye(len(self.variables)) *
+                                 np.atleast_3d(uncertainty))
         # Set all very low numbers to zero (just a precaution, so that
         # solutions would be the same as the old get_FIM method). This is
         # probably not necessary!
-        MECM_inv[MECM_inv < 1e-20] = 0.
+        MECM_inv[MECM_inv <= 1e-20] = 0.
 
-        FIM_timestep = self._dotproduct(sensmatrix[sens_start:,:,:], MECM_inv)
+        FIM_timestep = self._dotproduct(sensmatrix, MECM_inv)
 
+        return FIM_timestep
+
+    def get_FIM_time(self):
+        """
+        """
+        FIM_time = self._calc_FIM_time(self._get_sensmatrix(),
+                                       self._get_uncertainty())
+        return FIM_time
+
+    def get_FIM(self):
+        """
+        """
         # FIM = sum(FIM(t))
-        FIM = np.sum(FIM_timestep, axis=0)
-        return FIM, FIM_timestep
+        return np.sum(self.get_FIM_time(), axis=0)
+
+    def _calc_PEECM(self, FIM):
+        """
+        """
+        # Avoid division by zero
+        FIM[FIM <= self.cutoff] = self.cutoff_replacement
+        try:
+            PEECM = np.linalg.inv(FIM)
+        except:
+            warnings.warn('Pseudo inverse was used!')
+            PEECM = np.linalg.pinv(FIM)
+        return PEECM
+
+    def get_PEECM(self):
+        """
+        """
+        return self._calc_PEECM(self.get_FIM())
 
     def _parameter_confidence(self, n_p, FIM, alpha):
-        '''
-        '''
+        """
+        """
 
         PEECM = self._calc_PEECM(FIM)
 
         CI = np.zeros([PEECM.shape[1], 8])
 
         # Adapt order to the one used in confidence
-        CI[:, 0] = self.parameter_values[self.parameters]
+        CI[:, 0] = self.parameter_values
         for i, variance in enumerate(np.array(PEECM.diagonal())):
             # TODO check whether sum or median or... should be used
             # TODO Check of de absolute waarde hier gebruikt mag worden!!!!
@@ -230,20 +146,20 @@ class BaseConfidence(object):
                                           scale=np.sqrt(abs(variance)))
             CI[i, 3] = stats.t.interval(alpha, n_p,
                                         scale=np.sqrt(abs(variance)))[1]
-        CI[:, 4] = abs(CI[:, 3]/CI[:, 0])*100
-        CI[:, 5] = CI[:, 0]/np.sqrt(abs(PEECM.diagonal()))
-        CI[:, 6] = stats.t.interval(alpha, n_p)[1]
-        CI[:, 7] = CI[:, 5] >= CI[i, 6]
+            CI[:, 4] = abs(CI[:, 3]/CI[:, 0])*100
+            CI[:, 5] = CI[:, 0]/np.sqrt(abs(PEECM.diagonal()))
+            CI[:, 6] = stats.t.interval(alpha, n_p)[1]
+            CI[:, 7] = CI[:, 5] >= CI[i, 6]
 
         CI = pd.DataFrame(CI, columns=['value', 'lower', 'upper', 'delta',
                                        'percent', 't_value', 't_reference',
                                        'significant'],
-                          index=self.parameters)
+                          index=self.parameter_names)
 
         return CI
 
     def get_parameter_confidence(self, alpha=0.95):
-        '''Calculate confidence intervals for all parameters
+        """Calculate confidence intervals for all parameters
 
         Parameters
         -----------
@@ -260,16 +176,18 @@ class BaseConfidence(object):
             upper value of the interval, the delta value which represents half
             the interval and the relative uncertainty in percent.
 
-        '''
-        n_p = self._data_len - self._par_len
+        """
+        dat_len = self._model._independent_len
+        par_len = len(self._sens.parameter_names)
+        n_p = dat_len - par_len
 
-        FIM = self.FIM
+        FIM = self.get_FIM()
 
         CI = self._parameter_confidence(n_p, FIM, alpha)
         return CI
 
     def get_parameter_correlation(self):
-        '''Calculate correlations between parameters
+        """Calculate correlations between parameters
 
         Returns
         --------
@@ -277,19 +195,45 @@ class BaseConfidence(object):
             Contains for each parameter the correlation with all the other
             parameters.
 
-        '''
-        R = np.zeros(self.PEECM.shape)
+        """
+        PEECM = self.get_PEECM()
+        R = np.zeros(PEECM.shape)
 
-        for i in range(0, len(self.PEECM)):
-            for j in range(i, len(self.PEECM)):
-                corr = self.PEECM[i, j]/(np.sqrt(self.PEECM[i, i] *
-                                                 self.PEECM[j, j]))
+        for i in range(0, len(PEECM)):
+            for j in range(i, len(PEECM)):
+                corr = PEECM[i, j]/(np.sqrt(PEECM[i, i]*PEECM[j, j]))
                 R[i, j] = corr
                 R[j, i] = corr
 
-        R = pd.DataFrame(R, columns=self.parameters, index=self.parameters)
+        R = pd.DataFrame(R, columns=self.parameter_names,
+                         index=self.parameter_names)
 
         return R
+
+    def get_MPECM(self):
+        '''Calculate model prediction error covariance matrix
+
+        Returns
+        --------
+        model_prediction_ECM: pandas DataFrame
+            Contains for every timestep the corresponding model prediction
+            error covariance matrix.
+
+        '''
+        # Parameter correlations should be taken into account, because these
+        # lower the model output uncertainty
+        PEECM = np.repeat(np.atleast_3d(self.get_PEECM()).T,
+                          self._model._independent_len, axis=0)
+
+        # PEECM = np.multiply(PEECM, np.eye(self._par_len))
+        # TODO Check if results are ok when var are not measured at the
+        # same time
+        MPECM = self._dotproduct(np.rollaxis(self._get_sensmatrix(), 2, 1),
+                                 PEECM)
+
+        MPECM[MPECM <= self.cutoff] = self.cutoff_replacement
+
+        return MPECM
 
     def get_model_confidence(self, alpha=0.95):
         '''Calculate confidence intervals for variables
@@ -311,18 +255,23 @@ class BaseConfidence(object):
             and the relative uncertainty in percent.
 
         '''
-        n_p = self._data_len - self._par_len
+        dat_len = self._model._independent_len
+        par_len = len(self._sens.parameter_names)
+        n_p = dat_len - par_len
+
+        modeloutput = self._model._run()
+        MPECM = self.get_MPECM()
 
         sigma = {}
 
         for i, var in enumerate(self.variables):
-            sigma_var = np.zeros([len(self.model_output[var]), 5])
+            sigma_var = np.zeros([dat_len, 5])
 
-            sigma_var[:, 0] = self.model_output[var].values
+            sigma_var[:, 0] = modeloutput[:, i]
 
-            uncertainty = stats.t.interval(alpha, n_p, loc=self.model_output[var].values,
-                                           scale=np.sqrt(self.MPECM.diagonal(
-                                           axis1=1, axis2=2))[:, 0])
+            uncertainty = stats.t.interval(alpha, n_p, loc=modeloutput[:, i],
+                                           scale=np.sqrt(MPECM.diagonal(
+                                               axis1=1, axis2=2))[:, 0])
 
             sigma_var[:, 1] = uncertainty[0]
             sigma_var[:, 2] = uncertainty[1]
@@ -330,44 +279,18 @@ class BaseConfidence(object):
             sigma_var[:, 3] = np.abs((sigma_var[:, 2] - sigma_var[:, 0]))
             # Create mask to avoid counter division by zero
             rel_uncertainty = np.divide(sigma_var[:, 3], sigma_var[:, 0])
-            mask = np.isfinite(rel_uncertainty)
             # sigma_var[:, 4] = np.zeros(self._data_len)
-            sigma_var[:, 4] = np.abs(rel_uncertainty[mask])*100
+            sigma_var[:, 4] = np.abs(rel_uncertainty)*100
 
             sigma_var = pd.DataFrame(sigma_var, columns=['value', 'lower',
                                                          'upper', 'delta',
-                                                         'percent'],
-                                     index=self.sens_PD.index)
+                                                         'percent'])#,
+#                                     index=self.sens_PD.index)
             sigma[var] = sigma_var
 
         sigma = pd.concat(sigma, axis=1)
 
         return sigma
-
-    @property
-    def MPECM(self):
-        '''Calculate model prediction error covariance matrix
-
-        Returns
-        --------
-        model_prediction_ECM: pandas DataFrame
-            Contains for every timestep the corresponding model prediction
-            error covariance matrix.
-
-        '''
-        # Parameter correlations should be taken into account, because these
-        # lower the model output uncertainty
-        if self._MPECM is None:
-            PEECM = np.repeat(np.atleast_3d(self.PEECM).T,
-                              len(self.sens_PD.index), axis=0)
-
-            # PEECM = np.multiply(PEECM, np.eye(self._par_len))
-            # TODO Check if results are ok when var are not measured at the
-            # same time
-            self._MPECM = self._dotproduct(np.rollaxis(self.sensmatrix, 2, 1),
-                                           PEECM)
-
-        return self._MPECM
 
     def get_model_correlation(self, alpha=0.95):
         '''Calculate correlation between variables
@@ -386,47 +309,31 @@ class BaseConfidence(object):
             For every possible combination of variables a column is made which
             represents the correlation between the two variables.
         '''
-        raise Exception('Needs review')
 
-        if len(self.variables) == 1:
-            corr = pd.DataFrame(np.ones([1, 1]),
-                                columns=self.variables,
-                                index=self.variables)
-        else:
-            comb_gen = list(combinations(self.variables, 2))
-            for i, comb in enumerate(comb_gen):
-                if i is 0:
-                    combin = [comb[0] + '-' + comb[1]]
-                else:
-                    combin.append([comb[0] + '-' + comb[1]])
+        MPECM = self.get_MPECM()
 
-#            if self._data.get_measured_xdata()[0] == 0:
-#                time_uncertainty = self._data.get_measured_xdata()[1:]
-#            else:
-#                time_uncertainty = self._data.get_measured_xdata()
+        corr = np.empty([self._model._independent_len,
+                         len(self.variables),
+                         len(self.variables)])
+        # Calculation can further be optimised by only calculating unique
+        # correlations, i.e. not for i,i (is definitely 1) and also not for
+        # i,j and j,i since the matrix is symmetric.
+        for i, var1 in enumerate(self.variables):
+            for j, var2 in enumerate(self.variables):
+                corr[:, i, j] = (MPECM[:, i, j] /
+                                 np.sqrt(MPECM[:, i, i]*MPECM[:, j, j]))
 
-            corr = np.zeros([self._data_len, len(combin)])
-            for h, timestep in enumerate(time_uncertainty):
-                tracker = 0
-                for i, var1 in enumerate(self.get_all_outputs()[:-1]):
-                    for j, var2 in enumerate(self.get_all_outputs()[i+1:]):
-                        corr[h, tracker] = (self.MPECM[h, i, j+1] /
-                                            np.sqrt(self.MPECM[h, i, i] *
-                                            self.MPECM[h, j+1, j+1]))
-                        tracker += 1
-
-            corr = pd.DataFrame(corr, columns=combin,
-                                index=self._data.get_measured_xdata())
-            return corr
+        return corr
 
 
 class CalibratedConfidence(BaseConfidence):
     """
     """
+    # TODO!
     def __init__(self, calibrated, sens_method='AS'):
         """
         """
-        super(CalibratedConfidence, self).__init__(DirectLocalSensitivity(calibrated.model,
+        super(self.__class__, self).__init__(DirectLocalSensitivity(calibrated.model,
                                                                           calibrated.dof),
                                                    sens_method=sens_method)
 
@@ -450,10 +357,10 @@ class TheoreticalConfidence(BaseConfidence):
     def __init__(self, sens, uncertainty, sens_method='AS'):
         """
         """
-        super(TheoreticalConfidence, self).__init__(sens,
-                                                    sens_method=sens_method)
+        super(self.__class__, self).__init__(sens, sens_method=sens_method)
         self.uncertainty = uncertainty
 
+    # TODO!
     @classmethod
     def from_calibrated(cls, calibrated_confidence):
         temp = cls(calibrated_confidence.sens,
@@ -461,10 +368,5 @@ class TheoreticalConfidence(BaseConfidence):
                    sens_method=calibrated_confidence.sens_method)
         return temp
 
-    @property
-    def uncertainty_PD(self):
-        """
-        """
-        return self.uncertainty.get_uncertainty(self.model_output)[self.variables]
 
 
