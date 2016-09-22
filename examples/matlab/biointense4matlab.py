@@ -31,9 +31,9 @@ def MMfun(independent, parameters):
 parameters = {'Km': 150.,     # mM
               'Vmax': 0.768}  # mumol/(min*U)
 M1 = BaseModel('MM', parameters, ['v'], ['S'], MMfun)
-M1.independent = {'S': np.linspace(0, 300, 1000)}
+M1.independent = {'S': np.linspace(0, 500, 1000)}
 
-M1.run()
+M1.run().plot()
 
 M1sens = NumericalLocalSensitivity(M1)
 

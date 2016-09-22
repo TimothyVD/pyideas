@@ -47,13 +47,17 @@ class Uncertainty(object):
                             'y2': '(0.09*y2)**2'}
     """
 
-    def __init__(self, uncertainty_dict):
+    def __init__(self, uncertainty_dict, cutoff=1e-16,
+                 cutoff_replacement=1e-16):
         """
         """
         self._uncertainty_dict = uncertainty_dict
 
         self._uncertainty_fun = {}
         self._generate_functions(uncertainty_dict)
+
+        self.cutoff = cutoff
+        self.cutoff_replacement = cutoff_replacement
 
     def _generate_functions(self, uncertainty_dict):
         """
@@ -97,6 +101,9 @@ class Uncertainty(object):
         uncertainty = output.copy()
         for i, var in enumerate(order):
             uncertainty[:, i] = self._uncertainty_fun[var](output[:, i])
+
+        # Avoid zero values (division in FIM or optimisation)
+        uncertainty[uncertainty <= self.cutoff] = self.cutoff_replacement
 
         return uncertainty
 

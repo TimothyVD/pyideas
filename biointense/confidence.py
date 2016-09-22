@@ -83,8 +83,10 @@ class BaseConfidence(object):
         # Perform FIM calculation
         # FIM = dy/dx*1/Q*[dy/dx]^T
 
-        # Avoid division by zero
-        uncertainty[uncertainty <= self.cutoff] = self.cutoff_replacement
+        # Avoid division by zero (already done in uncertainty class)
+#==============================================================================
+#         uncertainty[uncertainty <= self.cutoff] = self.cutoff_replacement
+#==============================================================================
         # Calculate inverse of ECM_PD
         # 1/Q
         MECM_inv = np.linalg.inv(np.eye(len(self.variables)) *
@@ -329,25 +331,24 @@ class BaseConfidence(object):
 class CalibratedConfidence(BaseConfidence):
     """
     """
-    # TODO!
     def __init__(self, calibrated, sens_method='AS'):
         """
         """
-        super(self.__class__, self).__init__(DirectLocalSensitivity(calibrated.model,
-                                                                          calibrated.dof),
-                                                   sens_method=sens_method)
+        super(self.__class__, self).__init__(DirectLocalSensitivity(
+            calibrated.model, calibrated.dof), sens_method=sens_method)
 
         self._measurements = calibrated.measurements
-        self.data = calibrated.measurements.Data
-        self.variables = calibrated.measurements._measured_outputs
-        self._var_len = len(self.variables)
+        self._data = calibrated.measurements._data
         self.uncertainty = calibrated.measurements._uncertainty
 
-    @property
-    def uncertainty_PD(self):
+    def _get_uncertainty(self):
         """
         """
-        return self._measurements._Error_Covariance_Matrix_PD[self.variables]
+        if self._model._independent_values == self._measurements._independent_values:
+            return self._measurements._meas_uncertainty
+        else:
+            return self.uncertainty._get_uncertainty(self._model._run(),
+                                                     self.variables)
 
 
 class TheoreticalConfidence(BaseConfidence):
@@ -360,13 +361,15 @@ class TheoreticalConfidence(BaseConfidence):
         super(self.__class__, self).__init__(sens, sens_method=sens_method)
         self.uncertainty = uncertainty
 
-    # TODO!
-    @classmethod
-    def from_calibrated(cls, calibrated_confidence):
-        temp = cls(calibrated_confidence.sens,
-                   calibrated_confidence.uncertainty,
-                   sens_method=calibrated_confidence.sens_method)
-        return temp
-
+#==============================================================================
+#     # TODO!
+#     @classmethod
+#     def from_calibrated(cls, calibrated_confidence):
+#         temp = cls(calibrated_confidence.sens,
+#                    calibrated_confidence.uncertainty,
+#                    sens_method=calibrated_confidence.sens_method)
+#         return temp
+#
+#==============================================================================
 
 

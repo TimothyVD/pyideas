@@ -15,7 +15,7 @@ from biointense.version import version as __version__
 #from ode_optimization import *
 
 #from plotfunctions import *
-from measurements import *
+from measurements import Measurements
 from parameterdistribution import *
 
 # New stuff
