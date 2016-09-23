@@ -24,27 +24,19 @@ def alg_model_function(independent, parameters):
 
     return algebraic
 
-model = BaseModel('test', {})
-#model.systemfunctions['algebraic'] = alg_model_function
-model.fun_alg = alg_model_function
-model.parameters = {'W0': 2.0805,
-                    'Wf': 9.7523,
-                    'mu': 0.0659}
+parameters = {'W0': 2.0805,
+              'Wf': 9.7523,
+              'mu': 0.0659}
 
-model.independent = ['t']
-model._independent_values = {'t': np.linspace(0, 72, 1000)}
-model._ordered_var = {'algebraic': ['W']}
+model = BaseModel('test', parameters, ['W'],  ['t'], alg_model_function)
 
+model.independent = {'t': np.linspace(0, 72, 1000)}
 
-from biointense.solver import AlgebraicSolver
-
-solver = AlgebraicSolver(model.fun_alg, model._independent_values,
-                         (model.parameters,))
-result = solver.solve()
+result = model._run()
 
 
 def test_model():
-    assert result[-1] == 9.4492688322077534
+    assert result[-1, 0] == 9.4492688322077534
 
 
 if __name__ == "__main__":

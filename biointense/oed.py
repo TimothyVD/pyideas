@@ -386,12 +386,12 @@ class BaseOED(_BaseOptimisation):
         for initial_values in initial_cond:
             initial = dict(zip(initial_list, initial_values))
             try:
-                self.model.set_initial(initial)
+                self.model.initial_conditions = initial
             except:
                 pass
             for parameter_values in pars:
                 par = dict(zip(par_list, parameter_values))
-                self.model.parametrs = par
+                self.model.parameters = par
                 FIM_container.append(self.confidence.get_FIM_time())
 
         FIM_evolution = np.concatenate(FIM_container)

@@ -10,7 +10,8 @@ import pandas as pd
 
 import warnings
 
-from biointense.sensitivity import DirectLocalSensitivity
+from biointense.sensitivity import (DirectLocalSensitivity,
+                                    NumericalLocalSensitivity)
 
 
 class BaseConfidence(object):
@@ -116,8 +117,6 @@ class BaseConfidence(object):
     def _calc_PEECM(self, FIM):
         """
         """
-        # Avoid division by zero
-        FIM[FIM <= self.cutoff] = self.cutoff_replacement
         try:
             PEECM = np.linalg.inv(FIM)
         except:
@@ -334,8 +333,12 @@ class CalibratedConfidence(BaseConfidence):
     def __init__(self, calibrated, sens_method='AS'):
         """
         """
-        super(self.__class__, self).__init__(DirectLocalSensitivity(
-            calibrated.model, calibrated.dof), sens_method=sens_method)
+        if calibrated.model.modeltype is "_BiointenseModel":
+            super(self.__class__, self).__init__(DirectLocalSensitivity(
+                calibrated.model, calibrated.dof), sens_method=sens_method)
+        else:
+            super(self.__class__, self).__init__(NumericalLocalSensitivity(
+                calibrated.model, calibrated.dof))
 
         self._measurements = calibrated.measurements
         self._data = calibrated.measurements._data

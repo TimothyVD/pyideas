@@ -4,6 +4,7 @@ Created on Sat Feb  7 16:59:56 2015
 
 @author: timothy
 """
+import numpy as np
 import sympy
 from sympy.abc import _clash
 import pandas as pd
@@ -103,6 +104,7 @@ class Uncertainty(object):
             uncertainty[:, i] = self._uncertainty_fun[var](output[:, i])
 
         # Avoid zero values (division in FIM or optimisation)
+        uncertainty = np.nan_to_num(uncertainty)
         uncertainty[uncertainty <= self.cutoff] = self.cutoff_replacement
 
         return uncertainty

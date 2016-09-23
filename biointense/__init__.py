@@ -2,23 +2,15 @@
 """
 @author: Timothy Van Daele & Stijn Van Hoey
 
-pySTAN: python STructure Analyst
-E-mail: stvhoey.vanhoey@ugent.be
+E-mail: timothy.vandaele@gmail.com
 """
 
 
 from biointense.version import version as __version__
 
-# Old Stuff
-#from ode_generator import DAErunner
-#from optimalexperimentaldesign import *
-#from ode_optimization import *
-
-#from plotfunctions import *
 from measurements import Measurements
 from parameterdistribution import *
 
-# New stuff
 from model import Model, AlgebraicModel
 from solver import HybridSolver, OdeSolver, AlgebraicSolver
 from sensitivity import NumericalLocalSensitivity, DirectLocalSensitivity

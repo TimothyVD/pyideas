@@ -32,7 +32,9 @@ class BaseModel(object):
         self._independent_names = indep_names
         self._independent_values = None
         self._independent_len = None
-#        self._independent_len = None
+
+        self._ordered_var = OrderedDict((('algebraic', []),
+                                         ('ode', [])))
         # Parameters
         self._parameters = None
         self.parameters = parameters
