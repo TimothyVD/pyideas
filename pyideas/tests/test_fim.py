@@ -12,8 +12,8 @@ import numpy as np
 from collections import OrderedDict
 
 #bio-intense custom developments
-from biointense import (AlgebraicModel, ParameterOptimisation, Measurements,
-                        CalibratedConfidence)
+from pyideas import (AlgebraicModel, ParameterOptimisation, Measurements,
+                     CalibratedConfidence)
 
 from numpy.testing import assert_allclose
 

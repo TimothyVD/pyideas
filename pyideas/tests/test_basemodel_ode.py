@@ -9,7 +9,7 @@ from __future__ import division
 import numpy as np
 from numpy.testing import assert_almost_equal
 
-from biointense import Model
+from pyideas import Model
 
 system = {'dS': 'Q_in/V*(S_in-S)-1/Ys*mu_max*S/(S+K_S)*X',
           'dX': '-Q_in/V*X+mu_max*S/(S+K_S)*X'}

@@ -4,10 +4,10 @@ import pandas as pd
 import pickle
 from collections import OrderedDict
 
-from biointense.solver import AlgebraicSolver
+from pyideas.solver import AlgebraicSolver
 
 
-FILE_EXTENSION = '.biointense'
+FILE_EXTENSION = '.pyideas'
 
 
 class BaseModel(object):

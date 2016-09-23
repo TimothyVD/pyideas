@@ -17,8 +17,8 @@ except:
     INSPYRED_IMPORT = False
 
 from parameterdistribution import ModPar
-from biointense.modelbase import BaseModel
-from biointense.model import Model
+from pyideas.modelbase import BaseModel
+from pyideas.model import Model
 from time import time
 from random import Random
 

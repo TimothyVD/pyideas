@@ -11,7 +11,7 @@ import pandas as pd
 
 from pandas.util.testing import assert_frame_equal
 
-from biointense import Model
+from pyideas import Model
 
 
 # 1) simple algebraic state space variable of interest

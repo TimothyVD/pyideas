@@ -9,7 +9,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import itertools
 
-from biointense.optimisation import _BaseOptimisation
+from pyideas.optimisation import _BaseOptimisation
 
 
 def A_criterion(FIM):

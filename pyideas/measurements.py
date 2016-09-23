@@ -13,7 +13,7 @@ import math
 import numpy as np
 import pandas as pd
 
-from biointense.uncertainty import Uncertainty
+from pyideas.uncertainty import Uncertainty
 
 ERROR_FUN = {'absolute': '({})**2',
              'relative': '(({})*({}))**2',

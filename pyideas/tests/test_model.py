@@ -10,7 +10,7 @@ import unittest
 
 import numpy as np
 
-from biointense.model import Model
+from pyideas.model import Model
 
 
 class TestAlgebraicModel(unittest.TestCase):

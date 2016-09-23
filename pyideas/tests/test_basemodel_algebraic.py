@@ -8,7 +8,7 @@ from __future__ import division
 
 import numpy as np
 
-from biointense.modelbase import BaseModel
+from pyideas.modelbase import BaseModel
 
 
 def alg_model_function(independent, parameters):

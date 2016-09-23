@@ -10,8 +10,8 @@ import pandas as pd
 
 import warnings
 
-from biointense.sensitivity import (DirectLocalSensitivity,
-                                    NumericalLocalSensitivity)
+from pyideas.sensitivity import (DirectLocalSensitivity,
+                                 NumericalLocalSensitivity)
 
 
 class BaseConfidence(object):

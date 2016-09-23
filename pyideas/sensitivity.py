@@ -13,9 +13,9 @@ import warnings
 
 import matplotlib.pyplot as plt
 from copy import deepcopy
-from biointense.model import _BiointenseModel
-import biointense.sensitivitydefinition as sensdef
-from biointense.solver import OdeSolver, AlgebraicSolver
+from pyideas.model import _BiointenseModel
+import pyideas.sensitivitydefinition as sensdef
+from pyideas.solver import OdeSolver, AlgebraicSolver
 
 from itertools import product
 

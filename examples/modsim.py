@@ -101,7 +101,7 @@ def run_modsim_models_old():
 def run_modsim_models_new():
 
     # Data
-    file_path = os.path.join(biointense.BASE_DIR, '..', 'examples', 'data',
+    file_path = os.path.join(pyideas.BASE_DIR, '..', 'examples', 'data',
                              'grasdata.csv')
     data = pd.read_csv(file_path, header=0, names=['time', 'W'])
     #measurements = ode_measurements(data)
@@ -116,21 +116,16 @@ def run_modsim_models_new():
 
     M1 = Model('Modsim1', system, parameters)
 
-    M1.set_independent({'t': np.linspace(0, 72, 1000)})
-    output = M1.run()
-    output.plot()
+    M1.independent = {'t': np.linspace(0, 72, 1000)}
 
-    #M1.set_measured_states(['W'])
+    # Perform parameter estimation
+    M1optim = ParameterOptimisation(M1, measurements)
+    M1optim.local_optimize()
 
-    #TODO optim not yet implemented
-    #optim1 = ode_optimizer(M1, measurements, print_on=False)
-    #optim1.local_parameter_optimize(add_plot=False)
-
-    #TODO FIM note yet implemented
-    #FIM_stuff1 = ode_FIM(optim1, print_on=False)
-    #FIM_stuff1.get_newFIM()
-    #FIM_stuff1.get_parameter_confidence()
-    #FIM_stuff1.get_parameter_correlation()
+    # Calc parameter uncertainty
+    M1conf = CalibratedConfidence(M1optim)
+    M1conf.get_parameter_confidence()
+    M1conf.get_parameter_correlation()
 
     # Exponential
     parameters = {'Wf': 10.7189,
@@ -139,11 +134,7 @@ def run_modsim_models_new():
     system = {'W': 'Wf*(1-exp(-mu*t))'}
 
     M2 = Model('Modsim2', system, parameters)
-    M2.set_independent({'t': np.linspace(0, 72, 1000)})
-    M2.initialize_model()
-    output = M2.run()
-    output.plot()
-
+    M2.independent = {'t': np.linspace(0, 72, 1000)}
 
     # Gompertz
     parameters = {'W0': 2.0424,
@@ -153,9 +144,7 @@ def run_modsim_models_new():
     system = {'W': 'W0*exp((mu*(1-exp(-D*t)))/(D))'}
 
     M3 = Model('Modsim3', system, parameters)
-    M3.set_independent({'t': np.linspace(0, 72, 1000)})
-    output = M3.run()
-    output.plot()
+    M3.independent = {'t': np.linspace(0, 72, 1000)}
 
     return M1, M2, M3
 

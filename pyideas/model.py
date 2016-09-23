@@ -13,10 +13,10 @@ import warnings
 from collections import OrderedDict
 from sklearn.utils.extmath import cartesian as sklearncartesian
 
-from biointense.modelbase import BaseModel
-from biointense.modeldefinition import (generate_ode_derivative_definition,
-                                        generate_non_derivative_part_definition)
-from biointense.solver import OdeSolver, AlgebraicSolver, HybridSolver
+from pyideas.modelbase import BaseModel
+from pyideas.modeldefinition import (generate_ode_derivative_definition,
+                                     generate_non_derivative_part_definition)
+from pyideas.solver import OdeSolver, AlgebraicSolver, HybridSolver
 
 
 class _BiointenseModel(BaseModel):

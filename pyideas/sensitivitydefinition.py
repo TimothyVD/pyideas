@@ -8,7 +8,7 @@ import numpy as np
 import sympy
 from sympy.abc import _clash
 
-from biointense.modeldefinition import *
+from pyideas.modeldefinition import *
 
 import pprint
 
