@@ -6,7 +6,7 @@ E-mail: timothy.vandaele@gmail.com
 """
 
 
-from biointense.version import version as __version__
+from pyideas.version import version as __version__
 
 from measurements import Measurements
 from parameterdistribution import *
@@ -19,10 +19,10 @@ from optimisation import ParameterOptimisation, MultiParameterOptimisation
 from uncertainty import Uncertainty
 from oed import BaseOED, RobustOED
 
-from biointense import __path__ as biointense_path
-BASE_DIR = biointense_path[0]
+from pyideas import __path__ as pyideas_path
+BASE_DIR = pyideas_path[0]
 
 if __name__ == '__main__':
-    print("Bio-Intense ODE/OED package: python package for model development "
+    print("pyIDEAS ODE/OED package: python package for model development "
           "with Ordinary Differential Equations and Optimal Experimental "
           "Design")
