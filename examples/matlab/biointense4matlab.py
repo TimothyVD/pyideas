@@ -6,16 +6,14 @@ Created on Thu Sep 22 10:17:24 2016
 """
 import numpy as np
 import pandas as pd
-import os
-from biointense.modelbase import BaseModel
-from biointense import (NumericalLocalSensitivity, ParameterOptimisation,
-                        CalibratedConfidence, Measurements, BaseOED, ModPar)
+from pyideas import (BaseModel, NumericalLocalSensitivity,
+                     ParameterOptimisation, CalibratedConfidence, Measurements,
+                     BaseOED, ModPar)
 import matlab.engine
 import matplotlib.pyplot as plt
 
 eng = matlab.engine.start_matlab()
 
-#eng.addpath(os.path.dirname(os.path.realpath(__file__)),nargout=0)
 eng.addpath('/home/timothy/biointense/examples/matlab/', nargout=0)
 
 
@@ -63,6 +61,8 @@ M1data.add_measured_errors({'v': 0.05}, method='Ternbach',
 
 M1optim = ParameterOptimisation(M1, M1data)
 M1optim.local_optimize()
+
+M1optim.modmeas.plot()
 
 M1conf = CalibratedConfidence(M1optim)
 M1conf.get_parameter_confidence()

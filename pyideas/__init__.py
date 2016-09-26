@@ -11,7 +11,7 @@ from pyideas.version import version as __version__
 from measurements import Measurements
 from parameterdistribution import *
 
-from model import Model, AlgebraicModel
+from model import BaseModel, Model, AlgebraicModel
 from solver import HybridSolver, OdeSolver, AlgebraicSolver
 from sensitivity import NumericalLocalSensitivity, DirectLocalSensitivity
 from confidence import TheoreticalConfidence, CalibratedConfidence

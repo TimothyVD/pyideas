@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import itertools
+from copy import deepcopy
 
 from pyideas.optimisation import _BaseOptimisation
 
@@ -127,8 +128,20 @@ class BaseOED(_BaseOptimisation):
     """
 
     def __init__(self, confidence, dof_list, preFIM=None):
-        super(BaseOED, self).__init__(confidence._model)
-        self.confidence = confidence
+        # Avoid that OED overwrites prior information about experiments
+        self.confidence = deepcopy(confidence)
+        self.model = self.confidence._model
+        self._dof_model = self._get_dof_model()
+        self._dof = None
+        self._dof_ordered = None
+        self._how_to_order_dof = ['parameters', 'initial', 'independent']
+        self._dof_len = [0, 0, 0]
+
+        self._distributions_set = False
+        self._dof_distributions = None
+        self.modmeas = None
+        self._independent_samples = None
+
         self.dof = dof_list
 
         # Take into account information of experiments which are already
@@ -509,7 +522,7 @@ class RobustOED(object):
         """
         """
         # Confidence instance
-        self.confidence = confidence
+        self.confidence = deepcopy(confidence)
         self.model = confidence._model
         # Number of independent samples to be designed
         self.independent_samples = independent_samples
