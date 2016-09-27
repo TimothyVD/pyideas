@@ -9,7 +9,7 @@ import os
 import pytest
 from numpy.testing import assert_array_almost_equal
 
-import biointense
+import pyideas
 
 try:
     import odespy
@@ -19,7 +19,7 @@ except ImportError:
 
 
 # run the example file
-execfile(str(os.path.join(biointense.BASE_DIR, "..", "examples",
+execfile(str(os.path.join(pyideas.BASE_DIR, "..", "examples",
                           "michaelis_menten.py")))
 
 

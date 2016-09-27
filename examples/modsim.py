@@ -9,105 +9,24 @@ Created on Mon Mar 31 16:45:57 2014
 from __future__ import division
 import os
 import pandas as pd
+import numpy as np
 
-# bio-intense custom developments
-import biointense
-from biointense.ode_generator import DAErunner
-from biointense.measurements_old import ode_measurements
-from biointense.ode_optimization import ode_optimizer
-from biointense.optimalexperimentaldesign import ode_FIM
-
-# new
-from biointense import Model
+import pyideas
+from pyideas import (Model, ParameterOptimisation, CalibratedConfidence,
+                     Measurements)
 
 
-def run_modsim_models_old():
-
-    # Data
-    file_path = os.path.join(biointense.BASE_DIR, '..', 'examples', 'data',
-                             'grasdata.csv')
-    data = pd.read_csv(file_path, header=0, names=['time', 'W'])
-    measurements = ode_measurements(data)
-
-    # Logistic
-
-    Parameters = {'W0': 2.0805,
-                  'Wf': 9.7523,
-                  'mu': 0.0659}
-
-    Alg = {'W': 'W0*Wf/(W0+(Wf-W0)*exp(-mu*t))'}
-
-    M1 = DAErunner(Parameters=Parameters, Algebraic=Alg,
-                   Modelname='Modsim1', print_on=False)
-
-    M1.set_xdata({'start': 0, 'end': 72, 'nsteps': 1000})
-    M1.set_measured_states(['W'])
-
-    optim1 = ode_optimizer(M1, measurements, print_on=False)
-    optim1.local_parameter_optimize(add_plot=False)
-
-    FIM_stuff1 = ode_FIM(optim1, print_on=False)
-    FIM_stuff1.get_newFIM()
-    FIM_stuff1.get_parameter_confidence()
-    FIM_stuff1.get_parameter_correlation()
-
-    # Exponential
-    Parameters = {'Wf': 10.7189,
-                  'mu': 0.0310}
-
-    Alg = {'W': 'Wf*(1-exp(-mu*t))'}
-
-    M2 = DAErunner(Parameters=Parameters, Algebraic=Alg,
-                   Modelname='Modsim2', print_on=False)
-
-    M2.set_initial_conditions({'Dump': 0})
-    M2.set_xdata({'start': 0, 'end': 72, 'nsteps': 1000})
-    M2.set_measured_states(['W'])
-
-    optim2 = ode_optimizer(M2, measurements, print_on=False)
-    optim2.local_parameter_optimize(add_plot=False)
-
-    FIM_stuff2 = ode_FIM(optim2, print_on=False)
-    FIM_stuff2.get_newFIM()
-    FIM_stuff2.get_parameter_confidence()
-    FIM_stuff2.get_parameter_correlation()
-
-    # Gompertz
-    Parameters = {'W0': 2.0424,
-                  'D': 0.0411,
-                  'mu': 0.0669}
-
-    Alg = {'W': 'W0*exp((mu*(1-exp(-D*t)))/(D))'}
-
-    M3 = DAErunner(Parameters=Parameters, Algebraic=Alg,
-                   Modelname='Modsim3', print_on=False)
-
-    M3.set_xdata({'start': 0, 'end': 72, 'nsteps': 1000})
-    M3.set_measured_states(['W'])
-
-    M3.calcAlgLSA()
-
-    optim3 = ode_optimizer(M3, measurements, print_on=False)
-    optim3.local_parameter_optimize(add_plot=False)
-
-    FIM_stuff3 = ode_FIM(optim3, print_on=False)
-    FIM_stuff3.get_newFIM()
-    FIM_stuff3.get_parameter_confidence()
-    FIM_stuff3.get_parameter_correlation()
-
-    return M1, M2, M3, FIM_stuff1, FIM_stuff2, FIM_stuff3
-
-
-def run_modsim_models_new():
+def run_modsim_models():
 
     # Data
     file_path = os.path.join(pyideas.BASE_DIR, '..', 'examples', 'data',
                              'grasdata.csv')
-    data = pd.read_csv(file_path, header=0, names=['time', 'W'])
-    #measurements = ode_measurements(data)
+    data = pd.read_csv(file_path, header=0, names=['t', 'W'])
+    data = data.set_index('t')
+    measurements = Measurements(data)
+    measurements.add_measured_errors({'W': 1.0}, method='absolute')
 
     # Logistic
-
     parameters = {'W0': 2.0805,
                   'Wf': 9.7523,
                   'mu': 0.0659}
@@ -118,14 +37,15 @@ def run_modsim_models_new():
 
     M1.independent = {'t': np.linspace(0, 72, 1000)}
 
+    M1.initialize_model()
+
     # Perform parameter estimation
     M1optim = ParameterOptimisation(M1, measurements)
     M1optim.local_optimize()
 
     # Calc parameter uncertainty
     M1conf = CalibratedConfidence(M1optim)
-    M1conf.get_parameter_confidence()
-    M1conf.get_parameter_correlation()
+    FIM1 = M1conf.get_FIM()
 
     # Exponential
     parameters = {'Wf': 10.7189,
@@ -135,6 +55,14 @@ def run_modsim_models_new():
 
     M2 = Model('Modsim2', system, parameters)
     M2.independent = {'t': np.linspace(0, 72, 1000)}
+
+    # Perform parameter estimation
+    M2optim = ParameterOptimisation(M2, measurements)
+    M2optim.local_optimize()
+
+    # Calc parameter uncertainty
+    M2conf = CalibratedConfidence(M2optim)
+    FIM2 = M2conf.get_FIM()
 
     # Gompertz
     parameters = {'W0': 2.0424,
@@ -146,9 +74,16 @@ def run_modsim_models_new():
     M3 = Model('Modsim3', system, parameters)
     M3.independent = {'t': np.linspace(0, 72, 1000)}
 
-    return M1, M2, M3
+    # Perform parameter estimation
+    M3optim = ParameterOptimisation(M3, measurements)
+    M3optim.local_optimize()
+
+    # Calc parameter uncertainty
+    M3conf = CalibratedConfidence(M3optim)
+    FIM3 = M3conf.get_FIM()
+
+    return M1, M2, M3, M1conf, M2conf, M3conf
 
 
 if __name__ == "__main__":
-    M1, M2, M3, FIM_stuff1, FIM_stuff2, FIM_stuff3 = run_modsim_models_old()
-    M1_new, M2_new, M3_new = run_modsim_models_new()
+    M1, M2, M3, M1conf, M2conf, M3conf = run_modsim_models()

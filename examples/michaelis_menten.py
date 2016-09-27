@@ -7,97 +7,38 @@ Created on Sun Jan  4 17:32:29 2015
 from __future__ import division
 
 import numpy as np
-import pandas as pd
-
-from biointense.modelbase import BaseModel
-from biointense.model import Model
-from biointense.solver import HybridSolver
-
-
-def michaelis_menten_old():
-
-    from biointense import DAErunner
-
-    ODE = {'dS': '-v',
-           'dP': 'v'}
-    Algebraic = {'v': 'Vmax*S/(Ks + S)'}
-    parameters = {'Vmax': 1e-1, 'Ks': 0.5}
-
-    model = DAErunner(ODE=ODE, Algebraic=Algebraic, Parameters=parameters,
-                      Modelname='MichaelisMenten', print_on=False)
-
-    model.set_initial_conditions({'dS': 0.5, 'dP': 0.0})
-    model.set_xdata({'start': 0, 'end': 72, 'nsteps': 1000})
-    #model.set_measured_states(['S','X'])
-    #model.variables = {'algebraic': ['v'], 'ode': ['P', 'S']}
-
-    result1 = model.solve_ode(plotit=False)
-    model.solve_algebraic(plotit=False)
-
-    return pd.concat([result1, model.algeb_solved], axis=1)
+from pyideas import Model
 
 
 def michaelis_menten():
-
-    def fun_ODE(ODES, t, Parameters):
-        Ks = Parameters['Ks']
-        Vmax = Parameters['Vmax']
-
-        P = ODES[0]
-        S = ODES[1]
-
-        v = S*Vmax/(Ks + S)
-
-        dP = v
-        dS = -v
-        return [dP, dS]
-
-    def fun_alg(t, Parameters, ODES):
-        Ks = Parameters['Ks']
-        Vmax = Parameters['Vmax']
-
-        P = ODES[:,0]
-        S = ODES[:,1]
-
-        v = S*Vmax/(Ks + S) + np.zeros(len(t))
-
-        algebraic = np.array([v]).T
-
-        return algebraic
 
     system = {'v': 'Vmax*S/(Ks + S)',
               'dS': '-v',
               'dP': 'v'}
     parameters = {'Vmax': 1e-1, 'Ks': 0.5}
 
-    #model = BaseModel('test')
-    #model.systemfunctions['algebraic'] = fun_alg
-    #model.systemfunctions['ode'] = fun_ODE
     model = Model('MichaelisMenten', system, parameters)
-    #model.fun_alg = fun_alg
-    #model.fun_ODE = fun_ODE
 
-    #model.parameters = {'Vmax': 1e-1, 'Ks': 0.5}
     model.initial_conditions = {'S': 0.5, 'P': 0.0}
 
-    #model.independent_values = np.linspace(0, 72, 1000)
-    #model.variables = {'algebraic': ['v'], 'ode': ['P', 'S']}
-
-    model.set_independent('t', np.linspace(0, 72, 1000))
+    model.independent = {'t': np.linspace(0, 72, 1000)}
     model.initialize_model()
 
-    solver1 = HybridSolver(model)
-    result1 = solver1.solve(procedure="ode")
-    solver2 = HybridSolver(model)
-    result2 = solver2.solve("odeint")
-    solver3 = HybridSolver(model)
-    result3 = solver3.solve("odespy")
+    return model
 
-    return result1, result2, result3
+
+def MM_ode(model):
+    return model.run(procedure="ode")
+
+
+def MM_odeint(model):
+    return model.run(procedure="odeint")
+
+
+def MM_odespy(model):
+    return model.run(procedure="odespy")
 
 if __name__ == "__main__":
-    result1, result2, result3 = michaelis_menten()
-    result1.plot()
-
-    result = michaelis_menten_old()
-    result.plot()
+    model = michaelis_menten()
+    result1 = MM_ode(model)
+    result2 = MM_odeint(model)

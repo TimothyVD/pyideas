@@ -7,10 +7,10 @@ Created on Sun Jan  4 19:02:39 2015
 import os
 from numpy.testing import assert_allclose
 
-import biointense
+import pyideas
 
 # run the example file
-execfile(str(os.path.join(biointense.BASE_DIR, "..", "examples",
+execfile(str(os.path.join(pyideas.BASE_DIR, "..", "examples",
                           "modsim_optimisation.py")))
 
 def test():

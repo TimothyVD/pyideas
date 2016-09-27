@@ -16,11 +16,11 @@ from pandas.util.testing import assert_frame_equal, assert_almost_equal
 
 from collections import OrderedDict
 
-import biointense
+import pyideas
 
 # set working directory on super folder
 
-execfile(str(os.path.join(biointense.BASE_DIR, "..", "examples", "modsim.py")))
+execfile(str(os.path.join(pyideas.BASE_DIR, "..", "examples", "modsim.py")))
 
 
 class TestExample_modsim(unittest.TestCase):
@@ -28,8 +28,8 @@ class TestExample_modsim(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
 
-        output = run_modsim_models_old()
-        cls.M1, cls.M2, cls.M3, cls.FIM1, cls.FIM2, cls.FIM3 = output
+        output = run_modsim_models()
+        cls.M1, cls.M2, cls.M3, cls.M1conf, cls.M2conf, cls.M3conf = output
 
     def test_model1(self):
 
@@ -37,7 +37,7 @@ class TestExample_modsim(unittest.TestCase):
         expected = OrderedDict([('W0', 2.080398434017849),
                                 ('Wf', 9.7522237047714704),
                                 ('mu', 0.065925117843826847)])
-        result = self.M1.Parameters
+        result = self.M1.parameters
         self.assertEqual(result, expected)
 
         # test the parameter confidence
@@ -51,13 +51,14 @@ class TestExample_modsim(unittest.TestCase):
              'upper': [4.500380284245268, 12.706095597783539, 0.13443243909200703],
              'value': [2.080398434017849, 9.7522237047714704, 0.065925117843826847]},
             index=['W0', 'Wf', 'mu'],
-            columns=['value', 'lower', 'upper', 'delta', 'percent', 't_value', 't_reference', 'significant'])
-        result = self.FIM1.get_parameter_confidence()
+            columns=['value', 'lower', 'upper', 'delta', 'percent', 't_value',
+                     't_reference', 'significant'])
+        result = self.M1conf.get_parameter_confidence()
         assert_frame_equal(result, expected)
 
         # test the parameter correlation
         expected = np.array([0.44630711, -0.84803599, -0.74509016])
-        result = self.FIM1.get_parameter_correlation().values[[1,2,2], [0,0,1]]
+        result = self.M1conf.get_parameter_correlation().values[[1,2,2], [0,0,1]]
         assert_almost_equal(result, expected)
 
     def test_model2(self):
@@ -65,7 +66,7 @@ class TestExample_modsim(unittest.TestCase):
         # test the optimized parameters
         expected = OrderedDict([('Wf', 10.718908267877257),
                                 ('mu', 0.03095203722848679)])
-        result = self.M2.Parameters
+        result = self.M2.parameters
         self.assertEqual(result, expected)
 
         # test the parameter confidence
@@ -79,13 +80,14 @@ class TestExample_modsim(unittest.TestCase):
              'upper': [15.159527381523162, 0.060523011349900846],
              'value': [10.718908267877257, 0.03095203722848679]},
             index=['Wf', 'mu'],
-            columns=['value', 'lower', 'upper', 'delta', 'percent', 't_value', 't_reference', 'significant'])
-        result = self.FIM2.get_parameter_confidence()
+            columns=['value', 'lower', 'upper', 'delta', 'percent', 't_value',
+                     't_reference', 'significant'])
+        result = self.M2conf.get_parameter_confidence()
         assert_frame_equal(result, expected)
 
         # test the parameter correlation
         expected = np.array([-0.9469973])
-        result = self.FIM2.get_parameter_correlation().values[[1], [0]]
+        result = self.M2conf.get_parameter_correlation().values[[1], [0]]
         assert_almost_equal(result, expected)
 
     def test_model3(self):
@@ -95,7 +97,7 @@ class TestExample_modsim(unittest.TestCase):
                                 ('W0', 2.0423292965130431),
                                 ('mu', 0.066868735215877745)])
 
-        result = self.M3.Parameters
+        result = self.M3.parameters
         self.assertEqual(result, expected)
 
         # test the parameter confidence
@@ -109,32 +111,16 @@ class TestExample_modsim(unittest.TestCase):
              'upper': [0.091327276649682654, 4.6371734897528398, 0.17869845133080006],
              'value': [0.041087536998484858, 2.0423292965130431, 0.066868735215877745]},
             index=['D', 'W0', 'mu'],
-            columns=['value', 'lower', 'upper', 'delta', 'percent', 't_value', 't_reference', 'significant'])
-        result = self.FIM3.get_parameter_confidence()
+            columns=['value', 'lower', 'upper', 'delta', 'percent', 't_value',
+                     't_reference', 'significant'])
+        result = self.M3conf.get_parameter_confidence()
         assert_frame_equal(result, expected)
 
         # test the parameter correlation
         expected = np.array([-0.73682127,  0.92973434, -0.93054158])
-        result = self.FIM3.get_parameter_correlation().values[[1,2,2], [0,0,1]]
+        result = self.M3conf.get_parameter_correlation().values[[1,2,2],
+                                                                [0,0,1]]
         assert_almost_equal(result, expected)
-
-
-class TestExample_modsim_new(unittest.TestCase):
-
-    @classmethod
-    def setUpClass(cls):
-
-        output = run_modsim_models_new()
-        cls.M1, cls.M2, cls.M3 = output
-
-    def test_model1(self):
-        pass
-
-    def test_model2(self):
-        pass
-
-    def test_model3(self):
-        pass
 
 
 if __name__ == '__main__':
