@@ -78,14 +78,14 @@ class _BaseOptimisation(object):
             initial_list = []
 
         _dof_list = self._flatten_list([self.model.parameters.keys(),
-                                        self.model.independent,
+                                        self.model._independent_names,
                                         initial_list])
 
         _dof_ref = {}.fromkeys(_dof_list, None)
         _dof_ref.update({}.fromkeys(self.model.parameters.keys(),
                                     'parameters'))
 
-        _dof_ref.update({}.fromkeys(self.model.independent,
+        _dof_ref.update({}.fromkeys(self.model._independent_names,
                                     'independent'))
         _dof_ref.update({}.fromkeys(initial_list,
                                     'initial'))

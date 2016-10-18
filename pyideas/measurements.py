@@ -150,3 +150,4 @@ class Measurements(object):
             raise Exception('Method not implemented!')
 
         self._uncertainty = Uncertainty(error_dict)
+        self._calculated = False
