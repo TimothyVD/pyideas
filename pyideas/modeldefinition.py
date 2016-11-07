@@ -86,47 +86,49 @@ def write_array_extraction(defstr, ode_variables):
                                                                 str(i))
     return defstr
 
-def write_external_call(modelstr, externalfunctions):
-    """
-
-    Parameters
-    -----------
-    modelstr : str
-        str containing the definition to solve in model
-    varname : str
-        variable name to calculate
-    fname : str
-        function name to call
-    argnames : list
-        other arguments that the function request (e.g. t or other varnames)
-    """
-    vardict = {}
-
-    modelstr += "    externalfunctions = args[0]\n\n"
-
-    for idname, iddict in externalfunctions.items():
-        variable = iddict['variable']
-        if vardict.get(variable) is None:
-            vardict[variable] = [idname]
-        else:
-            vardict[variable].append(idname)
-
-        modelstr += "    {0} = externalfunctions['{0}']['fun'](".format(idname)
-        for argument in iddict['arguments']:
-            modelstr += argument + ','
-        modelstr += ')\n'
-    modelstr += '\n'
-
-    for variable, idnames in vardict.items():
-        modelstr += '    {0} = '.format(variable)
-        for i, idname in enumerate(idnames):
-            if i is 0:
-                modelstr += idname
-            else:
-                modelstr += ' + ' + idname
-        modelstr += '\n'
-
-    return modelstr
+#==============================================================================
+# def write_external_call(modelstr, externalfunctions):
+#     """
+#
+#     Parameters
+#     -----------
+#     modelstr : str
+#         str containing the definition to solve in model
+#     varname : str
+#         variable name to calculate
+#     fname : str
+#         function name to call
+#     argnames : list
+#         other arguments that the function request (e.g. t or other varnames)
+#     """
+#     vardict = {}
+#
+#     modelstr += "    externalfunctions = args[0]\n\n"
+#
+#     for idname, iddict in externalfunctions.items():
+#         variable = iddict['variable']
+#         if vardict.get(variable) is None:
+#             vardict[variable] = [idname]
+#         else:
+#             vardict[variable].append(idname)
+#
+#         modelstr += "    {0} = externalfunctions['{0}']['fun'](".format(idname)
+#         for argument in iddict['arguments']:
+#             modelstr += argument + ','
+#         modelstr += ')\n'
+#     modelstr += '\n'
+#
+#     for variable, idnames in vardict.items():
+#         modelstr += '    {0} = '.format(variable)
+#         for i, idname in enumerate(idnames):
+#             if i is 0:
+#                 modelstr += idname
+#             else:
+#                 modelstr += ' + ' + idname
+#         modelstr += '\n'
+#
+#     return modelstr
+#==============================================================================
 
 def replace_numpy_fun(m):
     """
@@ -343,10 +345,12 @@ def generate_ode_derivative_definition(model):
     modelstr = write_ode_indices(modelstr, model._ordered_var['ode'])
     modelstr = write_whiteline(modelstr)
 
-    # Write down external called functions - not yet provided!
-    if model.externalfunctions:
-        modelstr = write_external_call(modelstr, model.externalfunctions)
-        modelstr = write_whiteline(modelstr)
+#==============================================================================
+#     # Write down external called functions - not yet provided!
+#     if model.externalfunctions:
+#         modelstr = write_external_call(modelstr, model.externalfunctions)
+#         modelstr = write_whiteline(modelstr)
+#==============================================================================
 
     # Write down necessary algebraic equations (if none, nothing written)
     modelstr = write_algebraic_lines(modelstr, model.systemfunctions['algebraic'])
@@ -381,15 +385,17 @@ def generate_non_derivative_part_definition(model):
         modelstr = write_array_extraction(modelstr, model._ordered_var['ode'])
         modelstr = write_whiteline(modelstr)
 
-    # Write down external called functions - not yet provided!
-    if model.externalfunctions:
-        modelstr = write_external_call(modelstr, model.externalfunctions)
-        modelstr = write_whiteline(modelstr)
-
+#==============================================================================
+#     # Write down external called functions - not yet provided!
+#     if model.externalfunctions:
+#         modelstr = write_external_call(modelstr, model.externalfunctions)
+#         modelstr = write_whiteline(modelstr)
+#
+#==============================================================================
     # Write down the equation of algebraic
     modelstr = write_algebraic_solve(modelstr,
                                      model.systemfunctions['algebraic'],
-                                     model.independent[0])
+                                     model._independent_names[0])
     modelstr = write_whiteline(modelstr)
 
     modelstr = write_non_derivative_return(modelstr, model._ordered_var['algebraic'])

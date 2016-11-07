@@ -9,13 +9,12 @@ from __future__ import division
 import numpy as np
 import pandas as pd
 
-from numpy.testing import assert_almost_equal
 from pandas.util.testing import assert_frame_equal
 
-from biointense import Model
+from pyideas import Model
 
 
-## 1) simple algebraic state space variable of interest
+# 1) simple algebraic state space variable of interest
 
 def test_alg_state():
 
@@ -27,8 +26,8 @@ def test_alg_state():
     model = Model('simple_test', system, parameters)
 
     x = np.linspace(0, 10, 11)
-    model.set_initial({'P': 50, 'S': 10})
-    model.set_independent({'t': x})
+    model.initial_conditions = {'P': 50, 'S': 10}
+    model.independent = {'t': x}
 
     result = model.run()
 
@@ -38,12 +37,13 @@ def test_alg_state():
 
     expected = pd.DataFrame({'P': P, 'S': S}, index=x)
     expected['A'] = expected['S'] + expected['P']
+    expected.index.names = ['t']
 
     assert_frame_equal(result, expected.reindex(columns=result.columns))
 
 
+# 2) simple algebraic substitution
 
-## 2) simple algebraic substitution
 
 def test_alg_substitution():
 
@@ -54,8 +54,8 @@ def test_alg_substitution():
 
     model = Model('simple_test', system, parameters)
     x = np.linspace(0, 10, 11)
-    model.set_initial({'P': 50, 'S': 10})
-    model.set_independent({'t': x})
+    model.initial_conditions = {'P': 50, 'S': 10}
+    model.independent = {'t': x}
 
     result = model.run()
 
@@ -67,8 +67,6 @@ def test_alg_substitution():
 
     expected = pd.DataFrame({'S': S, 'P': P}, index=x)
     expected['A'] = expected['S'] + expected['P']
+    expected.index.names = ['t']
 
     assert_frame_equal(result, expected.reindex(columns=result.columns))
-
-
-## 3) algebraic equation as constraint -> not yet implemented

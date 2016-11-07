@@ -1,6 +1,5 @@
 import numpy as np
-from biointense import (Model, DirectLocalSensitivity,
-                        NumericalLocalSensitivity)
+from pyideas import (Model, DirectLocalSensitivity, NumericalLocalSensitivity)
 
 
 def LSA_comparison():
@@ -45,9 +44,10 @@ def LSA_comparison():
     res_time = 0.01/1.66e-4/2.
 
     # Set independent (time) range
-    M1.set_independent({'t': np.linspace(0, res_time, 1000)})
+    M1.independent = {'t': np.linspace(0, res_time, 1000)}
     # Set initial conditions
-    M1.set_initial({'IPA': 65., 'BA': 5., 'ACE': 0., 'MPPA': 0., 'E': 0.68})
+    M1.initial_conditions = {'IPA': 65., 'BA': 5., 'ACE': 0.,
+                             'MPPA': 0., 'E': 0.68}
 
     # Initialize model => Generate underlying functions
     M1.initialize_model()
@@ -58,13 +58,14 @@ def LSA_comparison():
 
     # NumericalLocalSensitivity instance
     M1sens_num = NumericalLocalSensitivity(M1,
-                                           parameters=['Kp', 'Vf', 'Km', 'Kal'],
-                                           perturbation=1e-5)
+                                           parameters=['Kp', 'Vf',
+                                                       'Km', 'Kal'])
+    M1sens_num.perturbation = 1e-5
 
     # Calculate direct sensitivity
-    dir_sens = M1sens_dir.get_sensitivity(method='CPRS')
+    dir_sens = M1sens_dir.get_sensitivity(method='PRS')
     # Calculate numerical sensivity
-    num_sens = M1sens_num.get_sensitivity(method='CPRS')
+    num_sens = M1sens_num.get_sensitivity(method='PRS')
 
     return dir_sens, num_sens
 

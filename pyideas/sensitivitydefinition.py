@@ -8,7 +8,7 @@ import numpy as np
 import sympy
 from sympy.abc import _clash
 
-from biointense.modeldefinition import *
+from pyideas.modeldefinition import *
 
 import pprint
 
@@ -135,10 +135,6 @@ def generate_ode_derivative_definition(model, dfdtheta, dfdx, parameters):
                                      model.systemfunctions['algebraic'])
     modelstr = write_whiteline(modelstr)
 
-    # Write down external called functions - not yet provided!
-    #write_external_call(defstr, varname, fname, argnames)
-    #write_whiteline(modelstr)
-
     # Write down the current derivative values
     modelstr = write_ode_lines(modelstr, model.systemfunctions['ode'])
 
@@ -191,19 +187,15 @@ def generate_non_derivative_part_definition(model, dgdtheta, dgdx, parameters):
 
         modelstr += "\n    dxdtheta = kwargs.get('dxdtheta')\n"
 
-    # Write down external called functions - not yet provided!
-    #write_external_call(defstr, varname, fname, argnames)
-    #write_whiteline(modelstr)
-
     # Write down the equation of algebraic
     modelstr = write_algebraic_solve(modelstr,
                                      model.systemfunctions['algebraic'],
-                                     model.independent[0])
+                                     model._independent_names[0])
     modelstr = write_whiteline(modelstr)
 
     # TODO!
     modelstr += '\n    #Sensitivities\n\n'
-    modelstr += '    indep_len = len(' + model.independent[0] + ')\n\n'
+    modelstr += '    indep_len = len(' + model._independent_names[0] + ')\n\n'
 
     # Write dgdtheta as symbolic array
     modelstr += ('    dgdtheta = np.zeros([indep_len, '

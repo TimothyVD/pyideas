@@ -8,8 +8,9 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import itertools
+from copy import deepcopy
 
-from biointense.optimisation import _BaseOptimisation
+from pyideas.optimisation import _BaseOptimisation
 
 
 def A_criterion(FIM):
@@ -102,11 +103,12 @@ class BaseOED(_BaseOptimisation):
                         '+ Kal/Kacs*ACE**2 + Kac/Kas*MPPA**2)')}
     >>> parameters = {'Vr': 5.18e-4, 'Kal': 1.07, 'Kac': 0.54, 'Kacs': 1.24,
                       'Kas': 25.82}
-    >>> M1 = AlgebraicModel('biointense_backward', system, parameters)
+    >>> M1 = AlgebraicModel('biointense_backward', system, parameters,
+                            ['ACE', 'MPPA'])
     >>> ACE = np.linspace(11., 100., 250)
     >>> MPPA = np.linspace(1., 10., 250)
-    >>> M1.set_independent({'ACE': ACE, 'MPPA': MPPA}, method='cartesian')
-    >>> M1.initialize_model()
+    >>> cart_indep = M1.cartesian({'ACE': ACE, 'MPPA': MPPA})
+    >>> M1.independent = cart_indep
     >>> M1sens = DirectLocalSensitivity(M1)
     >>> M1uncertainty = Uncertainty({'v': '1**2'})
     >>> M1conf = TheoreticalConfidence(M1sens, M1uncertainty)
@@ -126,8 +128,20 @@ class BaseOED(_BaseOptimisation):
     """
 
     def __init__(self, confidence, dof_list, preFIM=None):
-        super(BaseOED, self).__init__(confidence.model)
-        self.confidence = confidence
+        # Avoid that OED overwrites prior information about experiments
+        self.confidence = deepcopy(confidence)
+        self.model = self.confidence._model
+        self._dof_model = self._get_dof_model()
+        self._dof = None
+        self._dof_ordered = None
+        self._how_to_order_dof = ['parameters', 'initial', 'independent']
+        self._dof_len = [0, 0, 0]
+
+        self._distributions_set = False
+        self._dof_distributions = None
+        self.modmeas = None
+        self._independent_samples = None
+
         self.dof = dof_list
 
         # Take into account information of experiments which are already
@@ -146,7 +160,7 @@ class BaseOED(_BaseOptimisation):
             dof_dict = self._dof_array_to_dict(dof_array)
             self._dof_dict_to_model(dof_dict)
 
-        FIM = self.confidence.FIM
+        FIM = self.confidence.get_FIM()
         if self.preFIM:
             FIM += self.preFIM
 
@@ -248,7 +262,8 @@ class BaseOED(_BaseOptimisation):
         if self.model.modeltype is "Model":
             self.model.set_independent(independent_dict)
         elif self.model.modeltype is "AlgebraicModel":
-            self.model.set_independent(independent_dict, method='cartesian')
+            cart_dict = self.model.cartesian(independent_dict)
+            self.model.independent = cart_dict
 
         initial_cond = list(itertools.product(*initial_dict.values()))
         parameters = list(itertools.product(*parameter_dict.values()))
@@ -279,12 +294,12 @@ class BaseOED(_BaseOptimisation):
             initial = dict(zip(initial_list, initial_values))
             # TODO Temp fix for algebraic models
             try:
-                self.model.set_initial(initial)
+                self.model.initial_conditions = initial
             except:
                 pass
             for parameter_values in pars:
                 par = dict(zip(par_list, parameter_values))
-                self.model.set_parameters(par)
+                self.model.parameters = par
                 modeloutput_container.append(self.model._run())
 
         output_var = self.model._ordered_var.get('ode', []) +\
@@ -384,13 +399,13 @@ class BaseOED(_BaseOptimisation):
         for initial_values in initial_cond:
             initial = dict(zip(initial_list, initial_values))
             try:
-                self.model.set_initial(initial)
+                self.model.initial_conditions = initial
             except:
                 pass
             for parameter_values in pars:
                 par = dict(zip(par_list, parameter_values))
-                self.model.set_parameters(par)
-                FIM_container.append(self.confidence.FIM_time)
+                self.model.parameters = par
+                FIM_container.append(self.confidence.get_FIM_time())
 
         FIM_evolution = np.concatenate(FIM_container)
 
@@ -484,11 +499,11 @@ class RobustOED(object):
     >>> # MPPA = PQ
     >>> system = {'v': 'Vr*ACE*MPPA/(Kace*ACE + Kmppa*MPPA + ACE*MPPA)'}
     >>> parameters = {'Vr': 1e-2, 'Kace': 10., 'Kmppa': 5.}
-    >>> M1 = AlgebraicModel('biointense_backward', system, parameters)
-    >>> M1.set_independent({'ACE': np.linspace(11., 250., 100),
-                            'MPPA': np.linspace(1., 10., 100)},
-                           method='cartesian')
-    >>> M1.initialize_model()
+    >>> M1 = AlgebraicModel('biointense_backward', system, parameters,
+                            ['ACE', 'MPPA'])
+    >>> cart_dict = M1.cartesian({'ACE': np.linspace(11., 250., 100),
+                                  'MPPA': np.linspace(1., 10., 100)})
+    >>> M1.independent = cart_dict
     >>> M1sens = DirectLocalSensitivity(M1)
     >>> M1uncertainty = Uncertainty({'v': '(v*0.10)**2'})
     >>> M1conf = TheoreticalConfidence(M1sens, M1uncertainty)
@@ -507,8 +522,8 @@ class RobustOED(object):
         """
         """
         # Confidence instance
-        self.confidence = confidence
-        self.model = confidence.model
+        self.confidence = deepcopy(confidence)
+        self.model = confidence._model
         # Number of independent samples to be designed
         self.independent_samples = independent_samples
         # FIM before starting actual designing exercise
@@ -722,7 +737,7 @@ class RobustOED(object):
         self._oed[oed_type]._dof_dict_to_model(par_dict)
 
         # Write randomly generated parameter_sample to model
-        return OED_CRITERIA['D'](self._oed[oed_type].confidence.FIM)
+        return OED_CRITERIA['D'](self._oed[oed_type].confidence.get_FIM())
 
     def _optimize_for_parameters(self, **kwargs):
         r"""

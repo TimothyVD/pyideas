@@ -17,8 +17,8 @@ except:
     INSPYRED_IMPORT = False
 
 from parameterdistribution import ModPar
-from biointense.modelbase import BaseModel
-from biointense.model import Model
+from pyideas.modelbase import BaseModel
+from pyideas.model import Model
 from time import time
 from random import Random
 
@@ -57,7 +57,6 @@ class _BaseOptimisation(object):
         self._dof_model = self._get_dof_model()
         self._dof = None
         self._dof_ordered = None
-        # [Parameters, Initial, ]
         self._how_to_order_dof = ['parameters', 'initial', 'independent']
         self._dof_len = [0, 0, 0]
 
@@ -79,14 +78,14 @@ class _BaseOptimisation(object):
             initial_list = []
 
         _dof_list = self._flatten_list([self.model.parameters.keys(),
-                                        self.model.independent,
+                                        self.model._independent_names,
                                         initial_list])
 
         _dof_ref = {}.fromkeys(_dof_list, None)
         _dof_ref.update({}.fromkeys(self.model.parameters.keys(),
                                     'parameters'))
 
-        _dof_ref.update({}.fromkeys(self.model.independent,
+        _dof_ref.update({}.fromkeys(self.model._independent_names,
                                     'independent'))
         _dof_ref.update({}.fromkeys(initial_list,
                                     'initial'))
@@ -130,7 +129,8 @@ class _BaseOptimisation(object):
         dof_list = []
 
         for key in dof:
-            if isinstance(dof_dict[key], float):
+            if isinstance(dof_dict[key], float) or \
+               isinstance(dof_dict[key], int):
                 dof_list.append([dof_dict[key]])
             else:
                 dof_list.append(*list(dof_dict[key]))
@@ -183,11 +183,11 @@ class _BaseOptimisation(object):
         overwriting of current independent sets by empty dicts
         """
         if bool(dof_dict['parameters']):
-            self.model.set_parameters(dof_dict['parameters'])
+            self.model.parameters = dof_dict['parameters']
         if bool(dof_dict['initial']):
-            self.model.set_initial(dof_dict['initial'])
+            self.model.initial_conditions = dof_dict['initial']
         if bool(dof_dict['independent']):
-            self.model.set_independent(dof_dict['independent'])
+            self.model.independent = dof_dict['independent']
 
     def _dof_array_to_model(self, dof_array):
         """
@@ -224,9 +224,29 @@ class _BaseOptimisation(object):
 
         return optimize_info
 
+    def _basinhopping(self, obj_fun, dof_array, *args, **kwargs):
+        '''
+        Wrapper for scipy.optimize.basinhopping
+        '''
+        optimize_info = optimize.basinhopping(obj_fun, dof_array, **kwargs)
+
+        return optimize_info
+
     def _set_modmeas(self, modeloutput, measurements):
-        self.modmeas = pd.concat((measurements, modeloutput), axis=1,
-                                 keys=['Measured', 'Modelled'])
+        measurements = pd.DataFrame(measurements,
+                                    columns=self.model._variables_of_interest)
+        modeloutput = pd.DataFrame(modeloutput,
+                                   columns=self.model._variables_of_interest)
+        modmeas = pd.concat((measurements, modeloutput), axis=1,
+                            keys=['Measured', 'Modelled'])
+        index = pd.MultiIndex.from_arrays(self.model._independent_values.values(),
+                                          names=self.model._independent_names)
+        modmeas.index = index
+        self.modmeas = modmeas
+#==============================================================================
+#         self.modmeas = pd.concat((measurements, modeloutput), axis=1,
+#                                  keys=['Measured', 'Modelled'])
+#==============================================================================
 
     def set_dof_distributions(self, dof_dist_list):
         """
@@ -360,16 +380,17 @@ class ParameterOptimisation(_BaseOptimisation):
     """
 
     def __init__(self, model, measurements, optim_par=None):
-        super(ParameterOptimisation, self).__init__(model)
+        super(self.__class__, self).__init__(model)
 
         self.measurements = measurements
 
-        if optim_par is not None:
-            self.dof = optim_par
-        else:
-            self.dof = self.model.parameters.keys()
+        if optim_par is None:
+            optim_par = self.model.parameters.keys()
+        self.dof = optim_par
 
         self._set_independent()
+
+        self.model.variables_of_interest = self.measurements._variables
 
         self._minvalues = None
         self._maxvalues = None
@@ -383,18 +404,19 @@ class ParameterOptimisation(_BaseOptimisation):
         # should occur at timestep 0 instead. This is verified and overruled
         # if necessary
         if isinstance(self.model, Model):
-            independent = self.measurements._independent
-            independent_var = self.measurements._independent.keys()[0]
-            independent_val = self.measurements._independent.values()[0]
+            independent = self.measurements._independent_values
+            independent_var = self.model._independent_names[0]
+            independent_val = self.measurements._independent_values[independent_var]
             # If ODE is not starting at 0, force it to be so!
             if independent_val[0] != 0.:
                 independent[independent_var] = np.insert(independent_val,
                                                          0., 0.)
         elif isinstance(self.model, BaseModel):
-            independent = self.measurements._independent
+            independent = self.measurements._independent_values
         else:
             raise Exception('This model type is not supported!')
-        self.model.set_independent(independent)
+
+        self.model.independent = independent
 
     def local_optimize(self, pardict=None, obj_crit='wsse',
                        method='Nelder-Mead', *args, **kwargs):
@@ -412,7 +434,26 @@ class ParameterOptimisation(_BaseOptimisation):
                                  self._dof_dict_to_array(pardict),
                                  method, *args, **kwargs)
 
-        self._set_modmeas(self._run_model(), self.measurements.Data)
+        self._set_modmeas(self._run_model(), self.measurements._data)
+
+        return optimize_info
+
+    def basinhopping(self, pardict=None, obj_crit='wsse', *args, **kwargs):
+        '''
+        Wrapper for scipy.optimize.minimize
+        '''
+        def inner_obj_fun(parray=None):
+            return self._obj_fun(obj_crit, parray=parray)
+
+        if pardict is None:
+            pardict = self.model.parameters.copy()
+
+        optimize_info = \
+            self._basinhopping(inner_obj_fun,
+                               self._dof_dict_to_array(pardict),
+                               *args, **kwargs)
+
+        self._set_modmeas(self._run_model(), self.measurements._data)
 
         return optimize_info
 
@@ -422,11 +463,11 @@ class ParameterOptimisation(_BaseOptimisation):
         # Run model
         model_output = self._run_model(dof_array=parray)
         # model_output.sort_index(inplace=True)
-        data_output = self.measurements.Data
+        data_output = self.measurements._data
         # data_output.sort_index(inplace=True)
 
         obj_val = OBJECTIVE_FUNCS[obj_crit](model_output, data_output,
-                                            1./self.measurements._Error_Covariance_Matrix_PD)
+                                            1./self.measurements.meas_uncertainty)
 
         return obj_val
 
@@ -447,7 +488,7 @@ class ParameterOptimisation(_BaseOptimisation):
                                                 maximize=False,
                                                 max_eval=max_eval, **kwargs)
 
-        self._set_modmeas(self._run_model(), self.measurements.Data)
+        self._set_modmeas(self._run_model(), self.measurements._data)
 
         return final_pop, ea
 

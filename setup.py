@@ -4,7 +4,7 @@ from setuptools import setup
 import os
 
 
-NAME = 'Biointense'
+NAME = 'pyIDEAS'
 DESCRIPTION = 'ODE analyser package'
 # LONG_DESCRIPTION = descr
 AUTHOR = 'Timothy Van Daele, Stijn Van Hoey, Daan Van Hauwermeiren, ' \
@@ -12,15 +12,15 @@ AUTHOR = 'Timothy Van Daele, Stijn Van Hoey, Daan Van Hauwermeiren, ' \
 AUTHOR_EMAIL = 'github@biomath.ugent.be',
 URL = 'https://github.ugent.be/biomath/biointense'
 # LICENSE =
-PACKAGE_NAME = 'biointense'
+PACKAGE_NAME = 'pyideas'
 EXTRA_INFO = dict(
-    install_requires=['numpy'],
+    install_requires=['numpy', 'pandas'],
     # classifiers=[]
 )
 
 
-MAJOR = 0
-MINOR = 3
+MAJOR = 1
+MINOR = 0
 MICRO = 0
 ISRELEASED = False
 VERSION = '%d.%d.%d' % (MAJOR, MINOR, MICRO)
@@ -33,14 +33,14 @@ if not ISRELEASED:
 
 def write_version_py():
     """
-    Write the version to biointense/version.py
+    Write the version to pyideas/version.py
     """
     cnt = """\
 version = '%s'
 short_version = '%s'
 """
 
-    filename = os.path.join(os.path.dirname(__file__), 'biointense',
+    filename = os.path.join(os.path.dirname(__file__), 'pyideas',
                             'version.py')
 
     a = open(filename, 'w')
@@ -60,5 +60,5 @@ setup(name=NAME,
       author=AUTHOR,
       author_email=AUTHOR_EMAIL,
       #license,
-      packages=['biointense'],
+      packages=['pyideas'],
       **EXTRA_INFO)

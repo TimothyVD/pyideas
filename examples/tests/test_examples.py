@@ -12,18 +12,18 @@ import numpy as np
 import pandas as pd
 from pandas.util.testing import assert_frame_equal, assert_almost_equal
 
-import biointense
+import pyideas
 
 # set working directory on super folder
 
 
 def test_multidim():
-    execfile(str(os.path.join(biointense.BASE_DIR, "..", "examples",
+    execfile(str(os.path.join(pyideas.BASE_DIR, "..", "examples",
                               "multidim_model.py")))
 
 
 def test_second_order():
-    sys.path.append(os.path.join(biointense.BASE_DIR, "..", "examples"))
+    sys.path.append(os.path.join(pyideas.BASE_DIR, "..", "examples"))
     import second_order_system
     second_order_system.run_second_order_old()
     second_order_system.run_second_order_new()
