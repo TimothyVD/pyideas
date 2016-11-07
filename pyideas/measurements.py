@@ -44,6 +44,10 @@ class Measurements(object):
 
         self._independent_names = measdata.index.names
         indep_values = np.atleast_2d(measdata.index.values.tolist())
+        # Fix issues for Algebraic models with multiple independent variables
+        if len(self._independent_names) > 1:
+            indep_values = indep_values.T
+
         self._independent_values = dict(zip(self._independent_names,
                                             indep_values.astype(np.float64)))
 
