@@ -347,9 +347,14 @@ class CalibratedConfidence(BaseConfidence):
     def _get_uncertainty(self):
         """
         """
-        if self._model._independent_values == self._measurements._independent_values:
+        try:
+            # Check if conditions have been altered
+            # For calibration => No
+            # For OED => Yes
+            np.testing.assert_equal(self._model._independent_values,
+                                    self._measurements._independent_values)
             return self._measurements._meas_uncertainty
-        else:
+        except AssertionError:
             return self.uncertainty._get_uncertainty(self._model._run(),
                                                      self.variables)
 
