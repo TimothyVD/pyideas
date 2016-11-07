@@ -344,14 +344,14 @@ class CalibratedConfidence(BaseConfidence):
         self._data = calibrated.measurements._data
         self.uncertainty = calibrated.measurements._uncertainty
 
-    def _get_uncertainty(self):
-        """
-        """
-        if self._model._independent_values == self._measurements._independent_values:
-            return self._measurements._meas_uncertainty
-        else:
-            return self.uncertainty._get_uncertainty(self._model._run(),
-                                                     self.variables)
+#    def _get_uncertainty(self, calibration=False):
+#        """
+#        """
+#        if calibration:
+#            return self._measurements._meas_uncertainty
+#        else:
+#            return self.uncertainty._get_uncertainty(self._model._run(),
+#                                                     self.variables)
 
 
 class TheoreticalConfidence(BaseConfidence):
