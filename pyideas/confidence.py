@@ -135,24 +135,25 @@ class BaseConfidence(object):
 
         PEECM = self._calc_PEECM(FIM)
 
-        CI = np.zeros([PEECM.shape[1], 8])
+        CI = np.zeros([PEECM.shape[1], 9])
 
         # Adapt order to the one used in confidence
         CI[:, 0] = self.parameter_values
+        CI[:, 1] = np.sqrt(PEECM.diagonal())
         for i, variance in enumerate(np.array(PEECM.diagonal())):
             # TODO check whether sum or median or... should be used
             # TODO Check of de absolute waarde hier gebruikt mag worden!!!!
-            CI[i, 1:3] = stats.t.interval(alpha, n_p,
+            CI[i, 2:4] = stats.t.interval(alpha, n_p,
                                           loc=CI[i, 0],
                                           scale=np.sqrt(abs(variance)))
-            CI[i, 3] = stats.t.interval(alpha, n_p,
+            CI[i, 4] = stats.t.interval(alpha, n_p,
                                         scale=np.sqrt(abs(variance)))[1]
-            CI[:, 4] = abs(CI[:, 3]/CI[:, 0])*100
-            CI[:, 5] = CI[:, 0]/np.sqrt(abs(PEECM.diagonal()))
-            CI[:, 6] = stats.t.interval(alpha, n_p)[1]
-            CI[:, 7] = CI[:, 5] >= CI[i, 6]
+            CI[:, 5] = abs(CI[:, 4]/CI[:, 0])*100
+            CI[:, 6] = CI[:, 0]/np.sqrt(abs(PEECM.diagonal()))
+            CI[:, 7] = stats.t.interval(alpha, n_p)[1]
+            CI[:, 8] = CI[:, 6] >= CI[i, 7]
 
-        CI = pd.DataFrame(CI, columns=['value', 'lower', 'upper', 'delta',
+        CI = pd.DataFrame(CI, columns=['value', 'std dev', 'lower', 'upper', 'delta',
                                        'percent', 't_value', 't_reference',
                                        'significant'],
                           index=self.parameter_names)

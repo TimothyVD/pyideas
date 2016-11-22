@@ -522,6 +522,8 @@ class AlgebraicModel(_BiointenseModel):
         self.modeltype = "BiointenseAlgebraic"
         self._independent_names = independent
         self._independent_values = None
+        # Keep track of the original values (not combined/cartesian)
+        self._independent_direct_values = None
         # Parameters
         self._parameters = None
         self.parameters = parameters

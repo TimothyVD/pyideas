@@ -250,20 +250,22 @@ class BaseOED(_BaseOptimisation):
             elif changeable in self._dof_ordered['initial']:
                 initial_dict[changeable] = temp_dist
                 initial_list.append(changeable)
-            elif changeable in self._dof_ordered['parameter']:
+            elif changeable in self._dof_ordered['parameters']:
                 parameter_dict[changeable] = temp_dist
                 parameter_list.append(changeable)
             else:
                 raise Exception('Only initial conditions, parameters and '
                                 'independent values can be altered in this '
                                 'function!')
-
-        # Write independent values to model
-        if self.model.modeltype is "Model":
-            self.model.set_independent(independent_dict)
-        elif self.model.modeltype is "AlgebraicModel":
-            cart_dict = self.model.cartesian(independent_dict)
-            self.model.independent = cart_dict
+        
+        # Only write independents when part of OED
+        if independent_list:
+            # Write independent values to model
+            if self.model.modeltype is "Model":
+                self.model.independent = independent_dict
+            elif self.model.modeltype is "AlgebraicModel":
+                cart_dict = self.model.cartesian(independent_dict)
+                self.model.independent = cart_dict
 
         initial_cond = list(itertools.product(*initial_dict.values()))
         parameters = list(itertools.product(*parameter_dict.values()))

@@ -84,9 +84,8 @@ class LocalSensitivity(object):
         """
         self._model = model
         self._parameter_names = parameters
-        self._parameter_values = self._get_parvals(parameters,
-                                                   self._model.parameters)
-
+        self._parameter_order = self._get_par_order(parameters,
+                                                    self._model.parameters)
     @property
     def model(self):
         return self._model
@@ -97,14 +96,21 @@ class LocalSensitivity(object):
 
     @property
     def parameter_values(self):
-        return self._parameter_values
+        return np.array(self._model.parameters.values())[self._parameter_order]
 
     @staticmethod
-    def _get_parvals(parameter_list, parameter_dict):
-        parval_array = np.empty(len(parameter_list))
+    def _get_par_order(parameter_list, parameter_dict):
+        par_order_list = [None]*len(parameter_list)
         for i, par in enumerate(parameter_list):
-            parval_array[i] = parameter_dict[par]
-        return parval_array
+            par_order_list[i] = parameter_dict.keys().index(par)
+        return par_order_list
+
+#    @staticmethod
+#    def _get_parvals(parameter_list, parameter_dict):
+#        parval_array = np.empty(len(parameter_list))
+#        for i, par in enumerate(parameter_list):
+#            parval_array[i] = parameter_dict[par]
+#        return parval_array
 
     def _get_sensitivity(self, method='AS'):
         """
