@@ -129,11 +129,9 @@ class BaseConfidence(object):
         """
         return self._calc_PEECM(self.get_FIM())
 
-    def _parameter_confidence(self, n_p, FIM, alpha):
+    def _parameter_confidence(self, n_p, PEECM, alpha):
         """
         """
-
-        PEECM = self._calc_PEECM(FIM)
 
         CI = np.zeros([PEECM.shape[1], 9])
 
@@ -183,9 +181,9 @@ class BaseConfidence(object):
         par_len = len(self._sens.parameter_names)
         n_p = dat_len - par_len
 
-        FIM = self.get_FIM()
+        PEECM = self.get_PEECM()
 
-        CI = self._parameter_confidence(n_p, FIM, alpha)
+        CI = self._parameter_confidence(n_p, PEECM, alpha)
         return CI
 
     def get_parameter_correlation(self):
@@ -331,7 +329,7 @@ class BaseConfidence(object):
 class CalibratedConfidence(BaseConfidence):
     """
     """
-    def __init__(self, calibrated, sens_method='AS'):
+    def __init__(self, calibrated, sens_method='AS', with_WSSE=False):
         """
         """
         if calibrated.model.modeltype is "_BiointenseModel":
@@ -341,9 +339,20 @@ class CalibratedConfidence(BaseConfidence):
             super(self.__class__, self).__init__(NumericalLocalSensitivity(
                 calibrated.model, calibrated.dof))
 
+        self._calibrated = calibrated
         self._measurements = calibrated.measurements
         self._data = calibrated.measurements._data
         self.uncertainty = calibrated.measurements._uncertainty
+
+        self._with_WSSE = with_WSSE
+
+    def get_PEECM(self):
+        """
+        """
+        PEECM = super(CalibratedConfidence, self).get_PEECM()
+        if self._with_WSSE:
+            PEECM *= self._calibrated._obj_fun('wsse')/(len(self._data)-len(self._calibrated.dof))
+        return PEECM
 
     def _get_uncertainty(self):
         """

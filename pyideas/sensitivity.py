@@ -222,12 +222,9 @@ class NumericalLocalSensitivity(LocalSensitivity):
     def __init__(self, model, parameters=None, procedure="central"):
         """
         """
-        self._model = model
         if parameters is None:
             parameters = model.parameters.keys()
-        self._parameter_names = parameters
-        self._parameter_values = self._get_parvals(parameters,
-                                                   self._model.parameters)
+        super(NumericalLocalSensitivity, self).__init__(model, parameters)
         self._parameter_perturb = OrderedDict(zip(self._parameter_names,
                                                   np.zeros(len(self._parameter_names)) + 1e-5))
 
