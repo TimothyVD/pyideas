@@ -224,7 +224,7 @@ class NumericalLocalSensitivity(LocalSensitivity):
         """
         if parameters is None:
             parameters = model.parameters.keys()
-        super(NumericalLocalSensitivity, self).__init__(model, parameters)
+        super(self.__class__, self).__init__(model, parameters)
         self._parameter_perturb = OrderedDict(zip(self._parameter_names,
                                                   np.zeros(len(self._parameter_names)) + 1e-5))
 

@@ -24,7 +24,7 @@ def LSA_comparison():
               'dACE': 'v*E',
               'dMPPA': 'v*E'}
 
-    # Define model parameters
+    # Define all model parameters
     parameters = {  # Forward reaction parameters calibrated with data ULUND
                   'Vf': 2.47e-2,        # umol/U/min
                   'Km': 143.18,         # mM

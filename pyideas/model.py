@@ -635,8 +635,9 @@ class AlgebraicModel(_BiointenseModel):
         ax: matplotlib.ax
             Pass ax to plot on.
         """
-        shape = [len(np.unique(self._independent_values[independent_x])),
-                 len(np.unique(self._independent_values[independent_y]))]
+        # Order need to be reversed in order to yield correct figure
+        shape = [len(np.unique(self._independent_values[independent_y])),
+                 len(np.unique(self._independent_values[independent_x]))]
         x = np.reshape(self._independent_values[independent_x], shape)
         y = np.reshape(self._independent_values[independent_y], shape)
         z = np.reshape(output.values, shape)

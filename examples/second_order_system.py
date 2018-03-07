@@ -5,42 +5,11 @@ Created on Wed Jan 21 10:27:24 2015
 @author: timothy
 """
 import numpy as np
-from biointense.ode_generator import DAErunner
 import pandas as pd
-
-# new
-from biointense import Model
+from pyideas import Model
 
 
-def run_second_order_old():
-    '''
-    y'' + 2*tau*omega*y' + omega**2*y = omega**2*K*u
-
-    x1  = y
-    x1' = y' = x2
-    x2' = y''= -2*tau*omega*x2 - omega**2*x1 + K*omega**2
-    '''
-    parameters = {'K': 0.01, 'tau': 0.3, 'omega': 0.6}  # mM
-
-    ode = {'dx1': 'x2',
-           'dx2': '-2*tau*omega*x2 - (omega**2)*x1 + K*omega**2'}
-
-    algebraic = {'v': 'x1'}
-
-    M1 = DAErunner(ODE=ode, Algebraic=algebraic, Parameters=parameters,
-                   Modelname='second_order', print_on=False, x_var='t')
-
-    M1.set_xdata({'start': 0, 'end': 20, 'nsteps': 10000})  # seconds
-
-    M1.set_measured_states(["v"])
-    M1.set_initial_conditions({'x1': 0, 'x2': 0})
-
-    M1.solve_ode(plotit=False)
-
-    return M1.ode_solved['x1'].values
-
-
-def run_second_order_new():
+def run_second_order():
     '''
     y'' + 2*tau*omega*y' + omega**2*y = omega**2*K*u
 
@@ -54,15 +23,11 @@ def run_second_order_new():
               'dx2': '-2*tau*omega*x2 - (omega**2)*x1 + K*omega**2'}
 
     M1 = Model('second_order', system, parameters)
-    M1.set_initial({'x1': 0, 'x2': 0})
-    M1.set_independent({'t': np.linspace(0, 20, 10000)})
+    M1.initial_conditions = {'x1': 0, 'x2': 0}
+    M1.independent = {'t': np.linspace(0, 20, 10000)}
     M1.initialize_model()
 
     return M1.run()['x1'].values
 
 if __name__ == "__main__":
-    M1_old = run_second_order_old()
-
-    M1_new = run_second_order_new()
-
-    np.testing.assert_almost_equal(M1_old, M1_new)
+    M1 = run_second_order()

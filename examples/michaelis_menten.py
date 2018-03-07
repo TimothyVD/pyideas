@@ -15,16 +15,17 @@ def michaelis_menten():
     system = {'v': 'Vmax*S/(Ks + S)',
               'dS': '-v',
               'dP': 'v'}
+    
     parameters = {'Vmax': 1e-1, 'Ks': 0.5}
 
-    model = Model('MichaelisMenten', system, parameters)
+    MMmodel = Model('MichaelisMenten', system, parameters)
 
-    model.initial_conditions = {'S': 0.5, 'P': 0.0}
+    MMmodel.initial_conditions = {'S': 0.5, 'P': 0.0}
 
-    model.independent = {'t': np.linspace(0, 72, 1000)}
-    model.initialize_model()
+    MMmodel.independent = {'t': np.linspace(0, 72, 1000)}
+    MMmodel.initialize_model()
 
-    return model
+    return MMmodel
 
 
 def MM_ode(model):
@@ -39,6 +40,8 @@ def MM_odespy(model):
     return model.run(procedure="odespy")
 
 if __name__ == "__main__":
-    model = michaelis_menten()
-    result1 = MM_ode(model)
-    result2 = MM_odeint(model)
+    MMmodel = michaelis_menten()
+    result1 = MM_ode(MMmodel)
+    result2 = MM_odeint(MMmodel)
+    
+    np.testing.assert_allclose(result1, result2, rtol=1e-2)

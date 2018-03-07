@@ -8,84 +8,50 @@ import numpy as np
 import pandas as pd
 import os
 
-import biointense
-from biointense.model import AlgebraicModel
-from biointense.sensitivity import NumericalLocalSensitivity
-from biointense.confidence import BaseConfidence
+import pyideas
+from pyideas import (AlgebraicModel, NumericalLocalSensitivity,
+                     CalibratedConfidence, Measurements, ParameterOptimisation)
 
-def run_modsim_models_old():
-
-    # Data
-    file_path = os.path.join(biointense.BASE_DIR, '..', 'examples', 'data',
+def run_modsim_models():
+    
+    # Define data path of csv file
+    file_path = os.path.join(pyideas.BASE_DIR, '..', 'examples', 'data',
                              'grasdata.csv')
-    data = pd.read_csv(file_path, header=0, names=['time', 'W'])
-    measurements = biointense.ode_measurements(data)
+    # Data always need to be provided as pd dataframe
+    data = pd.read_csv(file_path, header=0, names=['t', 'W'])
+    # Data index should contain values for ALL independent variables
+    data.set_index('t', inplace=True)
+    # Initialise measurement object and define absolute error of 1 for W
+    measurements = Measurements(data)
+    measurements.add_measured_errors({'W': 1.}, method='absolute')
 
-    # Logistic
-
-    Parameters = {'W0': 2.0805,
-                  'Wf': 9.7523,
-                  'mu': 0.0659}
-
-    Alg = {'W': 'W0*Wf/(W0+(Wf-W0)*exp(-mu*t))'}
-
-    M1 = biointense.DAErunner(Parameters=Parameters, Algebraic=Alg,
-                              Modelname='Modsim1', print_on=False)
-
-    M1.set_xdata({'start': 0, 'end': 72, 'nsteps': 1000})
-    M1.set_measured_states(['W'])
-
-    optim1 = biointense.ode_optimizer(M1, measurements, print_on=False)
-    optim1.local_parameter_optimize(add_plot=False)
-
-    FIM_stuff1 = biointense.ode_FIM(optim1, print_on=False)
-    FIM_stuff1.get_newFIM()
-
-    return FIM_stuff1
-
-
-def run_modsim_models_new():
-
-    parameters = {'W0': 2.0805,
-                  'Wf': 9.7523,
-                  'mu': 0.0659}
+    # Initialise parameters, real values will be retrieved by optimisation
+    parameters = {'W0': 1.,
+                  'Wf': 1.,
+                  'mu': 1.}
 
     system = {'W': 'W0*Wf/(W0+(Wf-W0)*exp(-mu*t))'}
 
-    M1 = AlgebraicModel('Modsim1', system, parameters)
+    M1 = AlgebraicModel('Modsim', system, parameters, ['t'])
 
-    M1.set_independent({'t': np.array([0., 20., 29., 41., 50., 65., 72.])})
-
-    M1.set_variables_of_interest(['W'])
+    M1.independent = {'t': np.linspace(0, 72, 1000)}
 
     M1.initialize_model()
+    
+    # ParameterOptimisation uses WSSE to reduce offset
+    M1optim = ParameterOptimisation(M1, measurements)
+    M1optim.local_optimize()
 
-    M1.run()
+    # Calculate uncertainties for estimated parameter values using FIM
+    M1conf = CalibratedConfidence(M1optim)
 
-    M1sens = NumericalLocalSensitivity(M1, parameters.keys(), perturbation=1e-6)
-
-    M1conf = BaseConfidence(M1sens)
-    M1conf.model = M1
-
-    error = np.zeros([1, len(M1._independent_values['t'])]) + 1
-    M1conf.uncertainty_PD = pd.DataFrame(np.concatenate(
-        [np.atleast_2d(M1._independent_values['t']),
-         error], axis=0).T, columns=['t', 'W']).set_index('t')
-    M1conf.FIM
-
-    return M1conf
+    return M1, M1conf
 
 if __name__ == "__main__":
-    FIM_old = run_modsim_models_old()
-    FIM_new = run_modsim_models_new()
-    # FIXME!
-    np.testing.assert_allclose(FIM_old.FIM, FIM_new.FIM, rtol=1e-2)
-    np.testing.assert_allclose(FIM_old.get_parameter_confidence(),
-                               FIM_new.get_parameter_confidence(), rtol=1e-2)
-    np.testing.assert_allclose(FIM_old.get_parameter_correlation(),
-                               FIM_new.get_parameter_correlation(), rtol=1e-2)
+    M1, M1conf = run_modsim_models()
+    
+    # Test whether optimisation has found optimal parameter values
+    np.testing.assert_allclose(M1.parameters['W0'], 2.0805, rtol=1e-2)
+    np.testing.assert_allclose(M1.parameters['Wf'], 9.7523, rtol=1e-2)
+    np.testing.assert_allclose(M1.parameters['mu'], 0.0659, rtol=1e-2)
 
-    np.testing.assert_allclose(FIM_old.get_model_confidence()['W'],
-                               FIM_new.get_model_confidence()['W'], rtol=0.02)
-
-#(sens_PD['W']-M1.calcAlgLSA(Sensitivity='CPRS')['W']).plot()
