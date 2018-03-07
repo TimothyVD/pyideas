@@ -4,9 +4,10 @@ Created on Thu Sep 22 10:17:24 2016
 
 @author: timothy
 """
+import os
 import numpy as np
 import pandas as pd
-from pyideas import (BaseModel, NumericalLocalSensitivity,
+from pyideas import (BASE_DIR, BaseModel, NumericalLocalSensitivity,
                      ParameterOptimisation, CalibratedConfidence, Measurements,
                      BaseOED, ModPar)
 import matlab.engine
@@ -14,7 +15,7 @@ import matplotlib.pyplot as plt
 
 eng = matlab.engine.start_matlab()
 
-eng.addpath('/home/timothy/biointense/examples/matlab/', nargout=0)
+eng.addpath(os.path.join(BASE_DIR, '../examples/matlab/'), nargout=0)
 
 
 def MMfun(independent, parameters):
