@@ -4,6 +4,7 @@ pyideas
 pyideas is a python package for (simple) model optimisation, confidence calculations, and optimal experimental design.
 
 Most useful information can currently be found in examples. If you would have issues, please use the issues tool, not sure whether I will have time, but feel free to improve the package :-)
+Basic documentation is ready, but need to make some adaptations/improvement in near future.
 
 Very short overview of current package capabilities:
 Models
